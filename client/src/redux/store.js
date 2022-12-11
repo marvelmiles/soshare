@@ -11,12 +11,14 @@ import {
 } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 import configReducer from "./configSlice";
+import userReducer from "./userSlice";
 
 export const store = configureStore({
   reducer: persistReducer(
     { key: "root", storage, version: 1 },
     combineReducers({
-      config: configReducer
+      config: configReducer,
+      user: userReducer
     })
   ),
   middleware: getDefaultMiddleware =>
