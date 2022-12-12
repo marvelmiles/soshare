@@ -31,17 +31,17 @@ app.use(cookieParser());
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 
 /* ROUTES */
-app.use("/auth", authRoutes);
-app.use("/users", userRoutes);
-app.use("/posts", postRoutes);
-if (process.env.NODE_ENV === "production") {
+
+app.use("/api/auth", authRoutes);
+app.use("/api/posts", postRoutes);
+app.use("/api/user", userRoutes);
+if (process.env.NODE_ENV !== "production") {
   // load client side js once browser read index.html
   app.use(express.static("./client/build"));
   app.get("/*", function(req, res) {
     res.sendFile(path.join(__dirname, "./client/build/index.html"));
   });
 }
-
 app.use((err, req, res, next) => {
   return res
     .status(err.status || 500)
