@@ -122,7 +122,10 @@ const Navbar = () => {
           backgroundColor: "background.alt",
           px: 1,
           py: 2,
-          width: "100%"
+          width: "100%",
+          position: "sticky",
+          top: 0,
+          zIndex: "appBar"
         }}
       >
         <Stack

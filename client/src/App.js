@@ -23,10 +23,6 @@ const App = () => {
           styles={{
             "*": {
               transition: "all ease-in-out .25s"
-            },
-            a: {
-              display: "inline-block",
-              textDecoration: "none"
             }
           }}
         />

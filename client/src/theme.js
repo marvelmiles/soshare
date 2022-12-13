@@ -82,6 +82,31 @@ export const themeSettings = mode => ({
           //   fontSize: "24px"
         }
       }
+    },
+    MuiAvatar: {
+      variants: [
+        {
+          props: { variant: "md" },
+          style: {
+            "@media (min-width: 0px)": {
+              width: "30px",
+              height: "30px"
+            },
+            "@media (min-width: 280px)": {
+              width: "40px",
+              height: "40px"
+            },
+            "@media (min-width: 360px)": {
+              width: "50px",
+              height: "50px"
+            },
+            "@media (min-width: 576px)": {
+              width: "60px",
+              height: "60px"
+            }
+          }
+        }
+      ]
     }
   },
   typography: {
@@ -113,9 +138,12 @@ export const themeSettings = mode => ({
       xs: 0,
       sm: 576,
       md: 768,
-      lg: 1200,
-      xl: 1536,
-      s320: 320
+      lg: 1024,
+      xl: 1200,
+      xxl: 1536,
+      s280: 280,
+      s320: 320,
+      s640: 640
     }
   }
 });
