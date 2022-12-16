@@ -18,7 +18,8 @@ export const themeSettings = mode => ({
             mediumMain: "A3A3A3",
             medium: "#858585",
             light: "#333"
-          }
+          },
+          divider: "#333"
         }
       : {
           primary: {
@@ -31,7 +32,8 @@ export const themeSettings = mode => ({
             main: "#666666",
             mediumMain: "#858585",
             medium: "#A3A3A3",
-            light: "#F0F0F0"
+            light: "#F0F0F0",
+            hover: "rgba(0, 0, 0, 0.04)"
           },
           background: {
             default: "#F6F6F6",
@@ -50,24 +52,61 @@ export const themeSettings = mode => ({
         }
       }
     },
-    MuiInputBase: {
+    MuiMenuItem: {
       styleOverrides: {
         root: {
-          paddingLeft: "8px"
+          gap: "16px",
+          display: "flex"
         }
       }
     },
     MuiIconButton: {
       styleOverrides: {
         root: {
-          //   border: "1px solid red",
+          width: 30,
+          height: 30,
+          minHeight: 25,
+          minWidth: 25,
           svg: {
-            // width: "0.85em",
-            // height: "0.85em"
+            width: ".75em",
+            height: ".75em"
           }
         }
       }
     },
+    MuiSvgIcon: {
+      styleOverrides: {
+        root: {
+          width: ".85em",
+          height: ".85em"
+        }
+      }
+    },
+    MuiInputBase: {
+      styleOverrides: {
+        root: ({
+          ownerState: { error },
+          theme: {
+            palette: {
+              divider,
+              error: { main }
+            }
+          }
+        }) => {
+          return {
+            padding: "4px",
+            paddingLeft: "8px",
+            border: `1px solid ${error ? main : divider}`,
+            borderRadius: "5px",
+            backgroundColor: "transparent",
+            width: "100%",
+            marginBottom: "8px",
+            marginTop: "16px"
+          };
+        }
+      }
+    },
+
     MuiDrawer: {
       styleOverrides: {
         paper: {
@@ -76,13 +115,7 @@ export const themeSettings = mode => ({
         }
       }
     },
-    MuiSvgIcon: {
-      styleOverrides: {
-        root: {
-          //   fontSize: "24px"
-        }
-      }
-    },
+
     MuiAvatar: {
       variants: [
         {
@@ -103,6 +136,27 @@ export const themeSettings = mode => ({
             "@media (min-width: 576px)": {
               width: "60px",
               height: "60px"
+            }
+          }
+        },
+        {
+          props: { variant: "xl" },
+          style: {
+            "@media (min-width: 0px)": {
+              width: "30px",
+              height: "30px"
+            },
+            "@media (min-width: 280px)": {
+              width: "40px",
+              height: "40px"
+            },
+            "@media (min-width: 360px)": {
+              width: "50px",
+              height: "50px"
+            },
+            "@media (min-width: 576px)": {
+              width: "120px",
+              height: "120px"
             }
           }
         }

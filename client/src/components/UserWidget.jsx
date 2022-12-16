@@ -14,9 +14,13 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import EditOutlined from "@mui/icons-material/EditOutlined";
-const UserWidget = props => {
+const UserWidget = ({ width, hideUserSettingsIcon }) => {
   return (
-    <WidgetContainer>
+    <WidgetContainer
+      sx={{
+        width
+      }}
+    >
       <Stack sx={{ gap: 2 }}>
         <Stack sx={{ minWidth: 0, gap: 2 }}>
           <Avatar variant="md" />
@@ -43,9 +47,11 @@ const UserWidget = props => {
             <StyledLink sx={{ color: "inherit" }}>followers</StyledLink>
           </Box>
         </Stack>
-        <IconButton>
-          <ManageAccountsOutlined />
-        </IconButton>
+        {hideUserSettingsIcon ? null : (
+          <IconButton>
+            <ManageAccountsOutlined />
+          </IconButton>
+        )}
       </Stack>
       <Divider sx={{ my: 3 }} />
       <Box
@@ -90,7 +96,7 @@ const UserWidget = props => {
         </Typography>
         <Stack alignItems="flex-start" gap={2}>
           <TwitterIcon sx={{ color: "common.main" }} />
-          <div style={{ minWidth: "100px" }}>
+          <div style={{ minWidth: "100px", flex: 1 }}>
             <Typography color="common.main" fontWeight="500">
               TwitterinssssLorem deserunt mollit esse aliquip laboris
               reprehenderit est magna. Ullamco elit ipsum nostrud velit
@@ -104,13 +110,14 @@ const UserWidget = props => {
             <EditOutlined sx={{ color: "common.main" }} />
           </IconButton>
         </Stack>
-        <Stack sx={{ my: 2, gap: 2, alignItems: "flex-start" }}>
-          <LinkedInIcon sx={{ color: "common.main" }} />
-          <div style={{ minWidth: "100px" }}>
+
+        <Stack alignItems="flex-start" gap={2} sx={{ mt: 1 }}>
+          <TwitterIcon sx={{ color: "common.main" }} />
+          <div style={{ minWidth: "100px", flex: 1 }}>
             <Typography color="common.main" fontWeight="500">
-              LinkedIn
+              Linkedin
             </Typography>
-            <Typography color="common.medium">Network Platform</Typography>
+            <Typography color="common.medium">Social Network</Typography>
           </div>
           <IconButton>
             <EditOutlined sx={{ color: "common.main" }} />

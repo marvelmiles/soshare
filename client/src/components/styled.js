@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { styled } from "@mui/system";
-import { Typography, Box } from "@mui/material";
+import { Typography, Box, MenuItem } from "@mui/material";
 
 export const StyledLink = styled(Link, {
   shouldForwardProp: prop => {
@@ -27,10 +27,7 @@ export const StyledLink = styled(Link, {
     let styles = {
       textDecoration: "none",
       display: "inline-block",
-      color: main
-    };
-    styles = {
-      ...styles,
+      color: main,
       ...(typography[variant] || {}[variant])
     };
     textEllipsis &&
@@ -109,3 +106,21 @@ export const Image = styled("img")`
   background-size: cover;
   background-repeat: no-repeat;
 `;
+
+export const StyledMenuItem = styled(MenuItem, {
+  shouldForwardProp: prop => {
+    switch (prop) {
+      case "selectHoverColor":
+        return false;
+      default:
+        return true;
+    }
+  }
+  // component: Link
+})(() => {
+  return {
+    "&.Mui-selected": {
+      backgroundColor: `${"transparent"} !important`
+    }
+  };
+});

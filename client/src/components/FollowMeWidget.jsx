@@ -4,17 +4,22 @@ import { WidgetContainer } from "./styled";
 import { Typography } from "@mui/material";
 import FollowMe from "./FollowMe";
 
-const FollowMeWidget = props => {
+const FollowMeWidget = ({
+  title = "People to follow",
+  priority = "follow",
+  width
+}) => {
   const [users, setUsers] = useState(Array.from(new Array(20)));
   return (
     <WidgetContainer
       sx={{
-        height: "360px",
+        width,
+        maxHeight: "600px",
         overflow: "auto"
       }}
     >
       <Typography variant="h5" fontWeight="bold" mb={2}>
-        People to follow
+        {title}
       </Typography>
       {users.map((u, i) => (
         <FollowMe user={u} key={i} />

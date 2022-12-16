@@ -7,8 +7,11 @@ import {
   List,
   ListItemButton,
   ListItemIcon,
-  ListItemText
+  ListItemText,
+  Popover,
+  Divider
 } from "@mui/material";
+import { useSelector } from "react-redux";
 import { Link, useSearchParams } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
@@ -21,21 +24,28 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import HelpIcon from "@mui/icons-material/Help";
 import FormControl from "@mui/material/FormControl";
 import Select from "@mui/material/Select";
-import MenuItem from "@mui/material/MenuItem";
 import MenuIcon from "@mui/icons-material/Menu";
+import AddIcon from "@mui/icons-material/Add";
+import SlideshowIcon from "@mui/icons-material/Slideshow";
+import ListAltIcon from "@mui/icons-material/ListAlt";
+import AddToQueueIcon from "@mui/icons-material/AddToQueue";
+import PersonIcon from "@mui/icons-material/Person";
+import LoginIcon from "@mui/icons-material/Login";
+import LogoutIcon from "@mui/icons-material/Logout";
 import CloseIcon from "@mui/icons-material/Close";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
-import useMediaQuery from "@mui/material/useMediaQuery";
 
-const Navbar = () => {
+import { StyledLink, StyledMenuItem } from "./styled";
+
+const Navbar = ({ routePage, activeStyledMenuItem }) => {
   const {
     palette: { mode }
   } = useTheme();
-  //   const user = useSelector(state => state.user);
+  const user = useSelector(state => state.user);
   const dispatch = useDispatch();
   const [openDrawer, setOpenDrawer] = useState(false);
   const [searchParam, setSearchParam] = useSearchParams();
-  const isBls320 = useMediaQuery("(max-width: 319px)");
+
   const fullName = `Marvellous akinrinmola`; //`${user.firstName} ${user.lastName}`;
   const query = searchParam.get("q") || "";
   const toggleTheme = () => {
@@ -51,18 +61,19 @@ const Navbar = () => {
       q: ""
     });
   };
+  const note = "Marvellous Akinrinmola";
   const selectElem = (
-    <FormControl variant="standard" value={fullName} sx={{ width: "100%" }}>
+    <FormControl variant="standard" sx={{ width: "100%" }}>
       <Select
-        value={fullName}
+        defaultValue={note}
         sx={{
           backgroundColor: "common.light",
           width: "80%",
           marginInline: "auto",
           borderRadius: "0.25rem",
           p: "0.25rem 1rem",
+          gap: 2,
           "& .MuiSvgIcon-root": {
-            pr: "0.25rem",
             fontSize: "32px"
           },
           "& .MuiTypography-root": {
@@ -73,27 +84,85 @@ const Navbar = () => {
             backgroundColor: "common.light"
           }
         }}
-        onChange={(...props) => console.log(props)}
         input={<InputBase />}
+        renderValue={() => note}
       >
-        <MenuItem value={fullName}>
-          <Typography>{fullName}</Typography>
-        </MenuItem>
-        <MenuItem component={Link} to="/auth/signin">
-          Log Out
-        </MenuItem>
+        <StyledMenuItem
+          value={note}
+          sx={{ opacity: 0, pointerEvents: "none", m: 0, p: 0 }}
+        />
+        <StyledMenuItem value="Profile" to="/u/1234">
+          <PersonIcon />
+          <Typography>Profile</Typography>
+        </StyledMenuItem>
+        {
+          {
+            profilePage: [
+              {
+                lists: [
+                  { to: "?d=create-post", label: "Create Post", icon: AddIcon },
+                  {
+                    to: "?d=create-shorts",
+                    label: "Create Short",
+                    icon: AddToQueueIcon
+                  },
+                  "",
+                  {
+                    to: "?d=user-posts",
+                    label: "My Posts",
+                    icon: ListAltIcon
+                  },
+                  {
+                    to: "?d=user-shorts",
+                    label: "My Shorts",
+                    icon: SlideshowIcon
+                  },
+                  ""
+                ]
+              }
+            ].map(j =>
+              j.lists.map(l =>
+                l.label ? (
+                  <StyledMenuItem
+                    key={l.label}
+                    value={l.label}
+                    to={l.to}
+                    component={StyledLink}
+                  >
+                    <l.icon />
+                    <Typography>{l.label}</Typography>
+                  </StyledMenuItem>
+                ) : (
+                  <Divider key={l.label} />
+                )
+              )
+            )
+          }[routePage]
+        }
+        <StyledMenuItem to="/auth/signin">
+          <LoginIcon />
+          <Typography> Log Out</Typography>
+        </StyledMenuItem>
       </Select>
     </FormControl>
   );
 
   const searchElem = (
     <Stack
+      gap={0}
       sx={{
-        backgroundColor: "common.light",
+        border: "1px solid #333",
+        borderColor: "divider",
         borderRadius: "8px",
-        justifyContent: "normal",
         width: "80%",
         mx: "auto",
+        div: {
+          borderRadius: 0,
+          padding: 0,
+          paddingLeft: 1,
+          margin: 0,
+          border: 0
+        },
         button: {
           borderTopRightRadius: "inherit",
           borderBottomRightRadius: "inherit"
@@ -121,52 +190,26 @@ const Navbar = () => {
         sx={{
           backgroundColor: "background.alt",
           px: 1,
-          py: 2,
           width: "100%",
           position: "sticky",
           top: 0,
-          zIndex: "appBar"
+          zIndex: "appBar",
+          minHeight: "64px"
         }}
       >
-        <Stack
-          gap={3}
-          sx={{
-            "&:focus-within": {
-              xs: {
-                a: {
-                  width: 30
-                }
-              },
-              md: {
-                a: {
-                  width: "auto"
-                }
+        <Stack gap={3}>
+          <StyledLink
+            variant="h5"
+            sx={{
+              fontWeight: "bold",
+              display: {
+                xs: "none",
+                s320: "inline-flex"
               }
-            }
-          }}
-        >
-          <Link
-            style={{
-              display: isBls320 ? "none" : "inline-flex"
             }}
           >
-            <Typography
-              sx={{
-                color: "primary.main",
-                fontSize: "clamp(0.5rem,1.2rem,2.25rem)",
-                fontWeight: "bold",
-                marginBottom: 0,
-                textOverflow: "ellipsis",
-                overflow: "hidden",
-                "&:hover": {
-                  color: "primary.light",
-                  cursor: "pointer"
-                }
-              }}
-            >
-              Mernsocial
-            </Typography>
-          </Link>
+            Mernsocial
+          </StyledLink>
           {searchElem}
         </Stack>
 
@@ -190,6 +233,7 @@ const Navbar = () => {
           <IconButton>
             <HelpIcon />
           </IconButton>
+
           {selectElem}
         </Stack>
 
@@ -207,6 +251,7 @@ const Navbar = () => {
           </IconButton>
         </Stack>
       </Stack>
+
       <SwipeableDrawer
         anchor="left"
         open={openDrawer}

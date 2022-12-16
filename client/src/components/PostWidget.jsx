@@ -14,13 +14,13 @@ import ChatBubbleOutlineOutlinedIcon from "@mui/icons-material/ChatBubbleOutline
 import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlined";
 import FavoriteOutlinedIcon from "@mui/icons-material/FavoriteOutlined";
 import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
-import Friend from "./FollowMe";
+import FollowMe from "./FollowMe";
 
 const PostWidget = props => {
   const [showAll, setShowAll] = useState(false);
   return (
     <WidgetContainer>
-      <Friend />
+      <FollowMe />
       <Box
         sx={{
           my: 2,
@@ -63,7 +63,7 @@ const PostWidget = props => {
         <Stack flexWrap="wrap">
           <Stack>
             <IconButton>
-              <ChatBubbleOutlineOutlinedIcon />
+              <FavoriteOutlinedIcon />
             </IconButton>
             <Typography> 45666</Typography>
           </Stack>

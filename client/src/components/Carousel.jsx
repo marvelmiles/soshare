@@ -8,7 +8,7 @@ import img4 from "../imgs/img3.jpg";
 import img3 from "../imgs/img4.jpg";
 import img2 from "../imgs/img5.jpg";
 import img1 from "../imgs/img1.jpg";
-import { isTouchDevice } from "../utils";
+import useTouchDevice from "../hooks/useTouchDevice";
 import { Image } from "./styled";
 const Carousel = ({
   items = [
@@ -31,14 +31,7 @@ const Carousel = ({
   height = "400px",
   borderRadius = "12px"
 }) => {
-  const [isTouch, setIsTouch] = useState(isTouchDevice());
-  useEffect(() => {
-    const onResize = () => {
-      setIsTouch(isTouchDevice());
-    };
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
-  }, []);
+  const { isTouchDevice } = useTouchDevice();
   return (
     <Box
       sx={{
@@ -52,7 +45,7 @@ const Carousel = ({
       }}
     >
       <ReactCarousel
-        arrows={isTouch ? false : true}
+        arrows={isTouchDevice ? false : true}
         responsive={{
           xs: {
             items: 1,
