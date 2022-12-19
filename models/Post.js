@@ -3,8 +3,8 @@ import mongoose from "mongoose";
 const schema = mongoose.Schema(
   {
     location: String,
-    description: String,
-    photos: Array,
+    text: String,
+    medias: Array,
     likes: {
       type: Map,
       of: Boolean,
@@ -17,6 +17,10 @@ const schema = mongoose.Schema(
     user: {
       type: String,
       ref: "users"
+    },
+    visibility: {
+      type: String,
+      default: "everyone"
     }
   },
   {

@@ -11,6 +11,7 @@ import userRoutes from "./routes/user.js";
 import postRoutes from "./routes/post.js";
 import cookieParser from "cookie-parser";
 import { users, posts } from "./data.js";
+import { CLIENT_ENDPOINT } from "./config.js";
 
 /* CONFIGURATIONS */
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -26,7 +27,13 @@ app.use(express.urlencoded({ limit: "30mb", extended: true }));
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 app.use(morgan("common"));
-app.use(cors());
+app.use(
+  cors({
+    origin: CLIENT_ENDPOINT,
+    optionsSuccessStatus: 200,
+    credentials: true
+  })
+);
 app.use(cookieParser());
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
 
@@ -57,7 +64,9 @@ mongoose
     useUnifiedTopology: true
   })
   .then(() => {
-    app.listen(PORT, () => console.log(`Server connected on port: ${PORT}`));
+    app.listen(PORT, () => {
+      console.log(`Server connected on port: ${PORT}`);
+    });
 
     /* ADD DATA ONE TIME */
     // User.insertMany(users);

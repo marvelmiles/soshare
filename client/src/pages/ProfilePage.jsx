@@ -23,11 +23,9 @@ Dialog.defaultProps = {
 const ProfilePage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [dialog, setDialog] = useState({});
-  const activeDialog = useMemo(
-    () => (searchParams.get("d") || "").toLowerCase(),
-    [searchParams]
-  );
+
   useEffect(() => {
+    const activeDialog = (searchParams.get("d") || "").toLowerCase();
     if (
       activeDialog &&
       {
@@ -40,7 +38,7 @@ const ProfilePage = () => {
         activeDialog
       });
     }
-  }, [activeDialog]);
+  }, [searchParams]);
 
   const width = {
     md: "48%"
@@ -110,12 +108,17 @@ const ProfilePage = () => {
         maxWidth="1024px"
         routePage="profilePage"
         gridBreakpoint="768px"
-        activeMenuItem={{}[activeDialog]}
+        alignItems="normal"
       >
         <UserWidget width={width} hideUserSettingsIcon />
         <UserProfileForm width={width} />
+        <FollowMeWidget url="followers" title="Your Followers" width={width} />
+        <FollowMeWidget
+          url="following"
+          title="People you follow"
+          width={width}
+        />
         <FollowMeWidget width={width} />
-        <FollowMeWidget title="People you follow" width={width} />
       </Layout>
       <Dialog
         open={dialog.open}

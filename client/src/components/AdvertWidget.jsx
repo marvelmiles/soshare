@@ -6,13 +6,13 @@ import img1 from "../imgs/img1.jpg";
 const AdvertWidget = () => {
   return (
     <WidgetContainer>
-      <Stack>
+      <Stack mb={2}>
         <Typography color="common.dark" variant="h5" fontWeight="500">
           Sponsored
         </Typography>
         <StyledLink>Learn more</StyledLink>
       </Stack>
-      <Image src={img1} sx={{ my: 1 }} />
+      <Image src={img1} />
       <Stack
         sx={{
           wordBreak: "break-word"

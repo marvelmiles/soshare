@@ -27,18 +27,44 @@ import MoreHorizOutlinedIcon from "@mui/icons-material/MoreHorizOutlined";
 import CloseIcon from "@mui/icons-material/Close";
 import Carousel from "./Carousel";
 import { Link } from "react-router-dom";
+import { useContext } from "../redux/store";
+import { useSelector } from "react-redux";
+import DeleteIcon from "@mui/icons-material/Delete";
+import http from "../api/http";
+import { useTheme } from "@mui/material";
+import { removeFileFromFileList } from "utils";
 const InputBox = ({ sx, autoFocus = false }) => {
+  const { setSnackBar } = useContext();
+  const { currentUser } = useSelector(state => state.user);
+  const {
+    palette: {
+      background: { blend }
+    }
+  } = useTheme();
   const isMd = useMediaQuery("(min-width:576px)");
-  const { formData, handleChange, handleSubmit, isSubmitting } = useForm({
-    returnFormObject: true
-  });
+  const { formData, handleChange, handleSubmit, reset, isSubmitting } = useForm(
+    {
+      placeholders: {
+        text: ""
+      },
+      required: false,
+      returnFormObject: true
+    }
+  );
   const inputRef = useRef();
+  const fileRef = useRef();
+  const stateRef = useRef({
+    currentSlide: 0,
+    visibility: "everyone"
+  }).current;
+
   useEffect(() => {
     autoFocus && inputRef.current.focus();
   }, [autoFocus]);
   const actionBtnSx = {
     justifyContent: "center",
     flexWrap: "wrap",
+    gap: 1,
     "&:hover": {
       backgroundColor: "none"
     },
@@ -47,11 +73,19 @@ const InputBox = ({ sx, autoFocus = false }) => {
       color: "common.medium"
     }
   };
-
   return (
-    <WidgetContainer sx={sx}>
+    <WidgetContainer
+      sx={{
+        maxHeight: "none",
+        ...sx
+      }}
+    >
       <Stack alignItems="flex-start" gap={2}>
-        <Avatar variant="md" />
+        <Avatar
+          variant="md"
+          src={currentUser.photoUrl}
+          alt={currentUser.username}
+        />
         <Box
           sx={{
             flex: 1,
@@ -66,7 +100,7 @@ const InputBox = ({ sx, autoFocus = false }) => {
           }}
         >
           <Select
-            value={"public"}
+            defaultValue={stateRef.visibility}
             sx={{
               width: "150px",
               marginInline: "auto",
@@ -74,6 +108,9 @@ const InputBox = ({ sx, autoFocus = false }) => {
               p: 0,
               m: 0,
               borderColor: "primary.main",
+              "& *": {
+                border: "none !important"
+              },
               color: "primary.main",
               "&:hover,&:focus": {
                 background: "none"
@@ -83,25 +120,22 @@ const InputBox = ({ sx, autoFocus = false }) => {
                 fontSize: "32px",
                 color: "primary.main"
               },
-              "& .MuiTypography-root": {
+              "& .MuiInputBase-input": {
                 overflow: "hidden",
                 textOverflow: "ellipsis",
-                ml: 1
+                textTransform: "capitalize",
+                p: 1
               }
             }}
-            onChange={(...props) => console.log(props)}
-            input={<InputBase />}
+            onChange={({ target: { value } }) => (stateRef.visibility = value)}
           >
-            <MenuItem value="public">
-              <Typography>Public</Typography>
-            </MenuItem>
-            <MenuItem component={Link} to="/auth/signin">
-              Private
-            </MenuItem>
+            <MenuItem value="everyone">Everyone</MenuItem>
+            <MenuItem value="private">Private</MenuItem>
+            <MenuItem value="followers only">Followers only</MenuItem>
           </Select>
           <textarea
-            name="post"
-            value={formData.post}
+            name="text"
+            value={formData.text}
             onChange={handleChange}
             placeholder="Tell your story"
             ref={inputRef}
@@ -109,25 +143,62 @@ const InputBox = ({ sx, autoFocus = false }) => {
         </Box>
       </Stack>
       <Divider sx={{ my: 2 }} />
-
-      <div style={{ position: "relative", margin: "16px 0" }}>
-        <IconButton
-          sx={{
-            position: "absolute",
-            top: 10,
-            left: 10,
-            backgroundColor: "common.main",
-            color: "common.light",
-            zIndex: 1
-          }}
-        >
-          <CloseIcon />
-        </IconButton>
-        <Carousel />
-      </div>
+      <Carousel
+        nativeFile
+        stateRef={stateRef}
+        display={formData.medias ? "block" : "none"}
+        actionBar={
+          <>
+            <IconButton
+              sx={{
+                color: "common.light",
+                background: blend
+              }}
+              onClick={() => {
+                reset({
+                  text: formData.text,
+                  medias: undefined
+                });
+              }}
+            >
+              <CloseIcon />
+            </IconButton>
+            <IconButton
+              sx={{
+                color: "common.light",
+                background: blend
+              }}
+              onClick={() => {
+                removeFileFromFileList(stateRef.currentSlide, fileRef.current);
+                reset({
+                  text: formData.text,
+                  medias: fileRef.current.files.length && fileRef.current.files
+                });
+              }}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </>
+        }
+        medias={formData.medias}
+      />
       <Stack>
+        <input
+          multiple
+          name="medias"
+          ref={fileRef}
+          id="input-box-file-dialog"
+          type="file"
+          accept=".jpg,.jpeg,.png,video/*"
+          style={{ display: "none" }}
+          onChange={handleChange}
+        />
         <Stack>
-          <Button sx={actionBtnSx}>
+          <Button
+            sx={actionBtnSx}
+            component="label"
+            htmlFor="input-box-file-dialog"
+          >
             <ImageOutlinedIcon />
             <Typography>Image</Typography>
           </Button>
@@ -137,10 +208,6 @@ const InputBox = ({ sx, autoFocus = false }) => {
               <Button sx={actionBtnSx}>
                 <GifBoxOutlinedIcon />
                 <Typography>Gif</Typography>
-              </Button>
-              <Button sx={actionBtnSx}>
-                <AttachFileOutlinedIcon />
-                <Typography>Attachment</Typography>
               </Button>
               <Button sx={actionBtnSx}>
                 <MicOutlinedIcon />
@@ -166,6 +233,21 @@ const InputBox = ({ sx, autoFocus = false }) => {
                 backgroundColor: "primary.main"
               }
             }}
+            onClick={async e => {
+              console.log("ons suv");
+              const formData = handleSubmit(e);
+              if (formData) {
+                console.log("handling sub ", formData);
+                formData.append("visibility", stateRef.visibility);
+                await http.post("/posts/new", formData);
+                reset();
+                setSnackBar({
+                  message: "Your post has been sent!",
+                  severity: "success"
+                });
+              }
+            }}
+            disabled={isSubmitting || !(formData.text || formData.medias)}
           >
             Post
           </Button>

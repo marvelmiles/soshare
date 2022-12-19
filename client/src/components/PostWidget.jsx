@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useSelector } from "react-redux";
 import PropTypes from "prop-types";
 import { WidgetContainer, StyledTypography, StyledLink } from "./styled";
 import {
@@ -15,11 +16,22 @@ import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlin
 import FavoriteOutlinedIcon from "@mui/icons-material/FavoriteOutlined";
 import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
 import FollowMe from "./FollowMe";
+import { useContext } from "../redux/store";
 
-const PostWidget = props => {
+const PostWidget = ({ maxHeight }) => {
   const [showAll, setShowAll] = useState(false);
+  const { currentUser } = useSelector(state => state.user);
+  const { setSnackBar } = useContext();
+  const toggleLike = () => {
+    if (currentUser) {
+    } else setSnackBar();
+  };
   return (
-    <WidgetContainer>
+    <WidgetContainer
+      sx={{
+        maxHeight
+      }}
+    >
       <FollowMe />
       <Box
         sx={{
@@ -62,7 +74,7 @@ const PostWidget = props => {
       <Stack flexWrap="wrap">
         <Stack flexWrap="wrap">
           <Stack>
-            <IconButton>
+            <IconButton onClick={toggleLike}>
               <FavoriteOutlinedIcon />
             </IconButton>
             <Typography> 45666</Typography>

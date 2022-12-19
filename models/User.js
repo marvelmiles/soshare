@@ -15,7 +15,6 @@ const schema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
       min: 8
     },
     photoUrl: String,
@@ -27,11 +26,23 @@ const schema = new mongoose.Schema(
       type: Array,
       default: []
     },
-
+    socials: Object,
+    aboutMe: String,
     location: String,
     occupation: String,
-    viewedProfile: Number,
-    impressions: Number
+    viewes: {
+      type: Number,
+      defualt: 0
+    },
+    impressions: { type: Number, default: 0 },
+    lastLogin: Date,
+    isLogin: {
+      type: Boolean,
+      set(v) {
+        v && (this.lastLogin = new Date());
+        return v;
+      }
+    }
   },
   {
     timestamps: true,

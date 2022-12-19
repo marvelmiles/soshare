@@ -1,3 +1,4 @@
+import React from "react";
 import { configureStore, combineReducers } from "@reduxjs/toolkit";
 import {
   persistStore,
@@ -15,10 +16,18 @@ import userReducer from "./userSlice";
 
 export const store = configureStore({
   reducer: persistReducer(
-    { key: "root", storage, version: 1 },
+    { key: "root", storage },
     combineReducers({
       config: configReducer,
-      user: userReducer
+      user: persistReducer(
+        {
+          key: "user",
+          storage,
+          blacklist: ["previewUser"],
+          whitelist: ["currentUser"]
+        },
+        userReducer
+      )
     })
   ),
   middleware: getDefaultMiddleware =>
@@ -30,3 +39,7 @@ export const store = configureStore({
 });
 
 export const persistor = persistStore(store);
+
+export const context = React.createContext();
+
+export const useContext = () => React.useContext(context);

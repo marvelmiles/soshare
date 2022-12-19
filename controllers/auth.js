@@ -6,7 +6,6 @@ import { setTokens } from "../utils/index.js";
 
 export const signup = async (req, res, next) => {
   try {
-    console.log(req.body);
     const user = await User.findOne({
       $or: [{ username: req.body.username }, { email: req.body.email }]
     });
@@ -20,10 +19,9 @@ export const signup = async (req, res, next) => {
       req.body.password,
       await bcrypt.genSalt()
     );
-    req.body.viewedProfile = Math.floor(Math.random() * 10000);
-    req.body.impressions = Math.floor(Math.random() * 10000);
     req.body.photoUrl = req.file?.publicUrl;
-    res.json(await new User(req.body).save());
+    await new User(req.body).save();
+    res.json("Thank you for registering. You can login!");
   } catch (err) {
     next(err);
   }
@@ -31,27 +29,47 @@ export const signup = async (req, res, next) => {
 
 export const signin = async (req, res, next) => {
   try {
-    let user = await User.findOne({
-      $or: [
-        { email: req.body.placeholder },
-        {
-          username: req.body.placeholder
-        }
-      ]
-    });
-    if (!user) return next(createError("User is not registered "));
-
+    let user = await User.findOneAndUpdate(
+      {
+        $or: [
+          { email: req.body.placeholder || req.body.email },
+          {
+            username: req.body.placeholder || req.body.username
+          }
+        ]
+      },
+      {
+        isLogin: true
+      },
+      { new: true }
+    );
     switch (req.body.provider) {
       case "google":
+        if (user) break;
+        req.body.isLogin = true;
         user = await new User(req.body).save();
         break;
       default:
+        if (!user) return next(createError("User is not registered "));
         if (!(await bcrypt.compare(req.body.password, user.password)))
           return next(createError("Invalid credentials"));
+
         break;
     }
     await setTokens(res, user.id);
     res.json(user);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const signout = async (req, res, next) => {
+  try {
+    await User.findByIdAndUpdate(req.user.id, {
+      isLogin: false
+    });
+    await setTokens(res);
+    res.json("Signed out successfully");
   } catch (err) {
     next(err);
   }

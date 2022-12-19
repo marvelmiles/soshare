@@ -14,7 +14,12 @@ import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import EditOutlined from "@mui/icons-material/EditOutlined";
+import { useSelector } from "react-redux";
+
 const UserWidget = ({ width, hideUserSettingsIcon }) => {
+  const { currentUser, previewUser } = useSelector(state => {
+    return state.user;
+  });
   return (
     <WidgetContainer
       sx={{
@@ -39,16 +44,17 @@ const UserWidget = ({ width, hideUserSettingsIcon }) => {
               textEllipsis
               color="common.dark"
             >
-              ssssssssssssssssssssEiusmod voluptate ut aliquip nisi.Ipsum id
-              ipsum dolore eiusmod nostrud eiusmod eu aute.
+              {(previewUser || currentUser).displayName}
             </StyledTypography>
-            <StyledLink sx={{ color: "inherit" }}>following</StyledLink>
-            <span>|</span>
-            <StyledLink sx={{ color: "inherit" }}>followers</StyledLink>
+            <div style={{ whiteSpace: "nowrap" }}>
+              <StyledLink sx={{ color: "inherit" }}>following</StyledLink>
+              <span>|</span>
+              <StyledLink sx={{ color: "inherit" }}>followers</StyledLink>
+            </div>
           </Box>
         </Stack>
         {hideUserSettingsIcon ? null : (
-          <IconButton>
+          <IconButton component={StyledLink} to="/u/profile">
             <ManageAccountsOutlined />
           </IconButton>
         )}
@@ -59,71 +65,77 @@ const UserWidget = ({ width, hideUserSettingsIcon }) => {
           px: 2
         }}
       >
-        <Stack sx={{ gap: 4, mt: 2, alignItems: "flex-start" }}>
-          <LocationOnOutlinedIcon sx={{ color: "common.main" }} />
-          <Typography sx={{ color: "common.main" }}>
-            Proident dolore magna cillum qui nostrud minim est ut.Proident
-            exercitation esse nulla labore
-          </Typography>
-        </Stack>
-        <Stack sx={{ gap: 4, mt: 2, alignItems: "flex-start" }}>
-          <WorkOutlinedIcon sx={{ color: "common.main" }} />
-          <Typography sx={{ color: "common.main" }}>
-            Proident dolore magna cillum qui nostrud minim est ut.Proident
-            exercitation esse nulla labore
-          </Typography>
-        </Stack>
+        {(previewUser || currentUser).location ? (
+          <Stack sx={{ gap: 4, mt: 2, alignItems: "flex-start" }}>
+            <LocationOnOutlinedIcon sx={{ color: "common.main" }} />
+            <Typography sx={{ color: "common.main" }}>
+              {(previewUser || currentUser).location}
+            </Typography>
+          </Stack>
+        ) : null}
+        {(previewUser || currentUser).occuptation ? (
+          <Stack sx={{ gap: 4, mt: 2, alignItems: "flex-start" }}>
+            <WorkOutlinedIcon sx={{ color: "common.main" }} />
+            <Typography sx={{ color: "common.main" }}>
+              Proident dolore magna cillum qui nostrud minim est ut.Proident
+              exercitation esse nulla labore
+            </Typography>
+          </Stack>
+        ) : null}
       </Box>
-      <Divider sx={{ my: 3 }} />
+      {(previewUser || currentUser).occuptation ||
+      (previewUser || currentUser).location ? (
+        <Divider sx={{ my: 3 }} />
+      ) : null}
       <Box sx={{ px: 2 }}>
         <Stack>
           <Typography color="common.medium" fontWeight="500">
             Who's viewed your profile
           </Typography>
-          <Typography color="common.main">{100000}</Typography>
+          <Typography color="common.main">
+            {(previewUser || currentUser).views}
+          </Typography>
         </Stack>
         <Stack sx={{ my: 2 }}>
           <Typography color="common.medium" fontWeight="500">
             Post impressions
           </Typography>
-          <Typography color="common.main">{100000}</Typography>
+          <Typography color="common.main">
+            {(previewUser || currentUser).impressions}
+          </Typography>
         </Stack>
       </Box>
-      <Divider sx={{ my: 3 }} />
-      <Box sx={{ px: 2 }}>
-        <Typography variant="h5" color="common.main" fontWeight="500" mb="1rem">
-          Social Profiles
-        </Typography>
-        <Stack alignItems="flex-start" gap={2}>
-          <TwitterIcon sx={{ color: "common.main" }} />
-          <div style={{ minWidth: "100px", flex: 1 }}>
-            <Typography color="common.main" fontWeight="500">
-              TwitterinssssLorem deserunt mollit esse aliquip laboris
-              reprehenderit est magna. Ullamco elit ipsum nostrud velit
-              exercitation quis enim. Velit amet pariatur duis deserunt elit
-              reprehenderit laboris ex sint irure tempor veniam mollit ea. Qui
-              tempor pariatur sint minim duis consectetur.
+      {(previewUser || currentUser).socials ? (
+        <>
+          <Divider sx={{ my: 3 }} />
+          <Box sx={{ px: 2 }}>
+            <Typography
+              variant="h5"
+              color="common.main"
+              fontWeight="500"
+              mb="1rem"
+            >
+              Social Profiles
             </Typography>
-            <Typography color="common.medium">Social Network</Typography>
-          </div>
-          <IconButton>
-            <EditOutlined sx={{ color: "common.main" }} />
-          </IconButton>
-        </Stack>
-
-        <Stack alignItems="flex-start" gap={2} sx={{ mt: 1 }}>
-          <TwitterIcon sx={{ color: "common.main" }} />
-          <div style={{ minWidth: "100px", flex: 1 }}>
-            <Typography color="common.main" fontWeight="500">
-              Linkedin
-            </Typography>
-            <Typography color="common.medium">Social Network</Typography>
-          </div>
-          <IconButton>
-            <EditOutlined sx={{ color: "common.main" }} />
-          </IconButton>
-        </Stack>
-      </Box>
+            {Object.keys((previewUser || currentUser).socials).map((s, i) => (
+              <Stack alignItems="flex-start" gap={2} key={i}>
+                <TwitterIcon sx={{ color: "common.main" }} />
+                <div style={{ minWidth: "100px", flex: 1 }}>
+                  <Typography color="common.main" fontWeight="500">
+                    {(previewUser || currentUser).socials[s].url}
+                  </Typography>
+                  <Typography color="common.medium">
+                    {{ twitter: "Social Network", linkedIn: "Linked" }[s]}
+                  </Typography>
+                </div>
+                <IconButton component={StyledLink} to={`/u/profile#user-${s}`}>
+                  <EditOutlined sx={{ color: "common.main" }} />
+                </IconButton>
+              </Stack>
+            ))}
+          </Box>
+        </>
+      ) : null}
     </WidgetContainer>
   );
 };

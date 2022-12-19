@@ -11,15 +11,7 @@ import { uploadFile } from "../utils/fileHandler.js";
 const router = express.Router();
 
 router
-  .post(
-    "/",
-    verifyToken,
-    uploadFile({
-      single: false,
-      dir: "photos/posts"
-    }),
-    createPost
-  )
+  .post("/new", verifyToken, uploadFile(), createPost)
   .get("/", verifyToken, getFeedPosts)
   .put("/:id/like", verifyToken, likePost)
   .put("/:id/dislike", verifyToken, dislikePost);

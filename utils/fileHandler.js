@@ -1,28 +1,38 @@
 import multer from "multer";
-/* FILE STORAGE */
-// temp-->moving to firebase later
-const storage = multer.diskStorage({
-  destination: function(req, file, cb) {
-    cb(null, "public/assets");
-  },
-  filename: function(req, file, cb) {
-    console.log("ddd");
-    cb(null, file.originalname);
+import FirebaseStorage from "multer-firebase-storage";
+import { FIREBASE_BUCKET_NAME } from "../config.js";
+import firebase, { firebaseCredential } from "../firebase.js";
+
+export const deleteFile = async filePath => {
+  return await firebase
+    .storage()
+    .bucket(FIREBASE_BUCKET_NAME)
+    .file(decodeURIComponent(filePath))
+    .delete();
+};
+
+export const uploadFile = (
+  config = {
+    dirPath: "medias",
+    type: "image video",
+    single: false
   }
-});
-export const uploadFile = ({
-  type = "image",
-  single = true,
-  dir = "photos"
-}) => {
+) => {
   return (req, res, next) => {
     return multer({
-      storage,
+      storage: FirebaseStorage({
+        directoryPath: config.dirPath,
+        bucketName: FIREBASE_BUCKET_NAME,
+        credentials: firebaseCredential,
+        unique: true,
+        public: true
+      }),
       fileFilter: (_, file, cb) => {
-        cb(null, file.mimetype.indexOf(type) >= 0);
+        console.log(file);
+        cb(null, file.mimetype.indexOf(config.type) >= 0);
       }
-    })[single ? "single" : "array"](
-      req.query.fieldName,
+    })[config.single ? "single" : "array"](
+      req.query.fieldName || "medias",
       Number(req.query.maxUpload) || 20
     )(req, res, next);
   };

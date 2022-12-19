@@ -7,9 +7,14 @@ export const createPost = async (req, res, next) => {
   try {
     console.log(req.files, "creating pos");
     req.body.user = req.user.id;
-    req.body.photos = req.files?.map(
-      f => f.publicUrl || `http://localhost:8800/${f.destination}/${f.filename}`
-    );
+    req.body.medias = req.files?.map(f => {
+      console.log(f);
+      return {
+        url: f.publicUrl,
+        title: f.filename,
+        mimetype: f.mimetype
+      };
+    });
     res.json(await new Post(req.body).save());
   } catch (err) {
     next(createError(err.message, 409));

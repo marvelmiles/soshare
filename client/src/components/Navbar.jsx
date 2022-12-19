@@ -37,16 +37,15 @@ import SwipeableDrawer from "@mui/material/SwipeableDrawer";
 
 import { StyledLink, StyledMenuItem } from "./styled";
 
-const Navbar = ({ routePage, activeStyledMenuItem }) => {
+const Navbar = ({ routePage = "homePage" }) => {
   const {
     palette: { mode }
   } = useTheme();
-  const user = useSelector(state => state.user);
+  const { currentUser } = useSelector(state => state.user);
   const dispatch = useDispatch();
   const [openDrawer, setOpenDrawer] = useState(false);
   const [searchParam, setSearchParam] = useSearchParams();
 
-  const fullName = `Marvellous akinrinmola`; //`${user.firstName} ${user.lastName}`;
   const query = searchParam.get("q") || "";
   const toggleTheme = () => {
     dispatch(toggleThemeMode());
@@ -61,11 +60,11 @@ const Navbar = ({ routePage, activeStyledMenuItem }) => {
       q: ""
     });
   };
-  const note = "Marvellous Akinrinmola";
-  const selectElem = (
+  const selectElem = currentUser ? (
     <FormControl variant="standard" sx={{ width: "100%" }}>
       <Select
-        defaultValue={note}
+        defaultValue={currentUser.displayName || currentUser.username}
+        value={currentUser.displayName || currentUser.username}
         sx={{
           backgroundColor: "common.light",
           width: "80%",
@@ -85,67 +84,66 @@ const Navbar = ({ routePage, activeStyledMenuItem }) => {
           }
         }}
         input={<InputBase />}
-        renderValue={() => note}
+        renderValue={() => currentUser.displayName || currentUser.username}
       >
         <StyledMenuItem
-          value={note}
+          value={currentUser.displayName || currentUser.username}
           sx={{ opacity: 0, pointerEvents: "none", m: 0, p: 0 }}
         />
         <StyledMenuItem value="Profile" to="/u/1234">
           <PersonIcon />
           <Typography>Profile</Typography>
         </StyledMenuItem>
-        {
-          {
-            profilePage: [
-              {
-                lists: [
-                  { to: "?d=create-post", label: "Create Post", icon: AddIcon },
-                  {
-                    to: "?d=create-shorts",
-                    label: "Create Short",
-                    icon: AddToQueueIcon
-                  },
-                  "",
-                  {
-                    to: "?d=user-posts",
-                    label: "My Posts",
-                    icon: ListAltIcon
-                  },
-                  {
-                    to: "?d=user-shorts",
-                    label: "My Shorts",
-                    icon: SlideshowIcon
-                  },
-                  ""
-                ]
-              }
-            ].map(j =>
-              j.lists.map(l =>
-                l.label ? (
-                  <StyledMenuItem
-                    key={l.label}
-                    value={l.label}
-                    to={l.to}
-                    component={StyledLink}
-                  >
-                    <l.icon />
-                    <Typography>{l.label}</Typography>
-                  </StyledMenuItem>
-                ) : (
-                  <Divider key={l.label} />
-                )
-              )
-            )
-          }[routePage]
-        }
+        {{
+          profilePage: [
+            { to: "?d=create-post", label: "Create Post", icon: AddIcon },
+            {
+              to: "?d=create-shorts",
+              label: "Create Short",
+              icon: AddToQueueIcon
+            },
+            "",
+            {
+              to: "?d=user-posts",
+              label: "My Posts",
+              icon: ListAltIcon
+            },
+            {
+              to: "?d=user-shorts",
+              label: "My Shorts",
+              icon: SlideshowIcon
+            },
+            ""
+          ],
+          homePage: [
+            {
+              to: "?d=shorts",
+              label: "Shorts",
+              icon: SlideshowIcon
+            }
+          ]
+        }[routePage].map((l, i) =>
+          l.label ? (
+            <StyledMenuItem
+              key={i}
+              value={l.label}
+              to={l.to}
+              component={StyledLink}
+            >
+              <l.icon />
+              <Typography>{l.label}</Typography>
+            </StyledMenuItem>
+          ) : (
+            <Divider key={i + Date.now()} />
+          )
+        )}
         <StyledMenuItem to="/auth/signin">
           <LoginIcon />
           <Typography> Log Out</Typography>
         </StyledMenuItem>
       </Select>
     </FormControl>
-  );
+  ) : null;
 
   const searchElem = (
     <Stack
@@ -224,12 +222,16 @@ const Navbar = ({ routePage, activeStyledMenuItem }) => {
           <IconButton onClick={toggleTheme}>
             {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
-          <IconButton>
-            <MessageIcon />
-          </IconButton>
-          <IconButton>
-            <NotificationsIcon />
-          </IconButton>
+          {currentUser ? (
+            <>
+              <IconButton>
+                <MessageIcon />
+              </IconButton>
+              <IconButton>
+                <NotificationsIcon />
+              </IconButton>
+            </>
+          ) : null}
           <IconButton>
             <HelpIcon />
           </IconButton>
@@ -274,10 +276,12 @@ const Navbar = ({ routePage, activeStyledMenuItem }) => {
         >
           {[
             {
+              nullify: !currentUser,
               title: "Chat",
               icon: MessageIcon
             },
             {
+              nullify: !currentUser,
               title: "Notification",
               icon: NotificationsIcon
             },
@@ -290,17 +294,19 @@ const Navbar = ({ routePage, activeStyledMenuItem }) => {
               icon: DarkModeIcon,
               onClick: toggleTheme
             }
-          ].map(l => (
-            <ListItemButton key={l.title} component="li" onClick={l.onClick}>
-              <ListItemIcon>
-                <l.icon />
-              </ListItemIcon>
-              <ListItemText
-                primary={l.title}
-                sx={{ textTransform: "capitalize" }}
-              />
-            </ListItemButton>
-          ))}
+          ].map((l, i) =>
+            l.nullify ? null : (
+              <ListItemButton key={i} component="li" onClick={l.onClick}>
+                <ListItemIcon>
+                  <l.icon />
+                </ListItemIcon>
+                <ListItemText
+                  primary={l.title}
+                  sx={{ textTransform: "capitalize" }}
+                />
+              </ListItemButton>
+            )
+          )}
         </List>
         {selectElem}
         {searchElem}

@@ -6,14 +6,14 @@ import Navbar from "./Navbar";
 const Layout = ({
   children,
   wrap,
-  maxWidth = "1600px",
   routePage,
+  maxWidth = "1600px",
   gridBreakpoint = "1024px",
-  activeMenuItem
+  alignItems = "flex-start"
 }) => {
   return (
     <Box>
-      <Navbar routePage={routePage} activeMenuItem={activeMenuItem} />
+      <Navbar routePage={routePage} />
       <Box
         component="main"
         sx={{
@@ -31,7 +31,7 @@ const Layout = ({
           },
           [`@media (min-width:${gridBreakpoint})`]: {
             display: "flex",
-            alignItems: "flex-start",
+            alignItems,
             gap: wrap ? 3 : 2,
             flexWrap: wrap ? "wrap" : "nowrap"
           }

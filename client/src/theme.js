@@ -10,7 +10,8 @@ export const themeSettings = mode => ({
           },
           background: {
             default: "#0A0A0A",
-            alt: "#1A1A1A"
+            alt: "#1A1A1A",
+            blend: "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)"
           },
           common: {
             dark: "#E0E0E0",
@@ -25,7 +26,8 @@ export const themeSettings = mode => ({
           primary: {
             dark: "#006B7D",
             main: "#00D5FA",
-            light: "#E6FBFF"
+            light: "#E6FBFF",
+            contrastText: "#333"
           },
           common: {
             dark: "#333333",
@@ -37,7 +39,8 @@ export const themeSettings = mode => ({
           },
           background: {
             default: "#F6F6F6",
-            alt: "#FFFFFF"
+            alt: "#FFFFFF",
+            blend: "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)"
           }
         })
   },
@@ -92,16 +95,27 @@ export const themeSettings = mode => ({
               error: { main }
             }
           }
-        }) => {
+      }) => {
           return {
-            padding: "4px",
-            paddingLeft: "8px",
             border: `1px solid ${error ? main : divider}`,
             borderRadius: "5px",
             backgroundColor: "transparent",
             width: "100%",
             marginBottom: "8px",
-            marginTop: "16px"
+            marginTop: "16px",
+            "input,textarea": {
+              padding: "4px",
+              paddingLeft: "8px",
+              border: "none",
+              outline: 0
+            },
+            textarea: {
+              width: "100%",
+              paddingTop: "16px",
+              "&::placeholder": {
+                color: "inherit"
+              }
+            }
           };
         }
       }

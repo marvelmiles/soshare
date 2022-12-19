@@ -93,14 +93,16 @@ export const WidgetContainer = styled(Box)(
       borderRadius: "8px",
       padding: "24px",
       backgroundColor: alt,
-      marginBottom: "24px"
+      marginBottom: "24px",
+      maxHeight: "600px",
+      overflow: "auto"
     };
   }
 );
 
 export const Image = styled("img")`
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: cover;
   border-radius: 12px;
   background-size: cover;
