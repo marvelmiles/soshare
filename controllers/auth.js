@@ -13,7 +13,7 @@ export const signup = async (req, res, next) => {
       return next(
         createError("A user with the specified username or email exist")
       );
-    if (!req.body.password)
+    if (!req.body.password || req.body.password.length < 8)
       return next(createError("A minimum of 8 character password is required"));
     req.body.password = await bcrypt.hash(
       req.body.password,
@@ -29,35 +29,34 @@ export const signup = async (req, res, next) => {
 
 export const signin = async (req, res, next) => {
   try {
-    let user = await User.findOneAndUpdate(
-      {
-        $or: [
-          { email: req.body.placeholder || req.body.email },
-          {
-            username: req.body.placeholder || req.body.username
-          }
-        ]
-      },
-      {
-        isLogin: true
-      },
-      { new: true }
-    );
+    console.log("signin...");
+    const query = {
+      $or: [
+        { email: req.body.placeholder || req.body.email },
+        {
+          username: req.body.placeholder || req.body.username
+        }
+      ]
+    };
+    let user = await User.findOne(query);
     switch (req.body.provider) {
       case "google":
         if (user) break;
-        req.body.isLogin = true;
         user = await new User(req.body).save();
         break;
       default:
-        if (!user) return next(createError("User is not registered "));
-        if (!(await bcrypt.compare(req.body.password, user.password)))
-          return next(createError("Invalid credentials"));
-
+        if (!user) throw createError("User is not registered");
+        if (!req.body.password) throw createError("Your password is required");
+        if (!(await bcrypt.compare(req.body.password, user.password || "")))
+          throw createError("Invalid credentials");
         break;
     }
-    await setTokens(res, user.id);
-    res.json(user);
+    await setTokens(res, user.id, req.query.rememberMe);
+    user &&
+      (await user.updateOne({
+        isLogin: true
+      }));
+    res.json(await User.findOne(query));
   } catch (err) {
     next(err);
   }
@@ -80,8 +79,8 @@ export const userExist = async (req, res, next) => {
     return res.json(
       !!(await User.findOne({
         $or: [
-          { email: req.body.placeholder },
-          { username: req.body.placeholder }
+          { email: req.body.placeholder || req.body.email },
+          { username: req.body.placeholder || req.body.username }
         ]
       }))
     );
@@ -92,54 +91,69 @@ export const userExist = async (req, res, next) => {
 
 export const refreshTokens = async (req, res, next) => {
   try {
-    const err = await verifyToken(req, {
-      _noNext: true,
-      applyRefresh: true
-    });
+    const err = verifyToken(
+      req,
+      {
+        applyRefresh: true
+      },
+      next
+    );
     if (err) return next(err);
-    await setTokens(res, req.user.id);
+
+    // console.log(req.user, "reee user");
+    await setTokens(res, req.user.id, req.cookies.refresh_token.rememberMe);
     res.json("Token refreshed");
   } catch (err) {
-    next(createError(err.message, 409));
+    console.log("dddddd", err.message);
+    next(err);
   }
 };
 
-export const verifyToken = (req, res, next) => {
-  const token = res.applyRefresh
-    ? req.cookies.refresh_token
+export const verifyToken = (req, { applyRefresh, _noNext, throwErr }, next) => {
+  console.log("verifiying...");
+  const token = applyRefresh
+    ? req.cookies.refresh_token?.jwt
     : req.cookies.access_token;
-  const status = res.applyRefresh ? 403 : 401;
+  const status = applyRefresh ? 403 : 401;
+  _noNext = _noNext || applyRefresh;
   if (!token)
-    return res._noNext
+    return _noNext
       ? createError(
-          res.applyRefresh ? "Invalid credentials" : "You are not authorized",
+          applyRefresh ? "Invalid credentials" : "You are not authorized",
           status
         )
       : next(
           createError(
-            res.applyRefresh ? "Invalid credentials" : "You are not authorized",
+            applyRefresh ? "Invalid credentials" : "You are not authorized",
             status
           )
         );
 
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err)
-      return res._noNext
-        ? createError(
-            res.applyRefresh
+    if (err) {
+      console.log(err.message, !!_noNext);
+      if (_noNext)
+        if (throwErr)
+          throw createError(
+            applyRefresh
               ? "Refresh token is not valid. Please make a new signin request"
               : "Token is not valid!",
-            staus
-          )
-        : next(
+            status
+          );
+        else
+          next(
             createError(
-              res.applyRefresh
+              applyRefresh
                 ? "Refresh token is not valid. Please make a new signin request"
                 : "Token is not valid!",
               status
             )
           );
+      return;
+    }
+    console.log("user verified...");
     req.user = user;
-    !res._noNext && next();
+    delete req.body._id;
+    !_noNext && next();
   });
 };

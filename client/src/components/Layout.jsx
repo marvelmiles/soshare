@@ -7,9 +7,10 @@ const Layout = ({
   children,
   wrap,
   routePage,
-  maxWidth = "1600px",
-  gridBreakpoint = "1024px",
-  alignItems = "flex-start"
+  maxWidth = "1800px",
+  gridBreakpoint = "768px",
+  alignItems = "flex-start",
+  sx
 }) => {
   return (
     <Box>
@@ -20,21 +21,21 @@ const Layout = ({
           maxWidth,
           display: "block",
           width: "100%",
-          padding: "16px 0",
           position: "relative",
-          minHeight: "calc(100vh - 64px)",
+          minHeight: "calc(100vh -  64px)",
+          border: "1px solid red",
+          mt: "64px",
           mx: "auto",
-          py: 2,
-          px: {
-            xs: 0,
-            s280: 2
-          },
+          px: 2,
           [`@media (min-width:${gridBreakpoint})`]: {
             display: "flex",
-            alignItems,
-            gap: wrap ? 3 : 2,
-            flexWrap: wrap ? "wrap" : "nowrap"
-          }
+            alignItems: "flex-start",
+            gap: 1,
+            flexWrap: "nowrap",
+            ...sx
+          },
+          ...sx
+          // display: "none"
         }}
       >
         {children}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Stack,
   Typography,
@@ -8,11 +8,15 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  ListItemSecondaryAction,
   Popover,
-  Divider
+  Divider,
+  Checkbox,
+  ButtonGroup,
+  Button
 } from "@mui/material";
 import { useSelector } from "react-redux";
-import { Link, useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
 import { useDispatch } from "react-redux";
@@ -34,19 +38,141 @@ import LoginIcon from "@mui/icons-material/Login";
 import LogoutIcon from "@mui/icons-material/Logout";
 import CloseIcon from "@mui/icons-material/Close";
 import SwipeableDrawer from "@mui/material/SwipeableDrawer";
-
-import { StyledLink, StyledMenuItem } from "./styled";
+import ListItem from "@mui/material/ListItem";
+import ListItemAvatar from "@mui/material/ListItemAvatar";
+import Avatar from "@mui/material/Avatar";
+import { StyledLink, StyledMenuItem, StyledBadge } from "./styled";
+import { useContext } from "redux/store";
+import http from "api/http";
+import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import CircleIcon from "@mui/icons-material/Circle";
+import { getScrollAtIndexes } from "utils";
+import MarkEmailUnreadSharpIcon from "@mui/icons-material/MarkEmailUnreadSharp";
+import { StyledTypography } from "components/styled";
+import InfiniteScroll from "./InfiniteScroll";
+import moment from "moment";
+import FavoriteIcon from "@mui/icons-material/Favorite";
+import DeleteIcon from "@mui/icons-material/Delete";
+Popover.defaultProps = {
+  open: false,
+  anchorEl: null
+};
 
 const Navbar = ({ routePage = "homePage" }) => {
   const {
     palette: { mode }
   } = useTheme();
-  const { currentUser } = useSelector(state => state.user);
+  const { socket, setSnackBar } = useContext();
+  const currentUser = useSelector(state => state.user.currentUser);
   const dispatch = useDispatch();
   const [openDrawer, setOpenDrawer] = useState(false);
-  const [searchParam, setSearchParam] = useSearchParams();
+  const [popover, setPopover] = useState({});
+  const [query, setQuery] = useState("");
+  const [unseens, setUnseens] = useState({
+    notifications: 0
+  });
+  const [notify, setNotify] = useState([]);
+  const stateRef = useRef({
+    url: `/users/notifications`
+  });
+  const infiniteScrollRef = useRef();
+  const navigate = useNavigate();
+  useEffect(() => {
+    (async () => {
+      try {
+        setUnseens(
+          await http.get("/users/unseen-alerts?excludeUser=true", {
+            withCredentials: true
+          })
+        );
+      } catch (message) {
+        setSnackBar(message);
+      }
+    })();
+  }, [setSnackBar]);
 
-  const query = searchParam.get("q") || "";
+  useEffect(() => {
+    if (currentUser?.id) {
+      socket.on("notification", (n, filtered) => {
+        // console.log(
+        // "socket seeting unseens....",
+        //   n,
+        //   currentUser.id,
+        //   !!n.to,
+        //   filtered
+        // );
+        if (
+          n.to
+            ? n.to.id === currentUser.id
+            : n.reports[currentUser.id] &&
+              (n.type === "comment"
+                ? (n.from && (n.from.id || n.from)) !== currentUser.id
+                : true)
+        ) {
+          let notifiId, _notifiId;
+          if (filtered) {
+            if (_notifiId !== n.id) {
+              _notifiId = n.id;
+              let notified = false;
+              setUnseens(unseens => {
+                if (!notified) {
+                  notified = true;
+                  return {
+                    ...unseens,
+                    notifications: unseens.notifications - 1
+                  };
+                }
+                return unseens;
+              });
+              if (popover.for === "notifications" && popover.open) {
+                let length;
+                infiniteScrollRef.current.setData(prev => {
+                  if (!length) length = prev.data.length - 1;
+                  if (prev.data.length <= length) return prev;
+                  return {
+                    ...prev,
+                    data: prev.data.filter(({ id }) => id !== n.id)
+                  };
+                });
+              }
+            }
+          } else if (notifiId !== n.id) {
+            notifiId = n.id;
+            _notifiId = undefined;
+            let notified = false;
+            setUnseens(unseens => {
+              if (notified) return unseens;
+              notified = true;
+              return {
+                ...unseens,
+                notifications: unseens.notifications + 1
+              };
+            });
+            if (popover.for === "notifications" && popover.open) {
+              let length;
+              infiniteScrollRef.current.setData(prev => {
+                if (!length) length = prev.data.length + 1;
+                if (prev.data.length >= length) return prev;
+                return {
+                  ...prev,
+                  data: [n, ...prev.data]
+                };
+              });
+            } else
+              stateRef.current[popover.type] = {
+                data: [n]
+              };
+          }
+        }
+      });
+    } else {
+      // console.log(" wont updat notif since it is you or not allowed");
+      return;
+    }
+  }, [socket, currentUser?.id, popover]);
+
+  const _handleAction = useCallback(() => {}, []);
+
   const toggleTheme = () => {
     dispatch(toggleThemeMode());
   };
@@ -55,18 +181,20 @@ const Navbar = ({ routePage = "homePage" }) => {
       return;
     setOpenDrawer(open);
   };
-  const handleSearch = () => {
-    setSearchParam({
-      q: ""
-    });
+
+  const handleSubmit = e => {
+    e.preventDefault();
+    e.stopPropagation();
+    navigate(`/search?q=${query}`);
   };
+
   const selectElem = currentUser ? (
     <FormControl variant="standard" sx={{ width: "100%" }}>
       <Select
-        defaultValue={currentUser.displayName || currentUser.username}
-        value={currentUser.displayName || currentUser.username}
+        defaultValue={`@${currentUser.username}`}
+        value={`@${currentUser.username}`}
         sx={{
-          backgroundColor: "common.light",
+          backgroundColor: "background.alt",
           width: "80%",
           marginInline: "auto",
           borderRadius: "0.25rem",
@@ -84,32 +212,45 @@ const Navbar = ({ routePage = "homePage" }) => {
           }
         }}
         input={<InputBase />}
-        renderValue={() => currentUser.displayName || currentUser.username}
+        renderValue={() => `@${currentUser.username}`}
       >
         <StyledMenuItem
-          value={currentUser.displayName || currentUser.username}
+          value={`@${currentUser.username}`}
           sx={{ opacity: 0, pointerEvents: "none", m: 0, p: 0 }}
         />
-        <StyledMenuItem value="Profile" to="/u/1234">
+        <StyledMenuItem
+          component={StyledLink}
+          sx={{
+            "&:hover": {
+              textDecoration: "none"
+            }
+          }}
+          value="Profile"
+          to={`/u/${currentUser.id}`}
+        >
           <PersonIcon />
           <Typography>Profile</Typography>
         </StyledMenuItem>
         {{
           profilePage: [
-            { to: "?d=create-post", label: "Create Post", icon: AddIcon },
             {
-              to: "?d=create-shorts",
+              to: `/u/${currentUser.id}?compose=create-post`,
+              label: "Create Post",
+              icon: AddIcon
+            },
+            {
+              to: `/u/${currentUser.id}?compose=create-short`,
               label: "Create Short",
               icon: AddToQueueIcon
             },
             "",
             {
-              to: "?d=user-posts",
+              to: `/u/${currentUser.id}?view=user-posts`,
               label: "My Posts",
               icon: ListAltIcon
             },
             {
-              to: "?d=user-shorts",
+              to: `/u/${currentUser.id}?view=user-shorts`,
               label: "My Shorts",
               icon: SlideshowIcon
             },
@@ -117,7 +258,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           ],
           homePage: [
             {
-              to: "?d=shorts",
+              to: "/?d=shorts",
               label: "Shorts",
               icon: SlideshowIcon
             }
@@ -137,7 +278,7 @@ const Navbar = ({ routePage = "homePage" }) => {
             <Divider key={i + Date.now()} />
           )
         )}
-        <StyledMenuItem to="/auth/signin">
+        <StyledMenuItem component={StyledLink} to="/auth/signin">
           <LoginIcon />
           <Typography> Log Out</Typography>
         </StyledMenuItem>
@@ -166,33 +307,403 @@ const Navbar = ({ routePage = "homePage" }) => {
           borderBottomRightRadius: "inherit"
         }
       }}
+      component="form"
+      onSubmit={handleSubmit}
     >
       <InputBase
         placeholder="Search..."
         value={query}
-        onChange={({ currentTarget }) =>
-          setSearchParam({
-            q: currentTarget.value
-          })
-        }
+        onChange={({ currentTarget }) => setQuery(currentTarget.value)}
       />
-      <IconButton onClick={handleSearch}>
+      <IconButton type="submit">
         <SearchIcon />
       </IconButton>
     </Stack>
   );
 
+  const renderPopover = () => {
+    // // console.log(unseens.notifications, " count..");
+    const markNotification = async (index, e) => {
+      const { setData, data } = infiniteScrollRef.current;
+      let _data = data;
+      try {
+        e.stopPropagation();
+        e.preventDefault();
+        if (popover.type === "marked") {
+          stateRef.current[popover.type] = {
+            data:
+              index === -1
+                ? data.data.map(d => {
+                    d.reports[currentUser.id].marked = true;
+                    return {
+                      ...d
+                    };
+                  })
+                : (data.data[index].reports[currentUser.id].marked = true) && [
+                    ...data.data
+                  ]
+          };
+        } else {
+          unseens[popover.for] &&
+            setUnseens({
+              ...unseens,
+              [popover.for]:
+                unseens[popover.for] - (index === -1 ? data.length : 1)
+            });
+
+          setData({
+            ...data,
+            data:
+              index === -1
+                ? data.data.filter((d, i) => {
+                    return index !== i;
+                  })
+                : []
+          });
+          await http.patch(
+            `/users/${popover.for}/mark`,
+            index === -1 ? data.data.map(({ id }) => id) : [data.data[index].id]
+          );
+        }
+      } catch (err) {
+        console.log(err, "err handler");
+        if (popover.type === "unmarked") {
+          setSnackBar("Failed to mark notification!");
+          setData({
+            ..._data,
+            data:
+              index === -1
+                ? _data.data.map(d => {
+                    d.reports[currentUser.id].marked = false;
+                    return {
+                      ...d
+                    };
+                  })
+                : !(_data.data[index].reports[
+                    currentUser.id
+                  ].marked = false) && [..._data.data]
+          });
+          unseens[popover.for] &&
+            setUnseens({
+              ...unseens,
+              [popover.for]:
+                unseens[popover.for] + (index === -1 ? data.length : 1)
+            });
+        }
+      } finally {
+        // _data = undefined;
+      }
+    };
+    // // console.log(popover.for, popover.type, "pop over for");
+    switch (popover.for) {
+      case "notifications":
+        const btnSx = {
+          flex: 1,
+          color: "common.dark",
+          borderRadius: 0,
+          "&:hover": {
+            border: "unset",
+            border: "none",
+            border: "1px solid #fff",
+            borderTopColor: "divider",
+            borderRadius: 0,
+
+            borderRightColor: "transparent",
+
+            "&:last-of-type": {
+              borderLeft: "1px solid #fff",
+              borderLeftColor: "divider"
+            }
+          },
+          border: "none",
+          border: "1px solid #fff",
+          borderTopColor: "divider",
+          "&:last-of-type": {
+            borderLeft: "1px solid #fff",
+            borderLeftColor: "divider"
+          },
+
+          "&:hover:not(:last-of-type)": {
+            borderRightColor: "transparent !important"
+          }
+        };
+        return (
+          <>
+            <Stack
+              sx={{
+                p: 2
+              }}
+            >
+              <Stack justifyContent="normal">
+                <MarkEmailUnreadSharpIcon fontSize="large" />
+                <Typography variant="h4" fontWeight="bold" color="common.dark">
+                  Notices
+                </Typography>
+              </Stack>
+              {popover.type === "unmarked" ? (
+                <Typography
+                  style={{ cursor: "pointer" }}
+                  onClick={e => markNotification(-1, e)}
+                >
+                  Mark all
+                </Typography>
+              ) : (
+                <Typography
+                  style={{ cursor: "pointer" }}
+                  // onClick={e => deleteNotification(-1, e)}
+                >
+                  Delete all
+                </Typography>
+              )}
+            </Stack>
+            <InfiniteScroll
+              key={popover.type}
+              ref={infiniteScrollRef}
+              handleAction={_handleAction}
+              url={`/users/notifications`}
+              searchParams={`type=${popover.type}`}
+              // defaultData={stateRef.current[popover.type]}
+            >
+              {({ setObservedNode, data: { data } }) => {
+                // data = data.length ? data : Array.from(new Array(30));
+                // console.log(data, currentUser.id, "notifica data");
+                // return [];
+                // data = [data[0], data[0], data[0], data[0], data[0], data[0]];
+
+                return data.length ? (
+                  <List sx={{ mt: 0, p: 0 }}>
+                    {data.map((n, i) => {
+                      const isOwner =
+                        (n.document ? n.document.user.id : n.from.id) ===
+                        currentUser.id;
+                      // console.log(
+                      //   n.reports[currentUser.id],
+                      //   popover.type,
+                      //   currentUser.id,
+                      //   " rpoerts "
+                      // );
+                      return (
+                        <React.Fragment key={i}>
+                          <ListItemButton
+                            ref={
+                              i === data.length - (data.length > 4 ? 3 : 1)
+                                ? setObservedNode
+                                : null
+                            }
+                            onClick={e => markNotification(i, e)}
+                            component="li"
+                            alignItems="flex-start"
+                            sx={
+                              n.reports[currentUser.id]?.marked
+                                ? {}
+                                : {
+                                    backgroundColor: "primary.light",
+                                    flexWrap: "wrap",
+                                    "&:hover": {
+                                      backgroundColor: "background.alt"
+                                    }
+                                  }
+                            }
+                          >
+                            <ListItemAvatar
+                              sx={{
+                                minWidth: "40px",
+                                ".MuiSvgIcon-root": {
+                                  fontSize: "3em"
+                                }
+                              }}
+                            >
+                              {/* <Avatar
+                                alt={n.type}
+                                src={
+                                  n.to
+                                    ? n.to.photoUrl
+                                    : n.document.user.photoUrl
+                                }
+                              /> */}
+                              {{
+                                like: <FavoriteIcon color="error" />,
+                                follow: <PersonIcon color="primary" />
+                              }[n.type] || (
+                                <NotificationsIcon color="primary" />
+                              )}
+                            </ListItemAvatar>
+                            <ListItemText
+                              sx={{
+                                flex: 1,
+                                minWidth: 0,
+                                "& *": {
+                                  color: "primary.dark"
+                                }
+                              }}
+                              primary={
+                                {
+                                  follow: "New Follower"
+                                }[n.type]
+                              }
+                              secondary={
+                                <React.Fragment>
+                                  <Typography
+                                    sx={{ display: "inline" }}
+                                    component="span"
+                                    variant="body2"
+                                    color="text.primary"
+                                  >
+                                    @{n.from.username}
+                                  </Typography>
+                                  <span>
+                                    {" "}
+                                    —{" "}
+                                    {
+                                      {
+                                        follow: `followed you`,
+                                        like: isOwner
+                                          ? `liked your ${n.docType}`
+                                          : `liked ${
+                                              (n.document
+                                                ? n.document.user.id
+                                                : currentUser.id) === n.from.id
+                                                ? "his"
+                                                : `a post by ${
+                                                    n.document
+                                                      ? n.document.user.username
+                                                      : n.from.username
+                                                  }`
+                                            } post`,
+                                        comment: isOwner ? (
+                                          <span>
+                                            commented on your
+                                            <StyledLink
+                                              to={
+                                                n.document &&
+                                                `/${n.document.docType}/${n.document.id}`
+                                              }
+                                            >
+                                              {n.document && n.document.docType}
+                                            </StyledLink>
+                                          </span>
+                                        ) : (
+                                          <span>
+                                            commented on a{" "}
+                                            <StyledLink
+                                              to={
+                                                n.document &&
+                                                `/${n.document.docType}/${n.document.id}`
+                                              }
+                                            >
+                                              {n.document && n.document.docType}
+                                            </StyledLink>{" "}
+                                            you{" "}
+                                            {{
+                                              like: "liked"
+                                            }[
+                                              (n.reports[currentUser.id]?.type)
+                                            ] || "viewed"}{" "}
+                                            {moment(n.createdAt).fromNow()}.
+                                          </span>
+                                        )
+                                      }[n.type]
+                                    }
+                                  </span>
+                                  <Typography>
+                                    {
+                                      {
+                                        comment: n.document && n.document.text
+                                      }[n.type]
+                                    }
+                                  </Typography>
+                                </React.Fragment>
+                              }
+                            />
+                            {popover.type === "unmarked" ? (
+                              <Checkbox
+                                icon={<RadioButtonUncheckedIcon />}
+                                checkedIcon={<CircleIcon />}
+                                onClick={e => markNotification(i, e)}
+                              />
+                            ) : (
+                              <DeleteIcon />
+                            )}
+                          </ListItemButton>
+                          {i === data.length - 1 ? null : <Divider />}
+                        </React.Fragment>
+                      );
+                    })}
+                  </List>
+                ) : (
+                  <div>
+                    {
+                      {
+                        unmarked: "You dont have a new notification",
+                        marked: "No previous notifications"
+                      }[popover.type]
+                    }
+                  </div>
+                );
+              }}
+            </InfiniteScroll>
+            <ButtonGroup
+              sx={{
+                width: "100%",
+                // "&>*":  ,
+                // m: 2,
+                "&:not(:last-of-type)": {
+                  borderRightColor: "transparent"
+                }
+              }}
+            >
+              <Button
+                sx={btnSx}
+                onClick={() => setPopover({ ...popover, type: "unmarked" })}
+              >
+                Unmarked
+              </Button>
+              <Button
+                sx={{
+                  ...btnSx
+                  // borderRight: "1px solid #fff",
+                  // borderRightColor: "red !important"
+                }}
+                onClick={() => setPopover({ ...popover, type: "marked" })}
+              >
+                Marked
+              </Button>
+            </ButtonGroup>
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
+  const showPopover = async (
+    { currentTarget },
+    popoverFor,
+    type = "unmarked"
+  ) => {
+    // _showpopover;
+    // console.log(popoverFor, "popover for");
+    setPopover({
+      open: true,
+      anchorEl: currentTarget,
+      for: popoverFor,
+      type
+    });
+  };
+
   return (
     <>
       <Stack
         sx={{
-          backgroundColor: "background.alt",
+          backgroundColor: "background.default",
           px: 1,
           width: "100%",
-          position: "sticky",
+          position: "fixed",
           top: 0,
           zIndex: "appBar",
-          minHeight: "64px"
+          height: "64px",
+          borderBottom: "1px solid #fff",
+          borderColor: "divider"
         }}
       >
         <Stack gap={3}>
@@ -224,11 +735,19 @@ const Navbar = ({ routePage = "homePage" }) => {
           </IconButton>
           {currentUser ? (
             <>
-              <IconButton>
-                <MessageIcon />
+              <IconButton onClick={e => showPopover(e, "notifications")}>
+                <StyledBadge
+                  badgeContent={unseens.notifications}
+                  color="primary"
+                  max={999}
+                >
+                  <NotificationsIcon />
+                </StyledBadge>
               </IconButton>
               <IconButton>
-                <NotificationsIcon />
+                <StyledBadge badgeContent={1000} color="primary" max={999}>
+                  <MessageIcon />
+                </StyledBadge>
               </IconButton>
             </>
           ) : null}
@@ -283,7 +802,8 @@ const Navbar = ({ routePage = "homePage" }) => {
             {
               nullify: !currentUser,
               title: "Notification",
-              icon: NotificationsIcon
+              icon: NotificationsIcon,
+              onClick: e => showPopover(e, "notifications")
             },
             {
               title: "Question",
@@ -311,6 +831,27 @@ const Navbar = ({ routePage = "homePage" }) => {
         {selectElem}
         {searchElem}
       </SwipeableDrawer>
+      <Popover
+        open={popover.open}
+        anchorEl={popover.anchorEl}
+        PaperProps={{
+          sx: {
+            width: "100%",
+            maxWidth: 450
+          }
+        }}
+        onClose={() => {
+          setPopover({
+            ...popover,
+            open: false
+          });
+          setTimeout(() => {
+            setPopover({});
+          }, 5000);
+        }}
+      >
+        {renderPopover()}
+      </Popover>
     </>
   );
 };

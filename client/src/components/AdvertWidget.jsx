@@ -19,7 +19,7 @@ const AdvertWidget = () => {
         }}
       >
         <Typography color="common.main">MikaCosmetics</Typography>
-        <Typography color="common.medium">www.mikacosmetics.com</Typography>
+        <Typography color="primary.dark">www.mikacosmetics.com</Typography>
       </Stack>
       <Typography color="common.medium" my={1}>
         Your pathway to stunning and immaculate beauty and made sure your skin

@@ -11,26 +11,29 @@ const userSlice = createSlice({
   name: "user",
   reducers: {
     logoutUser(state) {
+      const isLoggedIn = !!state.currentUser;
       state.currentUser = undefined;
       state.previewUser = undefined;
-      http
-        .patch(
-          "/auth/signout",
-          {},
-          {
-            noRefresh: true
-          }
-        )
-        .then(() => console.log("signout"))
-        .catch(message => console.log(message));
+      if (isLoggedIn)
+        http
+          .patch(
+            "/auth/signout",
+            {},
+            {
+              noRefresh: true
+            }
+          )
+          .then(() => console.log("signout"))
+          .catch(message => console.log(message));
     },
     loginUser(state, { payload }) {
       state.currentUser = payload;
     },
     updatePreviewUser(state, { payload }) {
+      delete payload.avatar;
       payload.socials &&
         (payload.socials = {
-          ...state.previewUser.socials,
+          ...state.previewUser?.socials,
           ...payload.socials
         });
       state.previewUser = {

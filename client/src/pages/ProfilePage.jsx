@@ -16,124 +16,111 @@ import {
   DialogActions
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
-import { useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
+import ShortsWidget from "components/ShortsWidget";
+import { useContext } from "redux/store";
+import http from "api/http";
+import { useDispatch, useSelector } from "react-redux";
+import { StyledLink } from "components/styled";
+import Compose from "pages/Compose";
 Dialog.defaultProps = {
   open: false
 };
 const ProfilePage = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [dialog, setDialog] = useState({});
+  let { userId } = useParams();
+  const { socket } = useContext();
+  const [user, setUser] = useState();
+  const navigate = useNavigate();
+  const { id } = useSelector(state => {
+    return state.user.currentUser || {};
+  });
+  const isCurrentUser = id === userId;
+  useEffect(() => {
+    console.log("once...");
+    (async () => {
+      try {
+        setUser(await http.get(`/users/${userId}`));
+      } catch (message) {
+        console.log(message);
+        // if (status === 400) setUser({});
+        setUser(null);
+      }
+    })();
+  }, [userId]);
 
   useEffect(() => {
-    const activeDialog = (searchParams.get("d") || "").toLowerCase();
-    if (
-      activeDialog &&
-      {
-        "create-post": true,
-        "user-posts": true
-      }[activeDialog]
-    ) {
-      setDialog({
-        open: true,
-        activeDialog
+    if (user?.id) {
+      socket.on("update-user", u => {
+        console.log("updaitng user... ", user.id);
+        u.id === user.id && setUser(u);
       });
     }
-  }, [searchParams]);
+  }, [isCurrentUser, socket, user?.id]);
 
+  if (user === undefined) return <div>loading...</div>;
+  else if (!user) return <div>Something went wrong try again...</div>;
+  else if (!user.id)
+    return (
+      <div>
+        Looks like you search for a non existing user. check{" "}
+        <StyledLink to="/">feed</StyledLink> for more user
+      </div>
+    );
   const width = {
     md: "48%"
-  };
-
-  const closeDialog = () => {
-    setSearchParams({});
-    setDialog({
-      ...dialog,
-      open: false
-    });
-  };
-
-  const renderDialog = () => {
-    switch (dialog.activeDialog) {
-      case "create-post":
-        return (
-          <>
-            <DialogTitle
-              sx={{
-                border: "1px solid #333",
-                borderColor: "divider"
-              }}
-              component={Stack}
-            >
-              <Typography variant="h5" fontWeight="bold">
-                Share your moment
-              </Typography>
-              <IconButton onClick={closeDialog}>
-                <CloseIcon />
-              </IconButton>
-            </DialogTitle>
-            <DialogContent>
-              <InputBox autoFocus />
-            </DialogContent>
-          </>
-        );
-      default:
-        return (
-          <>
-            <DialogContent>
-              <PostsView />
-            </DialogContent>
-            <DialogActions
-              sx={{
-                borderTop: "1px solid #333",
-                borderColor: "divider",
-                display: {
-                  xs: "block",
-                  md: "none"
-                }
-              }}
-            >
-              <Button variant="contained" onClick={closeDialog}>
-                Cancel
-              </Button>
-            </DialogActions>
-          </>
-        );
-    }
   };
 
   return (
     <>
       <Layout
-        wrap
-        maxWidth="1024px"
         routePage="profilePage"
         gridBreakpoint="768px"
-        alignItems="normal"
-      >
-        <UserWidget width={width} hideUserSettingsIcon />
-        <UserProfileForm width={width} />
-        <FollowMeWidget url="followers" title="Your Followers" width={width} />
-        <FollowMeWidget
-          url="following"
-          title="People you follow"
-          width={width}
-        />
-        <FollowMeWidget width={width} />
-      </Layout>
-      <Dialog
-        open={dialog.open}
-        onClose={closeDialog}
-        PaperProps={{
-          sx: {
-            m: {
-              xs: 0,
-              s320: 2
-            }
+        sx={{
+          flexWrap: "wrap",
+          gap: 3,
+          maxWidth: "1024px",
+          pt: 2,
+          "& > *": {
+            width: "48%"
+            // border: "1px solid red"
           }
         }}
       >
-        {renderDialog()}
-      </Dialog>
+        <UserWidget width={width} hideUserSettingsIcon user={user} />
+        {isCurrentUser ? (
+          <UserProfileForm
+            placeholders={user}
+            width={width}
+            withConfirmPwd={true}
+          />
+        ) : null}
+        <FollowMeWidget
+          url="followers"
+          title={isCurrentUser ? "Your Followers" : "Followers"}
+          secondaryTitle="followers"
+          width={width}
+          filterUser={false}
+          readOnly={!isCurrentUser}
+        />
+        <FollowMeWidget
+          url="following"
+          title={isCurrentUser ? "People you follow" : "Following"}
+          secondaryTitle="following"
+          width={width}
+          priority="unfollow"
+          isCurrentUser={isCurrentUser}
+        />
+
+        <FollowMeWidget width={width} priority="follow" />
+      </Layout>
+      <Compose
+        openFor={{
+          "create-post": true,
+          "create-short": true,
+          "user-shorts": true,
+          "user-posts": true
+        }}
+      />
     </>
   );
 };

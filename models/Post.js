@@ -1,9 +1,10 @@
 import mongoose from "mongoose";
 
-const schema = mongoose.Schema(
+export const postSchema = mongoose.Schema(
   {
     location: String,
     text: String,
+    moreText: String,
     medias: Array,
     likes: {
       type: Map,
@@ -16,14 +17,21 @@ const schema = mongoose.Schema(
     },
     user: {
       type: String,
-      ref: "users"
+      ref: "user"
     },
     visibility: {
       type: String,
+      set(v) {
+        if (v) {
+          v = v.toLowerCase();
+        }
+        return v;
+      },
       default: "everyone"
     }
   },
   {
+    collection: "post",
     timestamps: true,
     versionKey: false,
     toJSON: {
@@ -34,7 +42,8 @@ const schema = mongoose.Schema(
     }
   }
 );
+// index all string fields
+postSchema.index({ "$**": "text" });
 
-const Post = mongoose.model("posts", schema);
-
+const Post = mongoose.model("post", postSchema);
 export default Post;

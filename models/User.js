@@ -19,22 +19,31 @@ const schema = new mongoose.Schema(
     },
     photoUrl: String,
     followers: {
-      type: Array,
+      type: [
+        {
+          type: String,
+          ref: "user"
+        }
+      ],
       default: []
     },
     following: {
+      type: [
+        {
+          type: String,
+          ref: "user"
+        }
+      ],
+      default: []
+    },
+    socials: {},
+    bio: String,
+    location: String,
+    occupation: String,
+    recommendationBlacklist: {
       type: Array,
       default: []
     },
-    socials: Object,
-    aboutMe: String,
-    location: String,
-    occupation: String,
-    viewes: {
-      type: Number,
-      defualt: 0
-    },
-    impressions: { type: Number, default: 0 },
     lastLogin: Date,
     isLogin: {
       type: Boolean,
@@ -42,9 +51,11 @@ const schema = new mongoose.Schema(
         v && (this.lastLogin = new Date());
         return v;
       }
-    }
+    },
+    provider: String
   },
   {
+    collection: "user",
     timestamps: true,
     versionKey: false,
     toJSON: {
@@ -57,4 +68,7 @@ const schema = new mongoose.Schema(
   }
 );
 
-export default mongoose.model("users", schema);
+// index all string fields
+schema.index({ "$**": "text" });
+const User = mongoose.model("user", schema);
+export default User;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import useForm from "hooks/useForm";
 import { Stack, InputBase, Button } from "@mui/material";
 import { WidgetContainer, StyledLink } from "components/styled";
@@ -10,10 +10,18 @@ import { auth, provider } from "api/firebase";
 import http from "api/http";
 import { useDispatch } from "react-redux";
 import { loginUser } from "redux/userSlice";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { logoutUser } from "../redux/userSlice";
 import { useContext } from "../redux/store";
-
+import { useSearchParams } from "react-router-dom";
+import FormHelperText from "@mui/material/FormHelperText";
+import Typography from "@mui/material/Typography";
+import VisibilityIcon from "@mui/icons-material/Visibility";
+import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
+import IconButton from "@mui/material/IconButton";
+InputBase.defaultProps = {
+  value: ""
+};
 const Signin = () => {
   const {
     handleSubmit,
@@ -23,28 +31,37 @@ const Signin = () => {
     formData,
     errors
   } = useForm({
-    placeholders: {
-      placeholder: "",
-      password: ""
+    required: {
+      placeholder: true,
+      password: true
     }
   });
+  const [searchParams] = useSearchParams();
   const { setSnackBar } = useContext();
   const dispatch = useDispatch();
   const navigate = useNavigate();
-
+  const loc = useLocation();
+  const [showPwd, setShowPwd] = useState(false);
+  const stateRef = useRef({
+    rememberMe: "true"
+  }).current;
   useEffect(() => {
     dispatch(logoutUser());
   }, [dispatch]);
 
   const handleLogin = async e => {
-    e.target && e.preventDefault();
+    if (e.target) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
       let user;
-      reset("submitting");
+      reset(true, { isSubmitting: true });
+      const url = `/auth/signin?rememberMe=${stateRef.rememberMe || ""}`;
       switch (e) {
         case "google":
           user = (await signInWithPopup(auth, provider)).user;
-          user = await http.post("/auth/signin", {
+          user = await http.post(url, {
             username: user.displayName,
             displayName: user.displayName,
             email: user.email,
@@ -54,18 +71,27 @@ const Signin = () => {
           });
           break;
         default:
-          if (handleSubmit()) user = await http.post("/auth/signin", formData);
+          console.log(formData);
+          if (handleSubmit()) user = await http.post(url, formData);
           else return;
           break;
       }
+      // console.log(user.socials, "user socials...");
       dispatch(loginUser(user));
-      navigate("/");
+      const redirect = searchParams.get("redirect_url");
+      if (redirect) window.location.href = redirect;
+      else
+        navigate("/", {
+          state: {
+            from: "signin"
+          }
+        });
     } catch (message) {
       reset(true);
       message && setSnackBar(message);
     }
   };
-
+  console.log(errors, isSubmitting, " is sub");
   return (
     <>
       <Stack sx={{ minHeight: "100vh", width: "100%" }}>
@@ -73,20 +99,44 @@ const Signin = () => {
           <InputBase
             name="placeholder"
             placeholder="Email or username"
-            value={formData.placeholder}
+            value={formData.placeholder || ""}
             onChange={handleChange}
-            error={!!errors.placeholder}
+            error={!!(errors.placeholder || errors.all)}
+            sx={{ mb: 0 }}
           />
           <InputBase
+            type={showPwd ? "text" : "password"}
             name="password"
             placeholder="Password"
-            value={formData.password}
+            value={formData.password || ""}
             onChange={handleChange}
-            error={!!errors.password}
+            error={errors.password === "required"}
+            inputProps={{
+              "data-min": "8"
+            }}
+            sx={{ mb: 0 }}
+            endAdornment={
+              <IconButton
+                sx={{
+                  mr: "4px",
+                  backgroundColor: "transparent"
+                }}
+                onClick={() => setShowPwd(!showPwd)}
+              >
+                {showPwd ? <VisibilityOffIcon /> : <VisibilityIcon />}
+              </IconButton>
+            }
           />
+
           <Stack>
             <FormControlLabel
-              control={<Checkbox onChange={(_, bool) => console.log(bool)} />}
+              disabled={isSubmitting}
+              control={
+                <Checkbox
+                  defaultChecked
+                  onChange={(_, bool) => (stateRef.rememberMe = bool)}
+                />
+              }
               label="Remember Me"
             />
             <StyledLink>Recovery password</StyledLink>

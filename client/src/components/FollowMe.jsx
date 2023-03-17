@@ -9,96 +9,126 @@ import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import { useContext } from "../redux/store";
 import http from "api/http";
-import { updateUser } from "redux/userSlice";
+import useFollowDispatch from "hooks/useFollowDispatch";
 
-const FollowMe = ({ user = {}, onSuccess }) => {
-  const { currentUser } = useSelector(state => state.user);
-  const dispatch = useDispatch();
-  const { setSnackBar } = useContext();
-  const [isFollowing, setIsFollowing] = useState(
-    currentUser.following.includes(user.id)
+const FollowMe = ({
+  user = {},
+  priority = "toggle",
+  ownerAction,
+  variant = "flex",
+  mb = 3
+}) => {
+  const isOwner = useSelector(
+    state => (state.user.currentUser || {}).id === user.id
   );
-  const toggleFollow = async () => {
-    if (currentUser) {
-      await http.put(`/user/${user.id}/${isFollowing ? "unfollow" : "follow"}`);
-      const prop = {
-        [isFollowing ? "following" : "followers"]: currentUser[
-          isFollowing ? "following" : "followers"
-        ].filter(id => id !== user.id)
-      };
-      if (!isFollowing) prop.following = [user.id, ...currentUser.following];
-      dispatch(updateUser(prop));
-      if (onSuccess) onSuccess();
-      else setIsFollowing(true);
-    } else setSnackBar();
-  };
-  return (
-    <Stack
-      alignItems="flex-start"
-      sx={{
-        mb: 3,
-        flexWrap: "wrap"
-      }}
-    >
-      <Stack
-        sx={{
-          minWidth: 30,
-          gap: 2
-        }}
-        alignItems="flex-start"
-      >
-        <Avatar variant="md" src={user.photoUrl} />
+  const {
+    isFollowing,
+    toggleFollow,
+    isProcessingFollow,
+    isLoggedIn
+  } = useFollowDispatch(user.id, priority);
+
+  switch (variant) {
+    case "block":
+      return (
         <Box
           sx={{
-            minWidth: 30,
-            maxWidth: {
-              xs: "345px",
-              s640: "410px"
-            }
+            backgroundColor: "#fff",
+            boxShadow: 3,
+            borderRadius: 3,
+            p: 2,
+            width: "30%",
+            textAlign: "center",
+            mb: 2
           }}
         >
-          <div>
-            <StyledTypography variant="h6" textEllipsis color="common.dark">
-              {user.displayName || user.username}
-            </StyledTypography>
-            <StyledTypography
-              variant="caption"
-              textEllipsis
-              color="common.dark"
-            >
-              {user.username}
-            </StyledTypography>
-          </div>
-          <Typography
-            color="common.medium"
+          <Avatar variant="md" sx={{ mx: "auto" }} src={user.photoUrl} />
+          <StyledTypography pt="16px" $maxLine={5}>
+            @{user.username}
+          </StyledTypography>
+          <Button
+            variant="contained"
             sx={{
-              wordBreak: "break-word"
+              borderRadius: 4,
+              mt: "16px"
             }}
+            onClick={toggleFollow}
           >
-            {user.location}
-          </Typography>
+            {isFollowing ? "Unfollow" : "Follow"}
+          </Button>
         </Box>
-      </Stack>
-      <Button
-        variant="contained"
-        sx={{
-          borderRadius: 6,
-          boxShadow: "none",
-          color: "primary.dark",
-          backgroundColor: "primary.light",
-          backgroundImage: "none",
-          "&:hover": {
-            backgroundColor: "primary.light",
-            boxShadow: "none"
-          },
-          flexShrink: 0
-        }}
-        onClick={toggleFollow}
-      >
-        {isFollowing ? "Unfollow" : "Follow"}
-      </Button>
-    </Stack>
-  );
+      );
+    default:
+      return (
+        <Stack
+          alignItems="flex-start"
+          sx={{
+            mb,
+            flexWrap: "wrap"
+          }}
+        >
+          <Stack
+            sx={{
+              minWidth: 0,
+              flex: 1
+              // border: "1px solid red"
+            }}
+            alignItems="flex-start"
+            justifyContent="normal"
+          >
+            <Avatar variant="md" src={user.photoUrl} />
+            <Box
+              sx={{
+                minWidth: 30
+              }}
+            >
+              <div style={{ position: "relative" }}>
+                <StyledTypography
+                  fontWeight="500"
+                  variant="caption"
+                  color="common.dark"
+                  $maxLine={2}
+                >
+                  {isOwner ? "You" : user.displayName || user.username}
+                </StyledTypography>
+                <StyledTypography
+                  variant="caption"
+                  textEllipsis
+                  color="common.dark"
+                  $maxLine={2}
+                  component="span"
+                >
+                  @{user.username}
+                </StyledTypography>
+              </div>
+            </Box>
+          </Stack>
+          {isOwner ? (
+            <div>{ownerAction}</div>
+          ) : (
+            <Button
+              variant={{}[variant] || "contained"}
+              sx={{
+                borderRadius: 6,
+                boxShadow: "none",
+                color: "primary.dark",
+                backgroundColor: "primary.light",
+                backgroundImage: "none",
+                "&:hover": {
+                  backgroundColor: "primary.light",
+                  boxShadow: "none"
+                },
+                flexShrink: 0
+              }}
+              onClick={toggleFollow}
+              disabled={isProcessingFollow}
+            >
+              {isFollowing ? "Unfollow" : "Follow"}
+            </Button>
+          )}
+        </Stack>
+      );
+  }
 };
 
 FollowMe.propTypes = {};

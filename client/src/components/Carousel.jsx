@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, forwardRef } from "react";
 import PropTypes from "prop-types";
 import ReactCarousel from "react-multi-carousel";
 import "react-multi-carousel/lib/styles.css";
@@ -12,37 +12,12 @@ import useTouchDevice from "../hooks/useTouchDevice";
 import { Image } from "./styled";
 import VideoPlayer from "./VideoPlayer";
 import { useTheme } from "@mui/material";
-const Carousel = ({
-  medias = [],
-  // medias = [
-  //   {
-  //     url: img1,
-  //     type: "image"
-  //   },
-  //   {
-  //     url: img2,
-  //     type: "image"
-  //   },
-  //   {
-  //     url: img3,
-  //     type: "image"
-  //   },
-  //   {
-  //     url: img4,
-  //     type: "video"
-  //   },
-  //   {
-  //     url: img5,
-  //     type: "video"
+import { StyledLink } from "components/styled";
+// import { v4 as uniq } from "uuid";
+const Carousel = forwardRef(({ medias = [], //     type: "video" //     url: img5, //   { //   }, //     type: "video" //     url: img4, //   { //   }, //     type: "image" //     url: img3, //   { //   }, //     type: "image" //     url: img2, //   { //   }, //     type: "image" //     url: img1, //   { // medias = [
   //   }
   // ],
-  display = "block",
-  height = "400px",
-  borderRadius = "12px",
-  nativeFile = false,
-  stateRef,
-  actionBar
-}) => {
+  display = "block", height = "300px", borderRadius = "12px", stateRef, actionBar, showIndicator = true, videoPlayerProps }, ref) => {
   const {
     palette: {
       background: { blend }
@@ -56,6 +31,9 @@ const Carousel = ({
     const _medias = [];
     for (let i = 0; i < medias.length; i++) {
       const media = medias[i];
+      if (!media) continue;
+      const src =
+        media instanceof File ? URL.createObjectURL(media) : media.url;
       _medias.push(
         <Box
           key={i}
@@ -68,55 +46,73 @@ const Carousel = ({
               height,
               borderRadius: "inherit",
               top: 0
+              // border: "1px solid blue"
             }
           }}
         >
-          <Stack
-            id="action-bar"
-            sx={{
-              position: "relative",
-              "& > div": {
-                position: "absolute",
-                top: 10,
-                right: 10,
-                background: blend,
-                p: "5px",
-                borderRadius: "16px",
-                minWidth: "30px",
-                color: "common.light",
-                zIndex: 1
-              }
-            }}
-          >
-            <div>
-              {i + 1}/{medias.length}
-            </div>
-          </Stack>
+          {showIndicator ? (
+            <Stack
+              sx={{
+                position: "relative",
+                "& > div": {
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  background: blend,
+                  p: "5px",
+                  borderRadius: "16px",
+                  minWidth: "30px",
+                  color: "common.light",
+                  zIndex: 1
+                }
+              }}
+            >
+              <div>
+                {i + 1}/{medias.length}
+              </div>
+            </Stack>
+          ) : null}
           <div id="media-container">
             {(media.type || media.mimetype).indexOf("image") > -1 ? (
-              <Image
-                src={nativeFile ? URL.createObjectURL(media) : media.url}
-              />
+              <Image src={src} />
             ) : (
-              <VideoPlayer />
+              <VideoPlayer
+                src={src}
+                styles={{
+                  footer: {
+                    bottom: 5
+                  }
+                }}
+                {...videoPlayerProps}
+              />
             )}
           </div>
         </Box>
       );
     }
+
     return _medias;
   };
   return (
     <Box
+      onClick={e => e.preventDefault()}
       sx={{
         display,
         borderRadius,
         height,
         my: 1,
         position: "relative",
+        // border: "3px solid green",
+        width: "100%",
         ".react-multi-carousel-list": {
           borderRadius,
-          height
+          // border: "2px solid purple",
+          height,
+          width: "100%"
+          // paddingBottom: "5px"
+        },
+        ".react-multiple-carousel__arrow": {
+          // display: "none !important",
         }
       }}
     >
@@ -131,6 +127,7 @@ const Carousel = ({
         {actionBar}
       </Stack>
       <ReactCarousel
+        ref={ref}
         arrows={isTouchDevice ? false : true}
         responsive={{
           xs: {
@@ -142,15 +139,19 @@ const Carousel = ({
             breakpoint: { min: 768, max: Infinity }
           }
         }}
-        afterChange={beforeSlide => {
-          stateRef.currentSlide = beforeSlide + 1;
-        }}
+        beforeChange={
+          stateRef
+            ? currentSlide => {
+                stateRef.currentSlide = currentSlide;
+              }
+            : undefined
+        }
       >
         {renderMedias()}
       </ReactCarousel>
     </Box>
   );
-};
+});
 
 Carousel.propTypes = {};
 

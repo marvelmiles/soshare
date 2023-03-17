@@ -4,11 +4,16 @@ import { API_ENDPOINT } from "config";
 let isRefreshing = false;
 let failedQueue = [];
 
-export const createRedirectURL = () => {
+export const createRedirectURL = (path = "/auth/signin", searchParam = "") => {
   return (
+    window.location.protocol +
+    "//" +
     window.location.host +
-    "/auth/signin" +
-    window.location.search +
+    path +
+    (window.location.search +
+      `?redirect_url=${encodeURIComponent(
+        window.location.href
+      )}${searchParam}`) +
     window.location.hash
   );
 };
@@ -23,15 +28,15 @@ export const processQueue = (err, token) => {
 };
 
 export const getHttpErrMsg = err => {
-  let message = "";
+  let message = "Something went wrong. Check your network and try again.";
   switch (err.code) {
     case "auth/popup-closed-by-user":
       message = "Popup closed by you";
       break;
     default:
-      message =
-        err.response?.data ||
-        "Something went wrong. Check your network and try again.";
+      if (err.response) {
+        if (err.response.status !== 500) message = err.response.data;
+      } else if (err.status !== 500) message = err.message;
       break;
   }
   return message;
@@ -58,7 +63,7 @@ export const handleCancelRequest = (
 };
 // You can setup  config for post and get with defualt authorization header
 const http = rootAxios.create({
-  baseURL: API_ENDPOINT
+  baseURL: API_ENDPOINT + "/api"
 });
 http.interceptors.request.use(function(config) {
   /delete|put|post|patch/.test(config.method) &&
@@ -83,63 +88,57 @@ http.interceptors.response.use(
       err.status,
       err.message,
       err.response?.data,
+      err.response?.status,
       " rootAxios err url "
     );
     const originalRequest = err.config;
-    if (originalRequest.noRefresh) return Promise.reject(getHttpErrMsg(err));
-    else if (err.response?.status === 401) {
+    const handleErr403 = err => {
+      if (window.location.pathname.toLowerCase().indexOf("auth/signin") > -1)
+        return Promise.reject(getHttpErrMsg(err));
+      window.location.href = createRedirectURL();
+    };
+    if (err.response?.status === 401) {
       console.log("401...");
-      if (originalRequest._retry || originalRequest._queued) {
+      if (!(originalRequest._retry || originalRequest._queued)) {
+        if (isRefreshing) {
+          return new Promise(function(resolve, reject) {
+            failedQueue.push({ resolve, reject });
+          })
+            .then(_ => {
+              originalRequest._queued = true;
+              return http.request(originalRequest);
+            })
+            .catch(_ => {
+              return Promise.reject(getHttpErrMsg(err));
+            });
+        }
+        originalRequest._retry = true;
+        isRefreshing = true;
+        console.log("is refre");
+        return new Promise((resolve, reject) => {
+          http
+            .get(`/auth/refresh-token`, {
+              withCredentials: true
+            })
+            .then(() => {
+              console.log("has set new jwtToken ", originalRequest);
+              processQueue(null);
+              return resolve(http.request(originalRequest));
+            })
+            .catch(handleErr403);
+        });
+      } else
         console.log(
           "reject cos  queued or retrying",
           originalRequest.role,
           originalRequest._retry,
           originalRequest._queued
         );
-        return Promise.reject("Encountered some error");
-      }
-      if (isRefreshing) {
-        return new Promise(function(resolve, reject) {
-          failedQueue.push({ resolve, reject });
-        })
-          .then(_ => {
-            originalRequest._queued = true;
-            return http.request(originalRequest);
-          })
-          .catch(_ => {
-            return Promise.reject(getHttpErrMsg(err));
-          });
-      }
-      originalRequest._retry = true;
-      isRefreshing = true;
-      console.log("is refre");
-      return new Promise((resolve, reject) => {
-        http
-          .get(`/auth/refresh-token`, {
-            withCredentials: true
-            // headers: {
-            //   "Content-Type": "application/json"
-            // }
-          })
-          .then(() => {
-            console.log("has set new jwtToken");
-            processQueue(null);
-            originalRequest.withCredentials = true;
-            return resolve(http.request(originalRequest));
-          })
-          .catch(err => {
-            processQueue(err);
-            return reject(getHttpErrMsg(err));
-          })
-          .finally(() => {
-            isRefreshing = false;
-          });
-      });
-    } else if (err.response?.status === 403) {
-      if (window.location.pathname.toLowerCase().indexOf("auth/signin") > -1)
-        return Promise.reject(getHttpErrMsg(err));
-      window.location.href = createRedirectURL();
-    } else return Promise.reject(getHttpErrMsg(err));
+    } else if (err.response?.status === 403) handleErr403(err);
+    else {
+      console.log("default error");
+      return Promise.reject(getHttpErrMsg(err));
+    }
   }
 );
 

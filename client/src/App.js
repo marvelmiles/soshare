@@ -1,5 +1,17 @@
-import React, { useMemo, useState } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import React, {
+  useMemo,
+  useState,
+  useRef,
+  useEffect,
+  useCallback
+} from "react";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation
+} from "react-router-dom";
 import {
   ThemeProvider,
   createTheme,
@@ -19,64 +31,126 @@ import { context } from "redux/store";
 import { Snackbar } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import CloseIcon from "@mui/icons-material/Close";
+import io from "socket.io-client";
+import { API_ENDPOINT } from "config";
+import Post from "pages/Post";
+import Search from "pages/Search";
+import ShortsPage from "pages/ShortsPage";
+import Compose from "pages/Compose";
+import { createRedirectURL } from "api/http";
+
+const socket = io.connect(API_ENDPOINT, {
+  path: "/mernsocial"
+});
+
 const App = () => {
   const [snackbar, setSnackbar] = useState({});
+  const [composeDoc, setComposeDoc] = useState();
   const { mode } = useSelector(state => state.config);
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
-  const setSnackBar = (
-    snackbar = {
-      message: "You need to login"
+  const id = useSelector(state => state.user?.currentUser?.id);
+  const { from } = useLocation().state || {};
+  useEffect(() => {
+    console.log(socket.disconnected, id, " socket disconnected");
+    let backHandler;
+    if (id) {
+      socket.connect();
+      socket.emit("register-user", id);
+      socket.on("register-user", () => socket.emit("register-user", id));
     }
-  ) =>
-    setSnackbar({
-      open: true,
-      ...(snackbar.message
-        ? snackbar
-        : {
-            message: snackbar
-          })
-    });
+    // backHandler = e => {
+    //   console.log("GOING BACK..", e, from);
+    //   e.preventDefault();
+    //   if (from === "signin") window.location.href = createRedirectURL();
+    // };
+    window.addEventListener("popstate", backHandler, false);
+
+    return () => {
+      socket.connected && socket.disconnect();
+      backHandler && window.removeEventListener("popstate", backHandler, false);
+    };
+  }, [id, from]);
+  const setSnackBar = useCallback(
+    (
+      snackbar = {
+        message: "You need to login"
+      }
+    ) =>
+      setSnackbar({
+        open: true,
+        ...(snackbar.message
+          ? snackbar
+          : {
+              message: snackbar
+            })
+      }),
+    []
+  );
   return (
     <ThemeProvider theme={theme}>
-      <BrowserRouter>
-        <CssBaseline />
-        <GlobalStyles
-          styles={{
-            "*": {
-              transition: "all ease-in-out .25s"
-            },
-            textarea: {
-              resize: "none"
-            }
-          }}
-        />
-        <context.Provider
-          value={{
-            setSnackBar
-          }}
-        >
-          <Routes path="/">
-            <Route index element={<HomePage />} />
-            <Route path="auth">
-              <Route path="signin" element={<Signin />} />
-              <Route path="signup" element={<Signup />} />
-            </Route>
-            <Route path="u">
-              <Route path=":userId" element={<ProfilePage />} />
-            </Route>
-          </Routes>
-        </context.Provider>
-      </BrowserRouter>
+      <CssBaseline />
+      <GlobalStyles
+        styles={{
+          "*": {
+            transition: "all ease-in-out .25s"
+          },
+          textarea: {
+            resize: "none"
+          },
+          a: {
+            textDecoration: "none"
+          },
+          "html,body,#root": {
+            height: "100vh",
+            scrollBehavior: "smooth",
+            position: "relative",
+            border: "1px solid green"
+          },
+          ".zoom-in": {
+            transform: "scale(1.2) !important",
+            transition: "transform 0.2s ease-out, opacity 0.5s ease-out 2s",
+            opacity: "0 !important"
+          }
+        }}
+      />
+      <context.Provider
+        value={{
+          setSnackBar,
+          socket,
+          setComposeDoc,
+          composeDoc
+        }}
+      >
+        <Routes path="/">
+          <Route index element={<HomePage />} />
+          <Route path="post/:id" element={<Post key="posts" />} />
+          <Route
+            path="comment/:id"
+            element={<Post key="comments" kind="comments" />}
+          />
+          <Route path="search" element={<Search />} />
+          <Route path="shorts" element={<ShortsPage />} />
+          <Route path="compose">
+            <Route path="post" element={<Compose />} />
+          </Route>
+          <Route path="auth">
+            <Route path="signin" element={<Signin />} />
+            <Route path="signup" element={<Signup />} />
+          </Route>
+          <Route path="u">
+            <Route path=":userId" element={<ProfilePage />} />
+          </Route>
+        </Routes>
+      </context.Provider>
 
       <Snackbar
         open={snackbar.open}
         autoHideDuration={snackbar.autoHideDuration || 5000}
       >
         <Alert
-          autoHideDuration={snackbar.autoHideDuration || 5000}
           severity={snackbar.severity || "error"}
           action={
-            snackbar.handleClose | true ? (
+            snackbar.handleClose || true ? (
               <CloseIcon
                 onClick={() =>
                   setSnackbar({

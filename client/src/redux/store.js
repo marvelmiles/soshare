@@ -13,18 +13,22 @@ import {
 import storage from "redux-persist/lib/storage";
 import configReducer from "./configSlice";
 import userReducer from "./userSlice";
-
+import { io } from "socket.io-client";
+import { API_ENDPOINT } from "config";
 export const store = configureStore({
   reducer: persistReducer(
-    { key: "root", storage },
+    {
+      key: "root",
+      storage,
+      blacklist: ["user"]
+    },
     combineReducers({
       config: configReducer,
       user: persistReducer(
         {
           key: "user",
           storage,
-          blacklist: ["previewUser"],
-          whitelist: ["currentUser"]
+          blacklist: ["previewUser"]
         },
         userReducer
       )

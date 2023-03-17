@@ -8,7 +8,8 @@ function DragDropArea({
   autoResetOnDrop,
   accept = "",
   multiple = true,
-  children
+  children,
+  disabled
 }) {
   const [dragActive, setDragActive] = React.useState(false);
   const [hasDropedFile, setHasDropedFile] = useState(false);
@@ -32,6 +33,7 @@ function DragDropArea({
     e.preventDefault();
     e.stopPropagation();
     setHasDropedFile(true);
+
     if (!hasDropedFile) {
       const files = [];
       if (e.dataTransfer && e.dataTransfer.files) {
@@ -70,22 +72,23 @@ function DragDropArea({
       />
       <label
         htmlFor="drag-drop-area-input-file-upload"
-        style={{ cursor: "pointer" }}
+        style={{ cursor: disabled ? "not-allowed" : "pointer" }}
       >
         {children}
       </label>
-      {hasDropedFile ? (
+      {hasDropedFile || disabled ? (
         <div
           style={{
             position: "absolute",
             top: 0,
             left: 0,
             zIndex: 1,
-            width: "100%",
-            height: "100%"
+            width: "inherit",
+            height: "inherit",
+            cursor: disabled && "not-allowed"
           }}
         >
-          {dropView}
+          {hasDropedFile ? dropView : null}
         </div>
       ) : null}
     </div>
