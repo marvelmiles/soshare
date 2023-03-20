@@ -206,7 +206,7 @@ const PostWidget = React.forwardRef(
                   $textEllipsis
                   variant="caption"
                   fontWeight="500"
-                  color="common.dark"
+                  color="text.secondaryMain"
                 >
                   {isOwner
                     ? "You"
@@ -216,7 +216,7 @@ const PostWidget = React.forwardRef(
                   <StyledTypography
                     variant="caption"
                     $textEllipsis
-                    color="common.dark"
+                    color="common.main"
                     sx={{
                       ml: "3px"
                     }}
@@ -230,7 +230,8 @@ const PostWidget = React.forwardRef(
                 <StyledTypography
                   component="span"
                   sx={{
-                    mx: "2px"
+                    mx: "2px",
+                    color: "common.main"
                   }}
                 >
                   ·
@@ -239,6 +240,7 @@ const PostWidget = React.forwardRef(
                   component="span"
                   variant="caption"
                   $textEllipsis={formatedDate.length > 7}
+                  color="common.main"
                 >
                   {formatedDate}
                 </StyledTypography>
@@ -247,7 +249,7 @@ const PostWidget = React.forwardRef(
             {caption ? (
               <Typography
                 variant="caption"
-                color="common.medium"
+                color="text.secondary"
                 sx={{
                   wordBreak: "break-word"
                 }}
@@ -259,9 +261,7 @@ const PostWidget = React.forwardRef(
               sx={{
                 my: 1,
                 wordBreak: "break-word",
-                h5: {
-                  color: "common.main"
-                }
+                color: "text.primary"
               }}
             >
               {post.text ? (

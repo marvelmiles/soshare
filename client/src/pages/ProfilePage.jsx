@@ -81,10 +81,13 @@ const ProfilePage = () => {
           maxWidth: "1024px",
           pt: 2,
           "& > *": {
-            width: "48%"
-            // border: "1px solid red"
+            width: {
+              xs: "100%",
+              md: "48%"
+            }
           }
         }}
+        key={userId}
       >
         <UserWidget width={width} hideUserSettingsIcon user={user} />
         {isCurrentUser ? (

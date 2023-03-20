@@ -64,10 +64,25 @@ const UserWidget = ({ width, user }) => {
       }}
     >
       <Stack sx={{ gap: 2, flexWrap: "wrap" }} alignItems="flex-start">
-        <Stack sx={{ gap: 2, maxWidth: "88%" }} alignItems="flex-start">
+        <Stack
+          sx={{
+            gap: 2,
+            flexWrap: {
+              xs: "wrap",
+              s320: "nowrap"
+            },
+            width: {
+              xs: "100%",
+              s320: "calc(100% - 50px)"
+            }
+          }}
+          alignItems="flex-start"
+          justifyContent="normal"
+        >
           <Avatar
             src={previewUser.photoUrl}
             alt={`${previewUser.username} avatar`}
+            variant="sm"
           />
           <Box
             sx={{
@@ -80,7 +95,10 @@ const UserWidget = ({ width, user }) => {
               component="p"
               variant="h5"
               fontWeight="bold"
-              color="common.dark"
+              color="text.primary"
+              sx={{
+                wordBreak: "break-word"
+              }}
             >
               {previewUser.displayName}
             </StyledTypography>
@@ -89,6 +107,9 @@ const UserWidget = ({ width, user }) => {
               component={StyledLink}
               to={userLink}
               variant="caption"
+              sx={{
+                wordBreak: "break-word"
+              }}
             >
               @{previewUser.username}
             </Typography>

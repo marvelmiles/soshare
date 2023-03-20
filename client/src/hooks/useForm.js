@@ -65,7 +65,8 @@ const useForm = (config = {}) => {
       mergeFile = false,
       formAppendMap = {},
       appendSkipKey,
-      keepNonStrongPwdStatus
+      keepNonStrongPwdStatus,
+      maxData
     },
     setConfig
   ] = useState(config);
@@ -88,7 +89,7 @@ const useForm = (config = {}) => {
   const handleSubmit = useCallback(
     e => {
       try {
-        // console.log("handle submit", stateChanged, errors);
+        // console.log("handle submit", stateChanged, errors, formData);
         if (e && (e.currentTarget || e.target)) {
           e.preventDefault();
           e.stopPropagation();
@@ -198,9 +199,17 @@ const useForm = (config = {}) => {
           }
           const hasError = Object.keys(errors).length;
           !hasError && setIsSubmitting(true);
-          setErrors(errors);
-          // console.log(errors, formData, "has eror");
-          return hasError ? null : form || formData;
+          setErrors({
+            ...errors
+          });
+          const _formData = {
+            ...formData
+          };
+
+          console.log(errors, _formData);
+          return hasError
+            ? null
+            : form || (delete _formData.confirmPassword && _formData);
         }
         return null;
       } catch (err) {
@@ -224,10 +233,10 @@ const useForm = (config = {}) => {
   const handleChange = useCallback(
     (e, validate) => {
       e.stopPropagation();
-      const node = e.currentTarget || e.target;
+      const node = e.target;
       const key = node.name;
       const dataType = config.dataType?.[key];
-      let { name: dataName, min: dataMin, max: dataMax } = node.dataset;
+      let { name: dataName, min: dataMin = 8, max: dataMax } = node.dataset;
       let value =
         node.type === "file"
           ? node.multiple
@@ -241,22 +250,23 @@ const useForm = (config = {}) => {
           object: required[key]?.[dataName]
         }[dataType] ||
           required[key]);
-
       let isValid = true;
       setFormData(formData => {
         const addError = (error, _key) => {
           if (!error) return;
           isValid = false;
-          setErrors(errors => ({
-            ...errors,
-            [_key || key]:
-              {
-                object: {
-                  ...errors[key],
-                  [dataName]: error
-                }
-              }[dataType] || error
-          }));
+          setErrors(errors => {
+            return {
+              ...errors,
+              [_key || key]:
+                {
+                  object: {
+                    ...errors[key],
+                    [dataName]: error
+                  }
+                }[dataType] || error
+            };
+          });
         };
         setIsSubmitting(false);
         setStateChanged(
@@ -265,6 +275,20 @@ const useForm = (config = {}) => {
             : true)
         );
         let keyValue = "";
+        setErrors(errors => {
+          // console.log(formData, "ss");
+          if (
+            errors.all &&
+            (Object.keys(formData).length === maxData ||
+              Object.keys(errors).length === maxData)
+          ) {
+            delete errors.all;
+            errors = {
+              ...errors
+            };
+          }
+          return errors;
+        });
         if (value || _required) {
           if (node.type === "file" && node.multiple && formData) {
             keyValue =
@@ -291,14 +315,22 @@ const useForm = (config = {}) => {
           ...formData,
           [key]: keyValue
         };
-
+        const checkMin = () => {
+          if (key === "password") {
+            dataMin = Number(dataMin) || 0;
+            if (dataMin && value.length < dataMin) {
+              addError(`minimum of ${dataMin}`);
+              if (formData.confirmPassword)
+                addError(`password don't match`, "confirmPassword");
+              return true;
+            }
+          }
+          return false;
+        };
         // // console.log(value, key, _required);
         if (value) {
-          dataMin = Number(dataMin) || 0;
-          if (dataMin && value.length < dataMin) {
-            addError(`minimum of ${dataMin}`);
-            return formData;
-          }
+          // if(daminFirst)
+          if (checkMin()) return formData;
           if (dataMax && value.length > dataMax) {
             addError(`maximum of ${dataMax}`);
             return formData;
@@ -319,16 +351,18 @@ const useForm = (config = {}) => {
               if (status !== "Strong") addError(`${status} password`);
               if (formData.confirmPassword) {
                 if (value === formData.confirmPassword)
-                  setErrors(errors => {
-                    deletePathFromObject(errors, "confirmPassword");
-                    return errors;
-                  });
+                  status === "Strong" &&
+                    setErrors(errors => {
+                      deletePathFromObject(errors, "confirmPassword");
+                      return errors;
+                    });
                 else addError(`password don't match`, "confirmPassword");
               }
               break;
             case "confirmPassword":
               if (value !== formData.password)
                 addError(`password don't match.`);
+
               break;
             default:
               if (typeof validate === "function")
@@ -349,9 +383,10 @@ const useForm = (config = {}) => {
         }
         return formData;
       });
+
       return isValid;
     },
-    [config.dataType, mergeFile, returnFilesArray, required]
+    [config.dataType, mergeFile, returnFilesArray, required, maxData]
   );
   const reset = useCallback((formData, config = {}) => {
     setStateChanged(config.stateChanged || !!formData);
@@ -359,6 +394,7 @@ const useForm = (config = {}) => {
     if (isObject(formData)) setFormData(formData);
     else if (!formData) setFormData({});
   }, []);
+
   return {
     formData: formData || {},
     errors,
@@ -366,7 +402,8 @@ const useForm = (config = {}) => {
     stateChanged,
     handleChange,
     handleSubmit,
-    reset
+    reset,
+    setErrors
   };
 };
 

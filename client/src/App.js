@@ -38,6 +38,8 @@ import Search from "pages/Search";
 import ShortsPage from "pages/ShortsPage";
 import Compose from "pages/Compose";
 import { createRedirectURL } from "api/http";
+import VerificationMail from "pages/VerificationMail";
+import ResetPwd from "pages/ResetPwd";
 
 const socket = io.connect(API_ENDPOINT, {
   path: "/mernsocial"
@@ -47,6 +49,7 @@ const App = () => {
   const [snackbar, setSnackbar] = useState({});
   const [composeDoc, setComposeDoc] = useState();
   const { mode } = useSelector(state => state.config);
+
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
   const id = useSelector(state => state.user?.currentUser?.id);
   const { from } = useLocation().state || {};
@@ -86,6 +89,11 @@ const App = () => {
       }),
     []
   );
+  const closeSnackBar = () =>
+    setSnackbar({
+      ...snackbar,
+      open: false
+    });
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -104,12 +112,34 @@ const App = () => {
             height: "100vh",
             scrollBehavior: "smooth",
             position: "relative",
-            border: "1px solid green"
+            backgroundColor: theme.palette.background.default
           },
           ".zoom-in": {
             transform: "scale(1.2) !important",
             transition: "transform 0.2s ease-out, opacity 0.5s ease-out 2s",
             opacity: "0 !important"
+          },
+          [`
+            input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus 
+              `]: {
+            backgroundColor: "transparent",
+            transition: "background-color 5000s ease-in-out 0s",
+            textFillColor: theme.palette.text.primary,
+            caretColor: theme.palette.text.primary
+          },
+          "html .MuiButtonBase-root.Mui-disabled": {
+            cursor: "not-allowed"
+          },
+          "html .MuiInputBase-input::placeholder": {
+            opacity: "1"
           }
         }}
       />
@@ -136,6 +166,8 @@ const App = () => {
           <Route path="auth">
             <Route path="signin" element={<Signin />} />
             <Route path="signup" element={<Signup />} />
+            <Route path="verification-mail" element={<VerificationMail />} />
+            <Route path="reset-password/:token" element={<ResetPwd />} />
           </Route>
           <Route path="u">
             <Route path=":userId" element={<ProfilePage />} />
@@ -145,20 +177,14 @@ const App = () => {
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={snackbar.autoHideDuration || 5000}
+        autoHideDuration={snackbar.autoHideDuration || 10000}
+        onClose={closeSnackBar}
       >
         <Alert
           severity={snackbar.severity || "error"}
           action={
             snackbar.handleClose || true ? (
-              <CloseIcon
-                onClick={() =>
-                  setSnackbar({
-                    ...snackbar,
-                    open: false
-                  })
-                }
-              />
+              <CloseIcon onClick={closeSnackBar} />
             ) : (
               undefined
             )

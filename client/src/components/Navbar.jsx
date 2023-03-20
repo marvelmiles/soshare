@@ -16,7 +16,7 @@ import {
   Button
 } from "@mui/material";
 import { useSelector } from "react-redux";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
 import { useDispatch } from "react-redux";
@@ -53,6 +53,8 @@ import InfiniteScroll from "./InfiniteScroll";
 import moment from "moment";
 import FavoriteIcon from "@mui/icons-material/Favorite";
 import DeleteIcon from "@mui/icons-material/Delete";
+import VideoLibraryIcon from "@mui/icons-material/VideoLibrary";
+
 Popover.defaultProps = {
   open: false,
   anchorEl: null
@@ -185,11 +187,11 @@ const Navbar = ({ routePage = "homePage" }) => {
   const handleSubmit = e => {
     e.preventDefault();
     e.stopPropagation();
-    navigate(`/search?q=${query}`);
+    if (query) navigate(`/search?q=${query}`);
   };
 
   const selectElem = currentUser ? (
-    <FormControl variant="standard" sx={{ width: "100%" }}>
+    <FormControl variant="standard" sx={{ width: "100%", minWidth: "180px" }}>
       <Select
         defaultValue={`@${currentUser.username}`}
         value={`@${currentUser.username}`}
@@ -216,21 +218,15 @@ const Navbar = ({ routePage = "homePage" }) => {
       >
         <StyledMenuItem
           value={`@${currentUser.username}`}
-          sx={{ opacity: 0, pointerEvents: "none", m: 0, p: 0 }}
-        />
-        <StyledMenuItem
-          component={StyledLink}
           sx={{
-            "&:hover": {
-              textDecoration: "none"
-            }
+            opacity: 0,
+            pointerEvents: "none",
+            m: 0,
+            p: 0,
+            height: 0,
+            minHeight: 0
           }}
-          value="Profile"
-          to={`/u/${currentUser.id}`}
-        >
-          <PersonIcon />
-          <Typography>Profile</Typography>
-        </StyledMenuItem>
+        />
         {{
           profilePage: [
             {
@@ -243,7 +239,6 @@ const Navbar = ({ routePage = "homePage" }) => {
               label: "Create Short",
               icon: AddToQueueIcon
             },
-            "",
             {
               to: `/u/${currentUser.id}?view=user-posts`,
               label: "My Posts",
@@ -252,39 +247,50 @@ const Navbar = ({ routePage = "homePage" }) => {
             {
               to: `/u/${currentUser.id}?view=user-shorts`,
               label: "My Shorts",
-              icon: SlideshowIcon
-            },
-            ""
+              icon: VideoLibraryIcon
+            }
           ],
           homePage: [
             {
-              to: "/?d=shorts",
-              label: "Shorts",
-              icon: SlideshowIcon
+              to: `/u/${currentUser.id}`,
+              label: "Profile",
+              icon: PersonIcon
             }
           ]
         }[routePage].map((l, i) =>
-          l.label ? (
-            <StyledMenuItem
-              key={i}
-              value={l.label}
-              to={l.to}
-              component={StyledLink}
-            >
-              <l.icon />
-              <Typography>{l.label}</Typography>
-            </StyledMenuItem>
-          ) : (
-            <Divider key={i + Date.now()} />
+          l.nullify ? null : (
+            <div>
+              {l.label && (
+                <StyledMenuItem
+                  key={i}
+                  value={l.label}
+                  to={l.to}
+                  component={StyledLink}
+                >
+                  <l.icon />
+                  <Typography>{l.label}</Typography>
+                </StyledMenuItem>
+              )}
+              <Divider />
+            </div>
           )
         )}
+        <StyledMenuItem component={StyledLink} to="/shorts">
+          <SlideshowIcon />
+          <Typography>Shorts</Typography>
+        </StyledMenuItem>
+        <Divider />
         <StyledMenuItem component={StyledLink} to="/auth/signin">
           <LoginIcon />
           <Typography> Log Out</Typography>
         </StyledMenuItem>
       </Select>
     </FormControl>
-  ) : null;
+  ) : (
+    <IconButton component={Link} to="/auth/signin">
+      <LoginIcon />
+    </IconButton>
+  );
 
   const searchElem = (
     <Stack
@@ -796,14 +802,15 @@ const Navbar = ({ routePage = "homePage" }) => {
           {[
             {
               nullify: !currentUser,
-              title: "Chat",
-              icon: MessageIcon
+              title: "Notification",
+              icon: NotificationsIcon,
+              onClick: e => showPopover(e, "notifications"),
+              badgeContent: unseens.notifications
             },
             {
               nullify: !currentUser,
-              title: "Notification",
-              icon: NotificationsIcon,
-              onClick: e => showPopover(e, "notifications")
+              title: "Chat",
+              icon: MessageIcon
             },
             {
               title: "Question",
@@ -818,7 +825,21 @@ const Navbar = ({ routePage = "homePage" }) => {
             l.nullify ? null : (
               <ListItemButton key={i} component="li" onClick={l.onClick}>
                 <ListItemIcon>
-                  <l.icon />
+                  <StyledBadge
+                    badgeContent={l.badgeContent}
+                    color="primary"
+                    max={999}
+                    sx={{
+                      ".MuiBadge-badge": {
+                        right: 2,
+                        top: 8
+                      }
+                    }}
+                  >
+                    <IconButton>
+                      <l.icon />
+                    </IconButton>
+                  </StyledBadge>
                 </ListItemIcon>
                 <ListItemText
                   primary={l.title}

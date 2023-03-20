@@ -52,7 +52,9 @@ const schema = new mongoose.Schema(
         return v;
       }
     },
-    provider: String
+    provider: String,
+    resetToken: String,
+    resetDate: Date
   },
   {
     collection: "user",

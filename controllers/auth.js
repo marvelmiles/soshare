@@ -2,19 +2,21 @@ import User from "../models/User.js";
 import { createError } from "../utils/error.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { setTokens } from "../utils/index.js";
+import { setTokens, generateToken, sendMail } from "../utils/index.js";
+import { isEmail } from "../utils/validators.js";
 
 export const signup = async (req, res, next) => {
   try {
+    if (!isEmail(req.body.email))
+      throw createError("Account email address is invalid");
     const user = await User.findOne({
       $or: [{ username: req.body.username }, { email: req.body.email }]
     });
     if (user)
-      return next(
-        createError("A user with the specified username or email exist")
-      );
+      throw createError("A user with the specified username or email exist");
+
     if (!req.body.password || req.body.password.length < 8)
-      return next(createError("A minimum of 8 character password is required"));
+      throw createError("A minimum of 8 character password is required");
     req.body.password = await bcrypt.hash(
       req.body.password,
       await bcrypt.genSalt()
@@ -45,7 +47,7 @@ export const signin = async (req, res, next) => {
         user = await new User(req.body).save();
         break;
       default:
-        if (!user) throw createError("User is not registered");
+        if (!user) throw createError("Account is not registered");
         if (!req.body.password) throw createError("Your password is required");
         if (!(await bcrypt.compare(req.body.password, user.password || "")))
           throw createError("Invalid credentials");
@@ -76,13 +78,24 @@ export const signout = async (req, res, next) => {
 
 export const userExist = async (req, res, next) => {
   try {
+    console.log("chek user exist");
     return res.json(
-      !!(await User.findOne({
-        $or: [
-          { email: req.body.placeholder || req.body.email },
-          { username: req.body.placeholder || req.body.username }
-        ]
-      }))
+      !!(await User.findOne(
+        {
+          placeholder: {
+            $or: [
+              { email: req.body.placeholder || req.body.email },
+              { username: req.body.placeholder || req.body.username }
+            ]
+          },
+          email: {
+            email: req.body.email
+          },
+          username: {
+            username: req.body.username
+          }
+        }[(req.query.relevance || "placeholder").toLowerCase()]
+      ))
     );
   } catch (err) {
     next(err);
@@ -156,4 +169,95 @@ export const verifyToken = (req, { applyRefresh, _noNext, throwErr }, next) => {
     delete req.body._id;
     !_noNext && next();
   });
+};
+
+export const recoverPwd = async (req, res, next) => {
+  try {
+    console.log("resetting password...");
+    const { email } = req.body;
+    const user = await User.findOne({
+      email
+    });
+    if (!user) throw createError("Account isn't registered", 400);
+    const token = generateToken();
+    user.resetToken = token;
+    const date = new Date();
+    date.setHours(Number(req.query.timeHr) || 1);
+    user.resetDate = date;
+    await user.save();
+    sendMail(
+      {
+        to: email,
+        from: process.env.GMAIL_USERNAME || "noreply@service.com",
+        subject: "Mern-social account password Reset",
+        text: `You are receiving this email because you (or someone else) have requested the reset of the password for your account.\n\n
+          Please click on the following link, or paste this into your browser to complete the process:\n\n
+          http://${req.headers.origin}/auth/reset-password/${token}\n\n
+          If you did not request this, please ignore this email and your password will remain unchanged.\n`
+      },
+      (err, nt) => {
+        if (err) {
+          console.log(err.message);
+          return next(err);
+        } else {
+          return res.json(
+            "An email has been sent to you with further instruction"
+          );
+        }
+      }
+    );
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const verifyUserToken = async (req, res, next) => {
+  try {
+    console.log("verify token...", req.body);
+    const user = await User.findOne({
+      resetToken: req.body.token
+    });
+    if (!user) return res.json("Invalid token");
+    const start = new Date();
+    start.setHours(start.getHours() - (Number(req.query.timeHr) || 1));
+    const resetDate = new Date(user.resetDate);
+    // if (!(resetDate.getTime() >= start.getTime()))
+    //   throw createError("Token expired");
+
+    const expires = new Date();
+    expires.setMinutes(30);
+    res.cookie("reset-pwd-token", req.body.token, {
+      httpOnly: true
+      // expires
+    });
+    console.log("cookie s set");
+    res.json(user);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const resetPwd = async (req, res, next) => {
+  try {
+    const token = req.cookies["reset-pwd-token"];
+    if (!token) throw createError("Forbidden access", 403);
+    const user = await User.findOne({
+      token,
+      email: req.body.email
+    });
+    if (!user) throw createError(`User don't exist`);
+    if (user.provider)
+      throw createError(
+        `Failed to reset password. Account is registered under a third party provider`
+      );
+    await user.updateOne({
+      password: await bcrypt.hash(req.body.password, await bcrypt.genSalt()),
+      resetDate: null,
+      resetToken: null
+    });
+    res.clearCookie("reset-pwd-token");
+    res.json("Password reset successful");
+  } catch (err) {
+    next(err);
+  }
 };

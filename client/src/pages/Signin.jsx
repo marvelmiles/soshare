@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import useForm from "hooks/useForm";
 import { Stack, InputBase, Button } from "@mui/material";
-import { WidgetContainer, StyledLink } from "components/styled";
+import { WidgetContainer, StyledLink, StyledButton } from "components/styled";
 import FormGroup from "@mui/material/FormGroup";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
@@ -19,6 +19,9 @@ import Typography from "@mui/material/Typography";
 import VisibilityIcon from "@mui/icons-material/Visibility";
 import VisibilityOffIcon from "@mui/icons-material/VisibilityOff";
 import IconButton from "@mui/material/IconButton";
+import LockIcon from "@mui/icons-material/Lock";
+import EmailIcon from "@mui/icons-material/Email";
+import AccountBoxIcon from "@mui/icons-material/AccountBox";
 InputBase.defaultProps = {
   value: ""
 };
@@ -88,10 +91,11 @@ const Signin = () => {
         });
     } catch (message) {
       reset(true);
+      if (message === "Account is not registered") stateRef.email = false;
       message && setSnackBar(message);
     }
   };
-  console.log(errors, isSubmitting, " is sub");
+  // console.log(errors, isSubmitting, formData, " is sub");
   return (
     <>
       <Stack sx={{ minHeight: "100vh", width: "100%" }}>
@@ -103,6 +107,11 @@ const Signin = () => {
             onChange={handleChange}
             error={!!(errors.placeholder || errors.all)}
             sx={{ mb: 0 }}
+            startAdornment={
+              <Stack sx={{ p: 1 }}>
+                <AccountBoxIcon />
+              </Stack>
+            }
           />
           <InputBase
             type={showPwd ? "text" : "password"}
@@ -115,6 +124,11 @@ const Signin = () => {
               "data-min": "8"
             }}
             sx={{ mb: 0 }}
+            startAdornment={
+              <Stack sx={{ p: 1 }}>
+                <LockIcon />
+              </Stack>
+            }
             endAdornment={
               <IconButton
                 sx={{
@@ -138,25 +152,46 @@ const Signin = () => {
                 />
               }
               label="Remember Me"
+              sx={{
+                ".MuiFormControlLabel-label": {
+                  color: "primary.main"
+                }
+              }}
             />
-            <StyledLink>Recovery password</StyledLink>
+            <StyledLink
+              state={
+                stateRef.email !== false &&
+                formData.placeholder && {
+                  user: {
+                    email: formData.placeholder
+                  }
+                }
+              }
+              to="/auth/verification-mail"
+            >
+              Reset password
+            </StyledLink>
           </Stack>
-          <Button
+          <StyledButton
             variant="contained"
             sx={{ width: "100%", mt: 2 }}
             onClick={handleLogin}
             disabled={isSubmitting}
           >
             Sigin
-          </Button>
-          <Button
+          </StyledButton>
+          <StyledButton
             variant="contained"
             sx={{ width: "100%", mt: 2 }}
             onClick={() => handleLogin("google")}
             disabled={isSubmitting}
           >
             Continue with Google
-          </Button>
+          </StyledButton>
+          <Typography textAlign="center" mt={1}>
+            Don't have an account?{" "}
+            <StyledLink to="/auth/signup">signup!</StyledLink>
+          </Typography>
         </WidgetContainer>
       </Stack>
     </>

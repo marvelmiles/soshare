@@ -67,6 +67,9 @@ const Short = React.forwardRef(
           // maxWidth: miniShort ? "150px" : undefined,
           height: miniShort ? "200px" : "80vh",
           mb: 1,
+
+          border: "1px solid red",
+          borderColor: "divider",
           // mx: "auto",
           "&:last-of-type": {
             // mx: 2

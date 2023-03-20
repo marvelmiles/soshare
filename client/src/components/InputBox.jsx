@@ -50,7 +50,7 @@ const InputBox = ({
   showDeleteBtn,
   placeholders,
   handleAction,
-  placeholder = "Tell your story",
+  placeholder = "What's happening?",
   showIndicator = true,
   showActionBar = true,
   max = 700,
@@ -63,7 +63,7 @@ const InputBox = ({
   withPlaceholders
 }) => {
   const { setSnackBar } = useContext();
-  const { currentUser } = useSelector(state => state.user);
+  const currentUser = useSelector(state => state.user.currentUser || {});
   const {
     palette: {
       background: { blend }
@@ -293,7 +293,8 @@ const InputBox = ({
                   pt: 2,
                   m: 0,
                   border: "none",
-                  outline: "none"
+                  outline: "none",
+                  backgroundColor: "transparent"
                 }
               }}
             >
@@ -338,7 +339,7 @@ const InputBox = ({
               </Select>
               {hideTextArea ? null : (
                 <div>
-                  <textarea
+                  <Typography
                     name="text"
                     autoFocus={autoFocus}
                     value={formData.text || ""}
@@ -346,10 +347,18 @@ const InputBox = ({
                       if (e.currentTarget.value.length <= max) handleChange(e);
                     }}
                     placeholder={placeholder}
+                    component="textarea"
+                    sx={{
+                      color: "primary.contrastText",
+                      fontSize: "24px",
+                      "&::placeholder": {
+                        color: "primary.contrastText"
+                      }
+                    }}
                   />
-                  <div style={{ float: "right" }}>
+                  <Typography style={{ float: "right" }}>
                     {formData.text?.length || 0} / {max}
-                  </div>
+                  </Typography>
                 </div>
               )}
             </Box>
@@ -442,8 +451,18 @@ const InputBox = ({
               style={{ display: "none" }}
               onChange={handleChange}
             />
-            <Stack>
-              <Button sx={actionBtnSx} component="label" htmlFor={stateRef.key}>
+            <Stack
+              sx={{
+                "& *": {
+                  color: "primary.main"
+                }
+              }}
+            >
+              <Button
+                // sx={actionBtnSx}
+                component="label"
+                htmlFor={stateRef.key}
+              >
                 <ImageOutlinedIcon />
                 <Typography>Media</Typography>
               </Button>

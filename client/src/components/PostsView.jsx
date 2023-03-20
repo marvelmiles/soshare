@@ -20,6 +20,7 @@ import moment from "moment";
 import { useLocation, useSearchParams } from "react-router-dom";
 import ThreadCard from "./comments/ThreadCard";
 import Compose from "pages/Compose";
+import Stack from "@mui/material/Stack";
 import { isOverflowing } from "utils";
 const PostsView = ({
   index,
@@ -32,7 +33,8 @@ const PostsView = ({
   url,
   sx,
   postSx,
-  children
+  children,
+  centerEmptyText
 }) => {
   const { socket, composeDoc } = useContext();
   const { currentUser } = useSelector(state => state.user);
@@ -167,7 +169,7 @@ const PostsView = ({
               )}
               {children}
               {data.map((post, i) => (
-                <> 
+                <>
                   <PostWidget
                     post={post}
                     maxHeight="none"
@@ -184,8 +186,23 @@ const PostsView = ({
               ))}
             </>
           ) : (
-            <div>No data</div>
-          );
+            <Stack
+              sx={
+                centerEmptyText && {
+                  height: "inherit",
+                  width: "inherit",
+                  minHeight: "inherit",
+                  minWidth: "inherit", 
+                }
+              }
+            >
+              <Typography color="common.dark" textAlign="center">
+                We're sorry, but there doesn't seem to be any data available at
+                the moment.
+              </Typography>
+            </Stack>
+          
+            );
         }}
       </InfiniteScroll>
       <Compose

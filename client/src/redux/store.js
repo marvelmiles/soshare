@@ -20,7 +20,7 @@ export const store = configureStore({
     {
       key: "root",
       storage,
-      blacklist: ["user"]
+      blacklist: ["user", "config"]
     },
     combineReducers({
       config: configReducer,

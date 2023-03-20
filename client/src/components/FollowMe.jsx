@@ -4,12 +4,13 @@ import PropTypes from "prop-types";
 import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import Avatar from "@mui/material/Avatar";
-import { StyledTypography } from "./styled";
+import { StyledTypography, StyledButton } from "./styled";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import { useContext } from "../redux/store";
 import http from "api/http";
 import useFollowDispatch from "hooks/useFollowDispatch";
+import { Link } from "react-router-dom";
 
 const FollowMe = ({
   user = {},
@@ -46,7 +47,7 @@ const FollowMe = ({
           <StyledTypography pt="16px" $maxLine={5}>
             @{user.username}
           </StyledTypography>
-          <Button
+          <StyledButton
             variant="contained"
             sx={{
               borderRadius: 4,
@@ -55,7 +56,7 @@ const FollowMe = ({
             onClick={toggleFollow}
           >
             {isFollowing ? "Unfollow" : "Follow"}
-          </Button>
+          </StyledButton>
         </Box>
       );
     default:
@@ -69,62 +70,66 @@ const FollowMe = ({
         >
           <Stack
             sx={{
-              minWidth: 0,
+              minWidth: {
+                xs: "100%",
+                s320: "50px"
+              },
               flex: 1
               // border: "1px solid red"
             }}
             alignItems="flex-start"
             justifyContent="normal"
           >
-            <Avatar variant="md" src={user.photoUrl} />
+            <Avatar
+              variant="md"
+              src={user.photoUrl}
+              component={Link}
+              to={`/u/${user.id}`}
+            />
             <Box
               sx={{
-                minWidth: 30
+                minWidth: 0,
+                "& > *": {
+                  display: "flex"
+                }
               }}
             >
-              <div style={{ position: "relative" }}>
+              <Box>
                 <StyledTypography
                   fontWeight="500"
                   variant="caption"
                   color="common.dark"
-                  $maxLine={2}
+                  $textEllipsis
                 >
                   {isOwner ? "You" : user.displayName || user.username}
                 </StyledTypography>
+              </Box>
+              <Box>
                 <StyledTypography
                   variant="caption"
-                  textEllipsis
                   color="common.dark"
-                  $maxLine={2}
-                  component="span"
+                  $textEllipsis
+                  sx={{ minWidth: 0, flex: 1 }}
                 >
                   @{user.username}
                 </StyledTypography>
-              </div>
+              </Box>
             </Box>
           </Stack>
           {isOwner ? (
             <div>{ownerAction}</div>
           ) : (
-            <Button
+            <StyledButton
               variant={{}[variant] || "contained"}
               sx={{
                 borderRadius: 6,
-                boxShadow: "none",
-                color: "primary.dark",
-                backgroundColor: "primary.light",
-                backgroundImage: "none",
-                "&:hover": {
-                  backgroundColor: "primary.light",
-                  boxShadow: "none"
-                },
                 flexShrink: 0
               }}
               onClick={toggleFollow}
               disabled={isProcessingFollow}
             >
               {isFollowing ? "Unfollow" : "Follow"}
-            </Button>
+            </StyledButton>
           )}
         </Stack>
       );

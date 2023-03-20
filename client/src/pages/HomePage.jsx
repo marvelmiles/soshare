@@ -14,8 +14,10 @@ import MainView from "views/MainView";
 const HomePage = () => {
   const { id } = useSelector(state => state.user.currentUser || {});
   const rootRef = useRef();
+
   return (
     <MainView borderline>
+      {/* <Button disabled>ss</Button> */}
       <PostsView
         sx={{
           p: 0

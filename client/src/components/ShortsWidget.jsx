@@ -24,7 +24,8 @@ const ShortsWidget = React.forwardRef(
       url = "/shorts",
       loop,
       sx,
-      mx
+      mx,
+      centerEmptyText
     },
     ref
   ) => {
@@ -165,13 +166,16 @@ const ShortsWidget = React.forwardRef(
         Component={WidgetContainer}
         componentProps={{
           $plainWidget: plainWidget,
-          sx: sx
+          sx: sx,
+          id: "ssss"
+          // border: "1px solid red"
         }}
         {...infiniteScrollProps}
         ref={infiniteScrollRef}
       >
         {({ data: { data }, setObservedNode }) => {
           // console.log(data);
+          // data = [];
           return (
             <>
               {title && miniShort && (
@@ -192,27 +196,52 @@ const ShortsWidget = React.forwardRef(
                 justifyContent="normal"
                 gap={"8px"}
                 p={"0px"}
+                sx={{
+                  height: "inherit",
+                  width: "inherit",
+                  minHeight: "inherit",
+                  minWidth: "inherit"
+                }}
               >
-                {
-                  <>
-                    {data.map((s, i) => (
-                      <Short
-                        loop={loop}
-                        i={i}
-                        key={i}
-                        short={s}
-                        handleAction={_handleAction}
-                        miniShort={miniShort}
-                        mx={mx}
-                        ref={
-                          i === data.length - (data.length > 4 ? 3 : 1)
-                            ? node => node && setObservedNode(node)
-                            : null
-                        }
-                      />
-                    ))}
-                  </>
-                }
+                {data.length ? (
+                  data.map((s, i) => (
+                    <Short
+                      loop={loop}
+                      i={i}
+                      key={i}
+                      short={s}
+                      handleAction={_handleAction}
+                      miniShort={miniShort}
+                      mx={mx}
+                      ref={
+                        i === data.length - (data.length > 4 ? 3 : 1)
+                          ? node => node && setObservedNode(node)
+                          : null
+                      }
+                    />
+                  ))
+                ) : (
+                  <Stack
+                    sx={
+                      centerEmptyText && {
+                        height: "inherit",
+                        width: "100%",
+                        minHeight: "inherit",
+                        minWidth: "100%"
+                        // border: "1px solid green"
+                      }
+                    }
+                  >
+                    <Typography
+                      color="common.dark"
+                      textAlign="center"
+                      sx={{ border: "1px solid green", mx: "auto" }}
+                    >
+                      We're sorry, but there doesn't seem to be any data
+                      available at the moment.
+                    </Typography>
+                  </Stack>
+                )}
               </Stack>
             </>
           );

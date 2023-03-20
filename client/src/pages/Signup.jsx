@@ -10,9 +10,9 @@ const Signup = () => {
         routePage="signup"
         sx={{ maxWidth: "576px", mx: "auto" }}
       >
-        <Typography textAlign="center" mt={3}>
-          Alread have an account?{" "}
-          <StyledLink to="/auth/signin">Signin</StyledLink>
+        <Typography textAlign="center" mt={1}>
+          Already have an account?{" "}
+          <StyledLink to="/auth/signin">Signin!</StyledLink>
         </Typography>
       </UserProfileForm>
     </Stack>

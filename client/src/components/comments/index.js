@@ -327,7 +327,7 @@ const Comments = ({
                 ) : (
                   <Typography
                     variant="h6"
-                    // fontWeight="bold"
+                    color="primary.dark"
                     textAlign="center"
                     sx={{
                       maxWidth: "320px",

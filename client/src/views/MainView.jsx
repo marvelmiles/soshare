@@ -14,7 +14,7 @@ const MainView = ({
   children,
   publicView = "shorts",
   styles = {},
-  borderline,
+  borderline = true,
   sx
 }) => {
   const { currentUser } = useSelector(state => state.user);
@@ -36,8 +36,7 @@ const MainView = ({
             position: "sticky",
             left: 0,
             top: 80,
-            mx: "auto",
-            border: "1px solid red"
+            mx: "auto"
           }}
         >
           {
@@ -45,12 +44,6 @@ const MainView = ({
               shorts: <ShortsWidget miniShort={true} type="trending" />,
               posts: (
                 <PostsView
-                  postSx={{
-                    border: "1px solid transparent",
-                    borderRadius: "8px",
-                    width: "90%",
-                    mx: "auto"
-                  }}
                   plainWidget={false}
                   minHeight={"480px"}
                   sx={{
@@ -76,8 +69,10 @@ const MainView = ({
             border: "1px solid transparent",
             borderLeftColor: borderline && "divider",
             borderRightColor: borderline && "divider"
+            // border: "4px solid green"
             // ...styles.main
           }}
+          id="boss"
         >
           {children}
         </Box>

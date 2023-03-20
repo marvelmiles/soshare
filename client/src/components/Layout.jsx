@@ -23,7 +23,7 @@ const Layout = ({
           width: "100%",
           position: "relative",
           minHeight: "calc(100vh -  64px)",
-          border: "1px solid red",
+          // border: "1px solid red",
           mt: "64px",
           mx: "auto",
           px: 2,

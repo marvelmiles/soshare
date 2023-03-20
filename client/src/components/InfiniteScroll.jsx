@@ -191,11 +191,6 @@ const InfiniteScroll = React.forwardRef(
                 (async () => {
                   try {
                     setLoading(true);
-                    if (isIntersecting) {
-                      console.log(" is loading...");
-                      setLoading(true);
-                      return data;
-                    }
                     let _data = await http.get(
                       url +
                         `?limit=${limit}&cursor=${data.paging?.nextCursor ||
@@ -226,21 +221,21 @@ const InfiniteScroll = React.forwardRef(
                     handleAction &&
                       _data.data.length &&
                       handleAction("new", _data);
-                    setLoading(false);
                   } catch (message) {
                     setData(prev => ({ ...prev, paging: {} }));
                     setSnackBar(message);
                   } finally {
+                    console.log(" infint finally ");
                     stateRef.current.initFetch = false;
                     // prevent requesting data before next observed target renders
                     resetState();
-                    // setLoading(false);
+                    setLoading(false);
                   }
                 })();
               }
-            } else setLoading(false);
+            }
           } else {
-            setLoading(false);
+            // setLoading(false);
             data.data.length && handleAction("new", data);
             console.log("not fetching... ", data);
           }
@@ -261,7 +256,7 @@ const InfiniteScroll = React.forwardRef(
       dataKey,
       defaultData
     ]);
-
+    console.log(loading, " tyuu ");
     useEffect(() => {
       if (observedNode) {
         setTimeout(() => {
@@ -287,12 +282,12 @@ const InfiniteScroll = React.forwardRef(
       ref.current = propMemo;
       if (ref) ref.current.data = data;
     }
-
+    const isEnd = data.paging && !data.paging.nextCursor;
     return (
       <Box
         sx={{
-          // height: "100%",
-          // maxHeight: "inherit",
+          height: "inherit",
+          minHeight: "inherit",
           ...sx
         }}
       >
@@ -318,9 +313,21 @@ const InfiniteScroll = React.forwardRef(
             }}
           >
             {(loading ? data.data.length : true) ? children(propMemo) : null}
-            {loading ? <Loading /> : null}
+            {isEnd ? (
+              false
+            ) : isIntersecting || loading ? (
+              <Loading // for som wierd reason loading is always false
+                sx={
+                  data.data.length && {
+                    height: "30px",
+                    minHeight: "30px",
+                    border: "1px solid red"
+                  }
+                }
+              />
+            ) : null}
           </div>
-          {data.paging && !data.paging.nextCursor && showEnd ? (
+          {isEnd && showEnd ? (
             endElement ? (
               endElement
             ) : (

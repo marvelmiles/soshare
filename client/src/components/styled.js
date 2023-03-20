@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { styled } from "@mui/system";
-import { Typography, Box, MenuItem } from "@mui/material";
+import { Typography, Box, MenuItem, Button } from "@mui/material";
 import Badge from "@mui/material/Badge";
 import { keyframes } from "@mui/system";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -19,7 +19,7 @@ export const StyledLink = styled(Link, {
     theme: {
       typography,
       palette: {
-        primary: { main }
+        primary: { main, dark }
       }
     },
     variant,
@@ -120,7 +120,9 @@ export const WidgetContainer = styled(Box)(
         maxHeight: "none",
         borderRadius: "0",
         marginBottom: 0,
-        backgroundColor: defaultC
+        backgroundColor: "transparent",
+        height: "inherit",
+        minHeight: "inherit"
         // height: "inherit"
       })
     };
@@ -159,7 +161,9 @@ export const StyledBadge = styled(Badge)(({ theme }) => ({
     right: -3,
     top: 0,
     border: `2px solid ${theme.palette.background.paper}`,
-    padding: "0 4px"
+    padding: "0 4px",
+    color: theme.palette.primary.contrastText
+    // fontWeight: ""
   }
 }));
 
@@ -172,15 +176,17 @@ export const spin = keyframes`
   }
 `;
 
-export const Loading = () => (
+export const Loading = ({ sx }) => (
   <Box
     sx={{
       color: "primary.dark",
       display: "flex",
       justifyContent: "center",
       alignItems: "center",
-      minHeight: "300px",
-      height: "inherit"
+      minHeight: "inherit",
+      height: "inherit",
+      // border: "1px solid green",
+      ...sx
     }}
   >
     <CircularProgress />
@@ -198,4 +204,31 @@ from {
     -webkit-transform: translate3d(0, 0, 0);
     transform: translate3d(0, 0, 0);
   }
+`;
+
+export const StyledButton = styled(Button)`
+  ${({
+    variant,
+    theme: {
+      palette: {
+        mode,
+        background: { alt },
+        primary: { contrastText }
+      }
+    },
+    ...p
+  }) => {
+    let styled = ``;
+    switch (variant) {
+      case "contained":
+        styled += ` 
+        color:${contrastText};
+        &:hover {
+          color: ${alt}
+        };
+        `;
+        break;
+    }
+    return styled;
+  }}
 `;

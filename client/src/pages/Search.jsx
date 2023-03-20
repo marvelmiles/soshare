@@ -41,15 +41,7 @@ const Search = () => {
     );
   }, [tab, stateRef]);
   return (
-    <MainView
-      sx={
-        {
-          // flexDirection: "row-reverse",
-          // maxWidth: "1000px"
-        }
-      }
-      ad
-    >
+    <MainView borderline>
       <Tabs
         value={tab}
         onChange={(e, value) => {

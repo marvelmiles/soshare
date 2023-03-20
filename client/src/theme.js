@@ -4,30 +4,33 @@ export const themeSettings = mode => ({
     ...(mode === "dark"
       ? {
           primary: {
-            main: "#00D5FA",
-            light: "#00353F",
-            dark: "#99EEFD"
+            dark: "#1769aa",
+            main: "#2196f3",
+            light: "#4dabf5",
+            contrastText: "#fff"
           },
           background: {
-            default: "#0A0A0A",
-            alt: "#1A1A1A",
-            blend: "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)"
+            alt: "rgb(22, 24, 28)",
+            default: "#000",
+            paper: "#0f1013"
           },
           common: {
             dark: "#E0E0E0",
-            main: "#C2C2C2",
-            mediumMain: "A3A3A3",
+            main: "rgba(255,255,255,0.7)",
+            mediumMain: "#A3A3A3",
             medium: "#858585",
-            light: "#333"
-          },
-          divider: "#333"
+            light: "#333",
+            black: "#333",
+            heart: "#FF1493",
+            blend: "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)"
+          }
         }
       : {
           primary: {
-            dark: "#006B7D",
-            main: "#00D5FA",
-            light: "#E6FBFF",
-            contrastText: "#333"
+            dark: "#1769aa",
+            main: "#2196f3",
+            light: "#4dabf5",
+            contrastText: "#000"
           },
           common: {
             dark: "#000",
@@ -37,7 +40,8 @@ export const themeSettings = mode => ({
             light: "#F0F0F0",
             hover: "rgba(0, 0, 0, 0.04)",
             darkGray: "rgba(0, 0, 0, 0.54)",
-            heart: "#FF1493"
+            heart: "#FF1493",
+            blend: "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)"
           },
           background: {
             default: "#fff",
@@ -96,11 +100,14 @@ export const themeSettings = mode => ({
     },
     MuiSvgIcon: {
       styleOverrides: {
-        root: ({ theme }) => ({
-          width: ".85em",
-          height: ".85em"
-          // color: theme.palette.common.darkGray
-        })
+        root: ({ theme, "data-testid": t }) => {
+          return {
+            width: ".85em",
+            height: ".85em",
+            color: t !== "CheckBoxIcon" && theme.palette.text.primary,
+            cursor: "pointer"
+          };
+        }
       }
     },
     MuiInputBase: {
@@ -110,7 +117,8 @@ export const themeSettings = mode => ({
           theme: {
             palette: {
               divider,
-              error: { main }
+              error: { main },
+              text
             }
           }
         }) => {
@@ -125,7 +133,9 @@ export const themeSettings = mode => ({
               padding: "4px",
               paddingLeft: "8px",
               border: "none",
-              outline: 0
+              outline: 0,
+              color: text.primary,
+              caretColor: text.primary
             },
             textarea: {
               width: "100%",
@@ -218,8 +228,8 @@ export const themeSettings = mode => ({
               height: "40px"
             },
             "@media (min-width: 360px)": {
-              width: "50px",
-              height: "50px"
+              width: "40px",
+              height: "40px"
             }
           }
         }
@@ -258,6 +268,7 @@ export const themeSettings = mode => ({
       lg: 1024,
       xl: 1200,
       xxl: 1536,
+      s200: 200,
       s280: 280,
       s320: 320,
       s640: 640,

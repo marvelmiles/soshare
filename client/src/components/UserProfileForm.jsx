@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import useForm, { isLink } from "hooks/useForm";
-import { WidgetContainer, Image } from "./styled";
+import { WidgetContainer, StyledLink } from "./styled";
 import Box from "@mui/material/Box";
 import DragDropArea from "./DragDropArea";
 import Button from "@mui/material/Button";
@@ -10,7 +10,7 @@ import InputBase from "@mui/material/InputBase";
 import PersonIcon from "@mui/icons-material/Person";
 import { useDispatch, useSelector } from "react-redux";
 import { updatePreviewUser, updateUser } from "redux/userSlice";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { useContext } from "redux/store";
 import { Typography, IconButton } from "@mui/material";
 import http from "api/http";
@@ -28,6 +28,7 @@ const UserProfileForm = ({
   placeholders,
   withConfirmPwd
 }) => {
+  const locState = useLocation().state;
   const [showPwd, setShowPwd] = useState(false);
   const {
     formData,
@@ -48,16 +49,19 @@ const UserProfileForm = ({
     returnFormObject: true,
     dataType: {
       socials: "object"
-    }
+    },
+    placeholders: locState?.user
   });
   const { setSnackBar } = useContext();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const fluidSize = {
-    width: "150px"
+    xs: "50px",
+    s200: "120px",
+    s280: "150px"
   };
   const hash = window.location.hash.toLowerCase();
-
+  console.log(locState);
   useEffect(() => {
     if (stateChanged) {
       dispatch(
@@ -80,9 +84,13 @@ const UserProfileForm = ({
           formData
         );
         setSnackBar({
-          message: placeholders
-            ? "Updated profile successfully!"
-            : "Thank you for registering. You can login!",
+          message: placeholders ? (
+            "Updated profile successfully!"
+          ) : (
+            <Typography>
+              Thank you for registering. You can <StyledLink>login</StyledLink>!
+            </Typography>
+          ),
           severity: "success"
         });
       }
@@ -135,10 +143,9 @@ const UserProfileForm = ({
           position: "relative",
           ".drag-drop-area,.MuiAvatar-root": {
             borderRadius: "50%",
-            backgroundColor: "primary.light",
             color: "primary.dark",
-            width: fluidSize.width,
-            height: fluidSize.width,
+            width: fluidSize,
+            height: fluidSize,
             borderRadius: "50%",
             cursor: "pointer",
             mx: "auto"
@@ -201,7 +208,6 @@ const UserProfileForm = ({
           </>
         )}
       </Box>
-      {console.log(formData)}
       <Stack
         sx={{
           width: "100%",
@@ -295,6 +301,7 @@ const UserProfileForm = ({
                   }
                 }
               >
+                {/* {console.log(formData[i.name])} */}
                 <InputBase
                   key={index}
                   type={i.type}
@@ -311,17 +318,22 @@ const UserProfileForm = ({
                     }
                   }
                   inputProps={{
-                    style: {
+                    sx: {
                       paddingTop: "8px",
                       paddingBottom: "8px"
+                      // "&::placeholder": {
+                      //   opacity: 1
+                      // }
                     },
                     "data-name": i.dataName
                   }}
                   value={
                     typeof formData[i.name] === "undefined"
-                      ? (i.dataName
-                          ? (placeholders[i.name] || {})[i.dataName]
-                          : placeholders[i.name]) || ""
+                      ? (placeholders &&
+                          (i.dataName
+                            ? (placeholders[i.name] || {})[i.dataName]
+                            : placeholders[i.name])) ||
+                        ""
                       : i.dataName
                       ? formData[i.name][i.dataName]
                       : formData[i.name]
@@ -355,8 +367,10 @@ const UserProfileForm = ({
                   onChange={e => {
                     const value = e.currentTarget.value;
                     if (value.length > i.max) return false;
-                    if (hash !== i.searchValue)
-                      navigate(`?#user-${i.searchValue}`);
+                    // if (hash !== i.searchValue)
+                    //   navigate(`?#user-${i.searchValue}`, {
+                    //     state: locState
+                    //   });
                     handleChange(e, (key, value) => {
                       switch (key) {
                         case "socials":

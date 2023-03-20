@@ -6,7 +6,10 @@ import {
   userExist,
   refreshTokens,
   verifyToken,
-  signout
+  signout,
+  recoverPwd,
+  verifyUserToken,
+  resetPwd
 } from "../controllers/auth.js";
 
 const router = express.Router();
@@ -24,6 +27,8 @@ router
   .post("/signin", signin)
   .patch("/signout", verifyToken, signout)
   .post("/user-exist", userExist)
+  .post("/recover-password", recoverPwd)
+  .post("/verify-token", verifyUserToken)
+  .post("/reset-password", resetPwd)
   .get("/refresh-token", refreshTokens);
-
 export default router;

@@ -96,7 +96,7 @@ const ShortFooter = ({
           borderBottomRightRadius: "inherit",
           background: ({
             palette: {
-              background: { blend }
+              common: { blend }
             }
           }) => blend
         }}

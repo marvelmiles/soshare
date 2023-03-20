@@ -5,7 +5,8 @@ import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import { ObjectId } from "bson";
 import Post from "../models/Post.js";
-
+import crypto from "crypto";
+import nodemailer from "nodemailer";
 export const setTokens = async (res, id, rememberMe) => {
   console.log("remeber me ", rememberMe);
   rememberMe = rememberMe === "true";
@@ -137,7 +138,7 @@ export const getAll = async ({
           nextCursor: cursor ? encodeURIComponent(cursor) : null
         }
       });
-    }, 10000);
+    }, 3000);
   });
 };
 
@@ -477,4 +478,25 @@ export const removeFirstItemFromArray = (item, array) => {
     continue;
   }
   return array;
+};
+
+export const generateToken = (max, expires = "1h") => {
+  return crypto.randomBytes(20).toString("hex");
+};
+
+export const sendMail = (
+  mailOptions,
+  cb,
+  service = "Gmail",
+  user = process.env.GMAIL_USERNAME || "marvellousabidemi2@gmail.com",
+  pass = process.env.GMAIL_PASSWORD || "wwjlkxytsqzbrewa"
+) => {
+  const transporter = nodemailer.createTransport({
+    service,
+    auth: {
+      user,
+      passs
+    }
+  });
+  transporter.sendMail(mailOptions, cb);
 };

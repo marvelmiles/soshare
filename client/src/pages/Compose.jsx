@@ -191,6 +191,7 @@ const Compose = ({ openFor }) => {
                         borderColor: "divider",
                         borderRadius: 2
                       }}
+                      centerEmptyText
                     />
                   ),
                   "user-shorts": (
@@ -198,6 +199,7 @@ const Compose = ({ openFor }) => {
                       hideDataNotifier
                       plainWidget
                       url="/users/shorts"
+                      centerEmptyText
                     />
                   )
                 }[compose]
@@ -214,7 +216,7 @@ const Compose = ({ openFor }) => {
               }}
             >
               <Button variant="contained" onClick={closeDialog}>
-                Cancel
+                Close
               </Button>
             </DialogActions>
           </>
@@ -240,7 +242,12 @@ const Compose = ({ openFor }) => {
         PaperProps={{
           sx: view && {
             minHeight: "30vh",
-            width: "100%"
+            width: "100%",
+            backgroundColor: "background.paper",
+            backgroundImage: "none",
+            opacity: 1,
+            p: 0
+            // boxShadow:
           }
         }}
         open={openFor[compose]}
