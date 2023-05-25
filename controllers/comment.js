@@ -1,19 +1,19 @@
 import { createError } from "../utils/error.js";
 import Comment from "../models/Comment.js";
-import { deleteFile } from "../utils/fileHandler.js";
+import { deleteFile } from "../utils/file-handlers.js";
 import Post from "../models/Post.js";
 import {
   getFeedMedias,
-  removeFirstItemFromArray,
-  sendAndUpdateNotification,
   likeMedia,
   dislikeMedia,
-  createVisibilityQuery
-} from "../utils/index.js";
-import { verifyToken } from "./auth.js";
+  getDocument
+} from "../utils/req-res-hooks.js";
+import { removeFirstItemFromArray } from "../utils/normalizers.js";
+import { sendAndUpdateNotification, handleMiscDelete } from "../utils/index.js";
+import { mergeThread } from "../utils/serializers.js";
+
 export const addComment = async (req, res, next) => {
   try {
-    console.log("adding comment", req.params);
     if (!req.body.document)
       throw createError(
         "Invalid body expect document key value pair of type string"
@@ -62,13 +62,11 @@ export const addComment = async (req, res, next) => {
     if (!likes) throw createError("Comment not found", 404);
     if (req.params.docType === "comment") {
       req.body.threads = [req.body.document, ...threads];
-      if (docType !== "comment") {
-        req.body.rootThread = rootThread || document;
-        req.body.rootType = rootType || docType;
-      }
+      req.body.rootThread = rootThread || document;
+      req.body.rootType = rootType || docType;
     }
     let comment = await new Comment(req.body).save();
-    comment = await comment.populate([
+    const docPopulate = [
       {
         path: "user"
       },
@@ -108,59 +106,39 @@ export const addComment = async (req, res, next) => {
           }
         ]
       }
+    ];
+    comment = await comment.populate([
+      {
+        path: "user"
+      },
+      {
+        path: "document",
+        populate: docPopulate
+      }
     ]);
-    console.log("done saving comment...");
     res.json(comment);
-    sendAndUpdateNotification({
+    await sendAndUpdateNotification({
       req,
       type: "comment",
-      document: comment.id,
+      document: comment,
       reportIds: {
         like: likes,
         comment: comments
       },
-      docPopulate: [
-        {
-          path: "document"
-        },
-        {
-          path: "threads"
-        }
-      ]
+      docPopulate
     });
   } catch (err) {
-    console.log("comment has error");
     next(err);
-    req.file && deleteFile(req.file.publicUrl);
   }
 };
 
 export const getComment = async (req, res, next) => {
-  try {
-    verifyToken(req, { _noNext: true, throwErr: false });
-    const query = await createVisibilityQuery(req.user?.id);
-    query._id = req.params.id;
-    res.json(
-      await Comment.findOne(query).populate([
-        {
-          path: "user document"
-        },
-        {
-          path: "threads",
-          populate: "user"
-        }
-      ])
-    );
-  } catch (err) {
-    next(err);
-  }
+  return getDocument({ req, res, next, model: Comment });
 };
 
 export const getComments = async (req, res, next) => {
-  console.log("getting comments", req.params.documentId);
   req.query.shuffle = req.query.shuffle || "false";
-
-  return getFeedMedias({
+  getFeedMedias({
     model: Comment,
     req,
     res,
@@ -205,59 +183,104 @@ export const getComments = async (req, res, next) => {
           }
         ]
       }
-    ],
-    match: {
-      document: req.params.documentId
-    },
-    validateDoc: req.query.docType
+    ]
   });
 };
 
 export const deleteComment = async (req, res, next) => {
   try {
-    // console.log(req.user, req.params, "del ");
-    if (req.query.userId) {
-      const {} = await Comment.findOne({
-        user: req.user.id
-      });
-    } else {
+    let comment = await Comment.findById(req.params.id);
+    const isOwner = comment.user === req.user.id;
+    if (!isOwner) {
+      if (req.query.ro) {
+        if (req.query.ro !== req.user.id)
+          throw createError("Delete operation denied", 401);
+      } else throw createError("Delete operation denied", 401);
     }
-    const { docType, document, user } = await Comment.findByIdAndDelete(
-      req.params.id
+    const populate = [
+      {
+        path: "user"
+      },
+      {
+        path: "document",
+        populate: [
+          {
+            path: "user"
+          },
+          {
+            path: "threads",
+            populate: [
+              { path: "user" },
+              {
+                path: "document",
+                populate: [
+                  {
+                    path: "user"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        path: "threads",
+        populate: [
+          { path: "user" },
+          {
+            path: "document",
+            populate: [
+              {
+                path: "user"
+              }
+            ]
+          }
+        ]
+      }
+    ];
+
+    comment = await Comment.findByIdAndDelete({ _id: req.params.id });
+    res.json(
+      isOwner
+        ? "You permanently deleted your comment"
+        : "Comment deleted successfully"
     );
-    const isOwner = user === req.user.id;
-    await Comment.deleteMany({
-      $or: [
-        { document: req.params.id },
-        {
-          rootThread: req.params.id
-        }
-      ]
-    });
     const model = {
       post: Post,
       comment: Comment
-    }[docType];
+    }[comment.docType];
     await model.updateOne(
       {
-        _id: document
+        _id: comment.document.id
       },
       {
         comments: removeFirstItemFromArray(
           req.user.id,
           (await model.findOne({
-            _id: document
-          })).comments
+            _id: comment.document.id
+          }))?.comments
         )
       }
     );
-    res.json(
-      isOwner
-        ? "You have permanently deleted your comment"
-        : "Comment deleted successfully"
-    );
+    comment = await comment.populate(populate);
     const io = req.app.get("socketIo");
-    if (io) io.volatile.emit("delete-comment", req.params.id, document);
+    if (io) {
+      io && io.emit(`filter-comment`, doc);
+      if (
+        req.query.withThread === "true" &&
+        (req.query.ro || req.query.threadPriorities)
+      ) {
+        const doc = await mergeThread(
+          Comment,
+          comment.document.id,
+          req.query,
+          populate
+        );
+        if (doc) io.emit("comment", doc, true);
+      }
+    }
+    handleMiscDelete(comment.id, io);
+    if (comment.media) deleteFile(comment.media.url);
   } catch (err) {
     next(err);
   }

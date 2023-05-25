@@ -1,11 +1,11 @@
 import express from "express";
-import { uploadFile } from "../utils/fileHandler.js";
+import { uploadFile } from "../utils/file-handlers.js";
+import { verifyToken } from "../utils/middlewares.js";
 import {
   signup,
   signin,
   userExist,
   refreshTokens,
-  verifyToken,
   signout,
   recoverPwd,
   verifyUserToken,
@@ -20,7 +20,8 @@ router
     uploadFile({
       dirPath: "avatars",
       single: true,
-      type: "image"
+      type: "image",
+      defaultFieldName: "avatar"
     }),
     signup
   )

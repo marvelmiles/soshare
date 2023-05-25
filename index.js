@@ -1,13 +1,12 @@
 // since this is a demo unused files are deleted over the internet
 // production wise you might want to just console.log unused file
-// and manully delete them just to increase response time
+// and manully delete them just to decrease server workload
 
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import dotenv from "dotenv";
 import helmet from "helmet";
-import morgan from "morgan";
 import path from "path";
 import { fileURLToPath } from "url";
 import authRoutes from "./routes/auth.js";
@@ -21,6 +20,7 @@ import { users, posts } from "./data.js";
 import { CLIENT_ENDPOINT } from "./config.js";
 import socket from "./socket.js";
 import { createError } from "./utils/error.js";
+import { deleteFile } from "./utils/file-handlers.js";
 
 // CONFIGURATIONS
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -28,16 +28,7 @@ dotenv.config();
 const app = express();
 
 // MIDDLEWARES
-app.use(
-  express.json({
-    limit: "30mb",
-    extended: true
-  })
-);
-app.use(express.urlencoded({ limit: "30mb", extended: true }));
-app.use(helmet());
-app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
-// app.use(morgan("common"));
+
 app.use(
   cors({
     origin: CLIENT_ENDPOINT,
@@ -45,9 +36,20 @@ app.use(
     credentials: true
   })
 );
+
+app.use(
+  express.json({
+    limit: "200mb",
+    extended: true
+  })
+);
+app.use(express.urlencoded({ extended: true }));
+app.use(helmet());
+app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
+
 app.use(cookieParser());
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
-
+app.use(express.static("./client/build"));
 // ROUTES
 
 app.use("/api/auth", authRoutes);
@@ -56,16 +58,29 @@ app.use("/api/users", userRoutes);
 app.use("/api/shorts", shortRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api", miscRoutes);
-if (process.env.NODE_ENV !== "production") {
-  // load client side js once browser read index.html
-  app.use(express.static("./client/build"));
-  app.get("/*", function(req, res) {
-    res.sendFile(path.join(__dirname, "./client/build/index.html"));
-  });
-}
+app.get("/", function(req, res) {
+  res.sendFile(path.join(__dirname, "./client/build/index.html"));
+});
+
 app.use((err, req, res, next) => {
-  err = err.status ? err : createError(err);
-  return res.status(err.status).json(err.message);
+  console.log(err.message, " power ");
+  if (res.headersSent) {
+    console.warn(
+      "[SERVER_ERROR]: ",
+      req.headers.origin,
+      req.originalUrl,
+      " at ",
+      new Date()
+    );
+  } else {
+    err = err.status ? err : createError(err);
+    if (err) return res.status(err.status).json(err.message);
+  }
+  if (req.file) deleteFile(req.file.publicUrl);
+  if (req.files)
+    for (const { publicUrl } of req.files) {
+      deleteFile(publicUrl);
+    }
 });
 
 // MONGOOSE SETUP

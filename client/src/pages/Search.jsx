@@ -1,18 +1,12 @@
-import React, { useState, useRef, useMemo, useEffect } from "react";
-import Layout from "components/Layout";
-import { useSearchParams } from "react-router-dom";
-import http from "api/http";
-import { useContext } from "redux/store";
+import React, { useRef, useMemo, useEffect } from "react";
+import { useSearchParams, Navigate } from "react-router-dom";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
-import Typography from "@mui/material/Typography";
-import Box from "@mui/material/Box";
-import HomePage from "./HomePage";
 import Carousel from "react-multi-carousel";
-import PostsView from "components/PostsView";
-import ShortsWidget from "components/ShortsWidget";
-import UsersView from "views/UsersView";
+import PostsView from "views/PostsView";
+import ShortsView from "views/ShortsView";
 import MainView from "views/MainView";
+import FollowMeWidget from "components/FollowMeWidget";
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -20,7 +14,6 @@ const Search = () => {
     () => (searchParams.get("tab") || "posts").toLowerCase(),
     [searchParams]
   );
-
   const q = useMemo(() => searchParams.get("q") || "", [searchParams]);
 
   const carouselRef = useRef();
@@ -28,20 +21,35 @@ const Search = () => {
     hasMounted: false
   }).current;
   useEffect(() => {
-    stateRef.hasMounted = true;
-    carouselRef.current.goToSlide(
-      {
-        posts: 0,
-        users: 1,
-        shorts: 2
-      }[tab],
-      {
-        skipAfterChange: true
-      }
-    );
+    if (carouselRef.current) {
+      stateRef.hasMounted = true;
+      carouselRef.current.goToSlide(
+        {
+          posts: 0,
+          users: 1,
+          shorts: 2
+        }[tab],
+        {
+          skipAfterChange: true
+        }
+      );
+    }
   }, [tab, stateRef]);
+  if (!q) return <Navigate to={-1} />;
+  const viewSx = {
+    p: 0,
+    minHeight: "inherit",
+    height: "auto"
+  };
   return (
-    <MainView borderline>
+    <MainView
+      borderline
+      sx={{
+        ".react-multi-carousel-list,.react-multi-carousel-track,.react-multi-carousel-track li": {
+          minHeight: "calc(100vh - 120px)"
+        }
+      }}
+    >
       <Tabs
         value={tab}
         onChange={(e, value) => {
@@ -50,11 +58,9 @@ const Search = () => {
         }}
         variant="scrollable"
         sx={{
-          // mb: 3,
           "& .MuiTab-root": {
             flex: 1
           },
-          borderBottom: "1px solid red",
           borderBottomColor: "divider",
           ".MuiTabs-indicator": {
             bottom: "-1px"
@@ -91,36 +97,46 @@ const Search = () => {
             dataKey: tab,
             searchParams: `q=${q}&select=posts`,
             url: `/search`,
-            autoFetch: tab === "posts" && stateRef.hasMounted ? true : "pending"
+            readyState: q
+              ? tab === "posts" && stateRef.hasMounted
+                ? "ready"
+                : "pending"
+              : false
           }}
-          sx={{
-            p: 0
-          }}
+          sx={viewSx}
           postSx={{
             "&:first-of-type": {
-              borderTop: "none"
+              borderTop: "1px solid currentColor",
+              borderColor: "divider"
             }
           }}
+          key={"serach-posts"}
         />
-        <UsersView
+        <FollowMeWidget
+          variant="block"
           infiniteScrollProps={{
             dataKey: tab,
             searchParams: `q=${q}&select=users`,
             url: `/search`,
-            autoFetch: tab === "users" && stateRef.hasMounted ? true : "pending"
+            readyState:
+              tab === "users" && stateRef.hasMounted ? "ready" : "pending",
+            componentProps: {
+              plainWidget: true
+            }
           }}
+          key={"serach-users"}
         />
-        <ShortsWidget
+        <ShortsView
+          plainWidget
           infiniteScrollProps={{
             dataKey: tab,
             searchParams: `q=${q}&select=shorts`,
             url: `/search`,
-            autoFetch:
-              tab === "shorts" && stateRef.hasMounted ? true : "pending"
+            readyState:
+              tab === "shorts" && stateRef.hasMounted ? "ready" : "pending"
           }}
-          sx={{
-            backgroundColor: "transparent"
-          }}
+          sx={viewSx}
+          key={"serach-shorts"}
         />
       </Carousel>
     </MainView>

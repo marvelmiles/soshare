@@ -1,5 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
-
+import { useState, useCallback } from "react";
 export const isEmail = str => {
   return /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/i.test(
     str
@@ -40,6 +39,17 @@ export const isLink = str => {
   }
 };
 
+export const toSeconds = (duration, shallow = true) => {
+  if (Number.isInteger(duration)) {
+    return duration * (shallow ? 1 : 1000); // Multiply integer input by 1 second
+  } else if (typeof duration === "number") {
+    // media duration in minutes and seconds
+    return Math.floor(duration / 60) * 60 + (duration % 60);
+  } else {
+    return NaN;
+  }
+};
+
 export const mergeFileList = (a, b) => {
   const dt = new DataTransfer();
   const { files } = a;
@@ -50,36 +60,45 @@ export const mergeFileList = (a, b) => {
   return dt.files;
 };
 
+export const splitNumberAndText = input => {
+  const match = input.match(/^(\d+)(\D+)$/i);
+  if (!match) return { number: NaN, text: "" };
+  const number = Number(match[1]);
+  const text = match[2].toLowerCase();
+  return { number, text };
+};
+
 export const isFileList = obj => {
   return obj && obj.toString() === "[object FileList]";
 };
 
 const useForm = (config = {}) => {
-  const [
-    {
-      placeholders,
-      required = true,
-      exclude,
-      returnFormObject,
-      returnFilesArray = false,
-      mergeFile = false,
-      formAppendMap = {},
-      appendSkipKey,
-      keepNonStrongPwdStatus,
-      maxData
-    },
-    setConfig
-  ] = useState(config);
+  const {
+    placeholders,
+    required,
+    exclude,
+    returnFormObject,
+    returnFilesArray = false,
+    mergeFile = false,
+    keepNonStrongPwdStatus,
+    dataSize,
+    withPlaceholders = true,
+    strictStateCheck = true,
+    maxUpload,
+    maxDuration,
+    withRequired = true
+  } = config;
   const [stateChanged, setStateChanged] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(null);
-  const [formData, setFormData] = useState(placeholders);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formData, setFormData] = useState(withPlaceholders && placeholders);
   const [errors, setErrors] = useState({});
   const deletePathFromObject = (obj, key, dataName, dataType) => {
-    if (!obj[key]) return;
     switch (dataType) {
       case "object":
-        delete obj[key][dataName];
-        !Object.keys(obj[key]).length && delete obj[key];
+        if (obj[key]) {
+          delete obj[key][dataName];
+          !Object.keys(obj[key]).length && delete obj[key];
+        }
         break;
       default:
         delete obj[key];
@@ -88,133 +107,112 @@ const useForm = (config = {}) => {
   };
   const handleSubmit = useCallback(
     e => {
-      try {
-        // console.log("handle submit", stateChanged, errors, formData);
-        if (e && (e.currentTarget || e.target)) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-        if (stateChanged || required) {
-          let form = returnFormObject ? new FormData() : undefined;
-          if (formData) {
-            const validate = (key, formName, dataType) => {
-              // // console.log(
-              //   key,
-              //   formName,
-              //   dataType,
-              //   required,
-              //   formData,
-              //   "data-key"
-              // );
-              let _required =
-                (exclude &&
-                  (!{
-                    object: exclude[key]?.[formName]
-                  }[dataType] ||
-                    exclude[key])) ||
-                required === true ||
-                ({
-                  object: required[key]?.[formName]
+      if (e && (e.currentTarget || e.target)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      if (stateChanged || required) {
+        let form = returnFormObject ? new FormData() : undefined;
+        if (formData) {
+          const validate = (key, formName, dataType) => {
+            let _required;
+            if (exclude) {
+              _required = !(
+                {
+                  object: exclude[key]?.[formName]
                 }[dataType] ||
-                  required[key]);
-              _required =
-                typeof _required === "string" ? _required : "required";
+                exclude[key] ||
+                true
+              );
+            }
+            if (_required === undefined) {
+              _required = required
+                ? {
+                    object: required[key]?.[formName]
+                  }[dataType] ||
+                  required[key] ||
+                  true
+                : false;
+            }
+            if (_required && typeof _required !== "string")
+              _required = "required";
 
-              const keyValue =
-                {
-                  object: formData[key]
-                }[dataType] || formData[key];
+            const keyValue =
+              {
+                object: formData[key]
+              }[dataType] || formData[key];
 
-              const errValue =
-                {
-                  object: errors[key]?.[formName]
-                }[dataType] || errors[key];
-              if (
-                keyValue
-                  ? !(keyValue[formName] || keyValue) && _required
-                  : _required
-              ) {
-                if (formName) errors[key][formName] = _required;
-                else errors[key] = _required;
-              } else if (
-                !keepNonStrongPwdStatus &&
-                (errValue === "Weak password" || errValue === "Medium password")
-              )
-                deletePathFromObject(errors, key, formName, dataType);
-              if (keyValue) {
-                if (form) {
-                  if (
-                    {
-                      object: true
-                    }[dataType] ||
-                    isFileList(keyValue) ||
-                    formAppendMap[key]
-                  ) {
-                    for (let i = 0; i < keyValue.length; i++) {
-                      const item = keyValue[i];
-                      if (
-                        !appendSkipKey ||
-                        item[appendSkipKey] !== undefined ||
-                        item instanceof File
-                      ) {
-                        switch (dataType) {
-                          case "object":
-                            if (!form.get(`${key}[${keyValue[i]}]`))
-                              form.append(`${key}[${keyValue[i]}]`, item);
-                            break;
-                          default:
-                            form.append(key, item);
-                            break;
-                        }
-                      }
+            const errValue =
+              {
+                object: errors[key]?.[formName]
+              }[dataType] || errors[key];
+            if (
+              keyValue
+                ? !(keyValue[formName] || keyValue) && _required
+                : _required
+            ) {
+              if (formName) errors[key][formName] = _required;
+              else errors[key] = _required;
+            } else if (
+              !keepNonStrongPwdStatus &&
+              (errValue === "Weak password" || errValue === "Medium password")
+            )
+              deletePathFromObject(errors, key, formName, dataType);
+            if (keyValue) {
+              if (form) {
+                let isFilelist;
+                if (
+                  dataType === "object" ||
+                  (isFilelist = isFileList(keyValue))
+                ) {
+                  for (let prop in keyValue) {
+                    if (isFilelist ? Number(prop) : true) {
+                      if (!form.get(`${key}[${prop}]`))
+                        form.append(`${key}[${prop}]`, keyValue[prop]);
                     }
-                  } else form.set(key, keyValue);
-                }
-              } else deletePathFromObject(formData, key, formName, dataType);
-            };
-
-            for (let key in {
-              ...formData,
-              ...required
-            }) {
-              const dataType = config.dataType?.[key];
-              switch (dataType) {
-                case "object":
-                  for (let _key in formData[key]) {
-                    validate(key, _key, dataType);
                   }
-                  break;
-                default:
-                  validate(key);
-                  break;
+                } else form.set(key, keyValue);
               }
-            }
-          } else if (required === true) {
-            errors.all = "required";
-          } else if (required) {
-            for (const key in required) {
-              errors[key] =
-                typeof required[key] === "string" ? required[key] : "required";
-            }
-          }
-          const hasError = Object.keys(errors).length;
-          !hasError && setIsSubmitting(true);
-          setErrors({
-            ...errors
-          });
-          const _formData = {
-            ...formData
+            } else deletePathFromObject(formData, key, formName, dataType);
           };
 
-          console.log(errors, _formData);
-          return hasError
-            ? null
-            : form || (delete _formData.confirmPassword && _formData);
+          for (let key in {
+            ...formData,
+            ...required
+          }) {
+            const dataType = config.dataType?.[key];
+            switch (dataType) {
+              case "object":
+                for (let _key in formData[key]) {
+                  validate(key, _key, dataType);
+                }
+                break;
+              default:
+                validate(key);
+                break;
+            }
+          }
+        } else if (required === true) {
+          errors.all = "required";
+        } else if (required) {
+          for (const key in required) {
+            errors[key] =
+              typeof required[key] === "string" ? required[key] : "required";
+          }
         }
-        return null;
-      } catch (err) {
-        // console.log(err, " use form err");
+        const hasError = Object.keys(errors).length;
+        !hasError && setIsSubmitting(true);
+        setErrors({
+          ...errors
+        });
+        const _formData = {
+          ...formData
+        };
+        return hasError
+          ? null
+          : form || (delete _formData.confirmPassword && _formData);
       }
+      return null;
     },
     [
       stateChanged,
@@ -223,8 +221,6 @@ const useForm = (config = {}) => {
       required,
       exclude,
       returnFormObject,
-      formAppendMap,
-      appendSkipKey,
       config.dataType,
       keepNonStrongPwdStatus
     ]
@@ -236,51 +232,64 @@ const useForm = (config = {}) => {
       const node = e.target;
       const key = node.name;
       const dataType = config.dataType?.[key];
-      let { name: dataName, min: dataMin = 8, max: dataMax } = node.dataset;
+      let {
+        name: dataName,
+        min: dataMin,
+        max: dataMax,
+        validateType = "true"
+      } = node.dataset;
+      validateType = validateType === "true";
       let value =
         node.type === "file"
           ? node.multiple
             ? node.files
             : node.files?.[0]
           : node.value;
-      const _required =
-        required === undefined ||
-        required === true ||
-        ({
-          object: required[key]?.[dataName]
-        }[dataType] ||
-          required[key]);
-      let isValid = true;
-      setFormData(formData => {
-        const addError = (error, _key) => {
+      const _required = required
+        ? required === true ||
+          {
+            object: required[key]?.[dataName]
+          }[dataType] ||
+          required[key]
+        : false;
+      setFormData((formData = {}) => {
+        let lastErr;
+        const addError = (error, _key, index) => {
           if (!error) return;
-          isValid = false;
+          lastErr = error;
           setErrors(errors => {
-            return {
-              ...errors,
-              [_key || key]:
+            _key = _key || key;
+            if (index !== undefined) {
+              if (!errors[_key]) errors[_key] = {};
+              errors[_key][index] = error;
+            } else {
+              errors[_key] =
                 {
                   object: {
-                    ...errors[key],
+                    ...errors[_key],
                     [dataName]: error
                   }
-                }[dataType] || error
+                }[dataType] || error;
+            }
+            return {
+              ...errors
             };
           });
         };
         setIsSubmitting(false);
-        setStateChanged(
-          !!(formData
-            ? Object.keys(formData).length - 1 || value.length || value.name
-            : true)
-        );
-        let keyValue = "";
+
+        let keyValue =
+          {
+            object: {
+              ...formData?.[key],
+              [dataName]: value
+            }
+          }[dataType] || value;
         setErrors(errors => {
-          // console.log(formData, "ss");
           if (
             errors.all &&
-            (Object.keys(formData).length === maxData ||
-              Object.keys(errors).length === maxData)
+            (Object.keys(formData).length === dataSize ||
+              Object.keys(errors).length === dataSize)
           ) {
             delete errors.all;
             errors = {
@@ -289,109 +298,277 @@ const useForm = (config = {}) => {
           }
           return errors;
         });
-        if (value || _required) {
-          if (node.type === "file" && node.multiple && formData) {
-            keyValue =
-              {
-                object: formData[key]?.[dataName]
-              }[dataType] || formData[key];
-            if (mergeFile && keyValue) {
-              if (returnFilesArray)
-                keyValue = Array.from(value).concat(keyValue);
-              else mergeFileList(value, keyValue);
-            } else if (returnFilesArray) keyValue = Array.from(value);
-          } else {
-            keyValue =
-              {
-                object: {
-                  ...formData?.[key],
-                  [dataName]: value
-                }
-              }[dataType] || value;
-          }
-        }
 
-        formData = {
-          ...formData,
-          [key]: keyValue
-        };
-        const checkMin = () => {
-          if (key === "password") {
-            dataMin = Number(dataMin) || 0;
-            if (dataMin && value.length < dataMin) {
-              addError(`minimum of ${dataMin}`);
-              if (formData.confirmPassword)
-                addError(`password don't match`, "confirmPassword");
-              return true;
+        if (value || _required) {
+          if (node.type === "file") {
+            if (!node.multiple || !mergeFile)
+              setErrors(errors => {
+                delete errors[key];
+                delete errors[key + "-duration"];
+                delete errors[key + "-upload"];
+                return {
+                  ...errors
+                };
+              });
+            if (keyValue && (keyValue.length || keyValue.name)) {
+              const validateFileMax = (text, type) => {
+                let digit;
+                const isUp = type === "upload";
+                const obj = splitNumberAndText(text);
+                const errKey = key + "-" + type;
+                if (!obj.number) addError(`max ${type} exceeded`, errKey);
+                else {
+                  digit = isUp
+                    ? { mb: 1000000, gb: 1000000000 }[obj.text]
+                    : { s: 1, h: 3600, m: 60 }[obj.text] || NaN;
+                  if (digit) digit = obj.number * digit;
+                  else addError(`max ${type} exceeded`, errKey);
+                }
+
+                if (digit) {
+                  if (type === "duration") {
+                    const validateDur = (file, index) => {
+                      if (
+                        file.type.indexOf("video") >= 0 ||
+                        file.type.indexOf("audio") >= 0
+                      )
+                        // invalidate key until loaded and validated
+                        lastErr = true;
+                      const url = URL.createObjectURL(file);
+                      const audio = new Audio(url);
+                      const metadataListener = () => {
+                        if (audio.duration > digit) {
+                          addError(`max duration exceeded`, errKey, index);
+                          if (strictStateCheck) setStateChanged(false);
+                        } else
+                          setErrors(errors => {
+                            detStateChange(errors, 1);
+                            return errors;
+                          });
+
+                        URL.revokeObjectURL(url);
+                        audio.removeEventListener(
+                          "loadedmetadata",
+                          metadataListener,
+                          false
+                        );
+                      };
+
+                      const errorListener = ({ target: { error } }) => {
+                        addError(error, errKey);
+                        URL.revokeObjectURL(url);
+                        audio.removeEventListener(
+                          "error",
+                          errorListener,
+                          false
+                        );
+                      };
+                      audio.addEventListener(
+                        "loadedmetadata",
+                        metadataListener,
+                        false
+                      );
+                      audio.addEventListener("error", errorListener, false);
+                    };
+                    if (node.multiple) {
+                      for (let key in keyValue) {
+                        if (Number(key) >= 0) validateDur(keyValue[key], key);
+                      }
+                    } else validateDur(keyValue);
+                  } else {
+                    if (node.multiple) {
+                      for (let prop in keyValue) {
+                        if (Number(prop) >= 0 && keyValue[prop].size > digit)
+                          addError(`max upload exceeded`, errKey, prop);
+                      }
+                    } else if (keyValue.size > digit)
+                      addError(`max upload exceeded`, errKey);
+                  }
+                }
+              };
+              if (maxDuration) validateFileMax(maxDuration, "duration");
+              if (maxUpload) validateFileMax(maxUpload, "upload");
+              if (node.multiple) {
+                if (mergeFile && keyValue) {
+                  if (returnFilesArray) {
+                    const isList = keyValue.length;
+                    if (isList) keyValue = Array.from(value);
+                    else keyValue = Array.from(value).concat(keyValue);
+                  } else mergeFileList(value, keyValue);
+                } else if (returnFilesArray) keyValue = Array.from(value);
+              }
+            } else {
+              keyValue = formData[key];
+              node.value = "";
             }
           }
-          return false;
-        };
-        // // console.log(value, key, _required);
-        if (value) {
-          // if(daminFirst)
-          if (checkMin()) return formData;
+        }
+        if (_required) {
+          if (dataMin) {
+            dataMin = Number(dataMin) || 0;
+            if (keyValue.length < dataMin) {
+              addError(`minimum of ${dataMin}`, key);
+              if (key === "password" && formData.confirmPassword)
+                addError(`password don't match`, "confirmPassword");
+            }
+          }
+        }
+        if (dataMax) {
+          dataMax = Number(dataMax) || 0;
           if (dataMax && value.length > dataMax) {
             addError(`maximum of ${dataMax}`);
             return formData;
           }
-          switch (node.dataset.controlled === "true" ? "" : key) {
-            case "email":
-              if (!isEmail(value)) addError("Invalid Email");
-              break;
-            case "fullname":
-              if (!isFullName(value))
-                addError("Name must be separated by space");
-              break;
-            case "phone":
-              if (!isNumber(value)) addError("Invalid phone number");
-              break;
-            case "password":
-              const status = isPassword(value);
-              if (status !== "Strong") addError(`${status} password`);
-              if (formData.confirmPassword) {
-                if (value === formData.confirmPassword)
-                  status === "Strong" &&
-                    setErrors(errors => {
-                      deletePathFromObject(errors, "confirmPassword");
-                      return errors;
-                    });
-                else addError(`password don't match`, "confirmPassword");
+        }
+        formData = {
+          ...formData,
+          [key]: keyValue
+        };
+
+        const detStateChange = (errors = { [key]: lastErr }) => {
+          let stateChanged = false;
+          if (strictStateCheck) {
+            const shallowCheck = () => {
+              stateChanged = Object.keys(errors).length
+                ? false
+                : !!(keyValue.length || keyValue.name);
+            };
+            if (withRequired && isObject(required)) {
+              stateChanged = true;
+              for (const key in required) {
+                if (
+                  (key === "password" && validateType && errors[key]
+                    ? keepNonStrongPwdStatus
+                      ? errors[key]
+                      : !(
+                          errors[key] === "Weak password" ||
+                          errors[key] === "Medium password"
+                        )
+                    : errors[key]) ||
+                  (placeholders || {})[key] === formData[key]
+                ) {
+                  stateChanged = false;
+                  break;
+                }
               }
-              break;
-            case "confirmPassword":
-              if (value !== formData.password)
-                addError(`password don't match.`);
+            } else if (lastErr) stateChanged = false;
+            else if (placeholders) {
+              for (const key in formData) {
+                if (placeholders[key] !== formData[key]) {
+                  stateChanged = true;
+                  break;
+                }
+              }
+            } else shallowCheck();
+          } else stateChanged = !Object.keys(formData).length;
+          setStateChanged(stateChanged);
+        };
+        if (value) {
+          if (validateType) {
+            const _validate = !(!value && !_required);
+            switch (node.dataset.controlled === "true" ? "" : key) {
+              case "email":
+                if (_validate && !isEmail(value)) addError("Invalid Email");
+                break;
+              case "fullname":
+                if (_validate && !isFullName(value))
+                  addError("Name must be separated by space");
+                break;
+              case "phone":
+                if (_validate && !isNumber(value))
+                  addError("Invalid phone number");
+                break;
+              case "password":
+                if (_validate) {
+                  if (dataMin && keyValue.length < dataMin) break;
+                  const status = isPassword(value);
+                  if (status !== "Strong") addError(`${status} password`);
+                  if (formData.confirmPassword) {
+                    if (value === formData.confirmPassword)
+                      status === "Strong" &&
+                        setErrors(errors => {
+                          deletePathFromObject(errors, "confirmPassword");
+                          return errors;
+                        });
+                    else addError(`password don't match`, "confirmPassword");
+                  }
+                }
+                break;
+              case "confirmPassword":
+                if (_validate && value !== formData.password)
+                  addError(`password don't match.`);
 
-              break;
-            default:
-              if (typeof validate === "function")
-                addError(validate(key, value, dataName));
-              break;
+                break;
+              default:
+                if (typeof validate === "function")
+                  addError(
+                    validate({
+                      key,
+                      value,
+                      dataName,
+                      validate: _validate
+                    })
+                  );
+                break;
+            }
           }
-
-          if (isValid)
+          if (!lastErr)
             setErrors(errors => {
               deletePathFromObject(errors, key, dataName, dataType);
+
+              detStateChange(errors);
               return errors;
             });
+          else detStateChange();
         } else {
-          if (_required)
+          if (_required) {
+            console.log("will det change ");
             addError(typeof _required === "string" ? _required : "required");
-          else if (formData)
+            detStateChange();
+          } else if (formData) {
             deletePathFromObject(formData, key, dataName, dataType);
+            setErrors(errors => {
+              deletePathFromObject(errors, key, dataName, dataType);
+              detStateChange(errors, " y ");
+              return {
+                ...errors
+              };
+            });
+          }
         }
         return formData;
       });
-
-      return isValid;
     },
-    [config.dataType, mergeFile, returnFilesArray, required, maxData]
+    [
+      config.dataType,
+      mergeFile,
+      returnFilesArray,
+      required,
+      dataSize,
+      placeholders,
+      strictStateCheck,
+      maxUpload,
+      maxDuration,
+      withRequired,
+      keepNonStrongPwdStatus
+    ]
   );
   const reset = useCallback((formData, config = {}) => {
-    setStateChanged(config.stateChanged || !!formData);
-    setIsSubmitting(config.isSubmitting || false);
-    if (isObject(formData)) setFormData(formData);
+    setStateChanged(
+      typeof config.stateChanged === "boolean" ? config.stateChanged : false
+    );
+    setIsSubmitting(
+      typeof config.isSubmitting === "boolean" ? config.isSubmitting : false
+    );
+    const isObj = isObject(formData);
+
+    (config.resetErrors === true ||
+      (isObj &&
+        (config.resetErrors === false
+          ? false
+          : config.stateChanged !== true))) &&
+      setErrors({});
+    if (isObj) setFormData(formData);
     else if (!formData) setFormData({});
   }, []);
 
@@ -403,7 +580,8 @@ const useForm = (config = {}) => {
     handleChange,
     handleSubmit,
     reset,
-    setErrors
+    setErrors,
+    setStateChanged
   };
 };
 

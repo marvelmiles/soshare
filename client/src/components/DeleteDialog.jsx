@@ -5,17 +5,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import {
-  Stack,
-  Avatar,
-  InputBase,
-  Divider,
-  Typography,
-  Box,
-  IconButton,
   Button,
-  FormControl,
-  Select,
-  MenuItem,
   FormControlLabel,
   Checkbox,
   CircularProgress
@@ -33,13 +23,20 @@ CircularProgress.defaultProps = {
 const DeleteDialog = ({
   open,
   openFor,
-  type,
   title = "medias",
   label,
   handleAction
 }) => {
   const [deleting, setDeleting] = useState(false);
-
+  const styles = {
+    actions: {
+      px: "16px !important"
+    },
+    icon: {
+      mr: "8px"
+    },
+    content: { pt: "18px !important", pb: 0, width: "100%" }
+  };
   return (
     <Dialog
       open={open}
@@ -54,7 +51,7 @@ const DeleteDialog = ({
             <>
               <DialogTitle>Delete {title}</DialogTitle>
               <DialogContent
-                sx={{ width: "100%" }}
+                sx={styles.content}
                 onClick={e => {
                   e.stopPropagation();
                 }}
@@ -62,16 +59,22 @@ const DeleteDialog = ({
                 Permanently delete {label || title}? You can't undo this
               </DialogContent>
               <DialogActions
-                sx={
-                  {
-                    // p:
-                  }
-                }
+                sx={styles.actions}
                 onClick={e => {
                   e.stopPropagation();
                 }}
               >
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      sx={styles.icon}
+                      onChange={(_, bool) => handleAction("checked", bool)}
+                    />
+                  }
+                  label="Don't show again"
+                />
                 <Button
+                  variant="outlined"
                   disabled={deleting}
                   onClick={() => handleAction("cancel")}
                 >
@@ -95,19 +98,21 @@ const DeleteDialog = ({
           "delete-temp": (
             <>
               <DialogTitle>Delete {title}?</DialogTitle>
-              <DialogContent>
+              <DialogContent sx={styles.content}>
                 Temporarily remove {label || title} from screen.
               </DialogContent>
-              <DialogActions justifyContent="space-between">
+              <DialogActions sx={styles.actions}>
                 <FormControlLabel
                   control={
                     <Checkbox
+                      sx={styles.icon}
                       onChange={(_, bool) => handleAction("checked", bool)}
                     />
                   }
                   label="Don't show again"
                 />
                 <Button
+                  variant="outlined"
                   onClick={e => {
                     e.stopPropagation();
                     handleAction("cancel");

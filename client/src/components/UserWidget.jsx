@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import PropTypes from "prop-types";
 import { WidgetContainer } from "./styled";
 import { Box, Stack, Avatar, Divider, IconButton } from "@mui/material";
@@ -9,34 +9,32 @@ import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import WorkOutlinedIcon from "@mui/icons-material/WorkOutlineOutlined";
 import TwitterIcon from "@mui/icons-material/Twitter";
 import LinkedInIcon from "@mui/icons-material/LinkedIn";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import EditOutlined from "@mui/icons-material/EditOutlined";
 import { useSelector } from "react-redux";
+import { useSearchParams } from "react-router-dom";
+import MailOutlineIcon from "@mui/icons-material/MailOutline";
 
-const UserWidget = ({ width, user }) => {
+const UserWidget = ({ width, user = {} }) => {
+  const [searchParams] = useSearchParams();
   const previewUser = useSelector(({ user: { previewUser, currentUser } }) => {
-    return {
-      ...(user || currentUser),
-      ...previewUser
-      // bio: `CNulla excepteur laboris anim Lorem sit consectetur esse in consequat nostrud. Quis officia aliquip dolor officia deserunt culpa ex. Culpa quis veniam occaecat id dolore est. Eiusmod enim labore nisi consectetur amet et occaecat id incididunt ad velit. Incididunt quis aliquip sint id. Occaecat consectetur laboris id dolore aliqua.
-
-      // Consequat nisi consectetur excepteur eiusmod Lorem. Nostrud culpa deserunt veniam dolor ipsum. Esse consectetur aute irure commodo. Do consequat enim nulla officia mollit mollit.`,
-      // displayName: `Exercitation anim consequat mollit est tempor tempor amet fugiat magna tempor proident reprehenderit ut et.`,
-      // socials: {
-      //   twitter: {
-      //     url: "h"
-      //   },
-      //   linkedIn: {
-      //     url: "jj"
-      //   }
-      // },
-      // occupation: "ss",
-      // location: "jjjjjjjjjj"
-    };
+    const isCurrentUser =
+      user.id && currentUser ? user.id === currentUser.id : true;
+    return isCurrentUser
+      ? {
+          ...currentUser,
+          ...user,
+          ...previewUser,
+          isCurrentUser
+        }
+      : {
+          following: [],
+          followers: [],
+          recommendationBlacklist: [],
+          socials: {},
+          ...user,
+          isCurrentUser
+        };
   });
+
   const userLink = `/u/${previewUser.id}`;
 
   const styles = {
@@ -46,22 +44,32 @@ const UserWidget = ({ width, user }) => {
       alignItems: "flex-start",
       justifyContent: "normal",
       "& > svg": {
-        color: "common.main",
+        color: "text.secondary",
         minWidth: 0,
         width: "40px"
       },
       ".MuiTypography-root": {
-        color: "common.main"
-      },
-      ".MuiIconButton-root svg": {}
+        color: "text.secondary"
+      }
     },
     divider: { my: 3 }
+  };
+  const renderSV = v => {
+    const view = (searchParams.get("view") || "").toLowerCase();
+    return `${
+      window.location.search
+        ? view
+          ? window.location.search.replace(`view=${view}`, `view=${v}`)
+          : window.location.search + `&view=${v}`
+        : `?view=${v}`
+    }`;
   };
   return (
     <WidgetContainer
       sx={{
         width
       }}
+      className="widget-container"
     >
       <Stack sx={{ gap: 2, flexWrap: "wrap" }} alignItems="flex-start">
         <Stack
@@ -87,7 +95,7 @@ const UserWidget = ({ width, user }) => {
           <Box
             sx={{
               minWidth: 0,
-              color: "common.medium",
+              color: "text.secondary",
               wordBreak: "break-word"
             }}
           >
@@ -113,20 +121,44 @@ const UserWidget = ({ width, user }) => {
             >
               @{previewUser.username}
             </Typography>
-            <div style={{ whiteSpace: "nowrap" }}>
+            <div style={{ whiteSpace: "wrap" }}>
               <StyledLink
                 sx={{ color: "inherit" }}
-                to={`${userLink}#following`}
+                to={renderSV("user-following")}
               >
                 {previewUser.following.length} following
               </StyledLink>
               <span style={{ marginInline: "2px" }}>|</span>
               <StyledLink
                 sx={{ color: "inherit" }}
-                to={`${userLink}#followers`}
+                to={renderSV("user-followers")}
               >
                 {previewUser.followers.length} followers
               </StyledLink>
+
+              <span style={{ marginInline: "2px" }}>|</span>
+              <StyledLink sx={{ color: "inherit" }} to={renderSV("user-posts")}>
+                {previewUser.postsCount} posts
+              </StyledLink>
+
+              <span style={{ marginInline: "2px" }}>|</span>
+              <StyledLink
+                sx={{ color: "inherit" }}
+                to={renderSV("user-shorts")}
+              >
+                {previewUser.shortsCount} shorts
+              </StyledLink>
+              {previewUser.isCurrentUser ? (
+                <>
+                  <span style={{ marginInline: "2px" }}>|</span>
+                  <StyledLink
+                    sx={{ color: "inherit" }}
+                    to={renderSV("user-blacklist")}
+                  >
+                    {previewUser.recommendationBlacklist.length} blacklist
+                  </StyledLink>
+                </>
+              ) : null}
             </div>
           </Box>
         </Stack>
@@ -138,7 +170,7 @@ const UserWidget = ({ width, user }) => {
         <Typography
           variant="caption"
           component="p"
-          color="common.dark"
+          color="grey.800"
           fontWeight="500"
           sx={{ mt: "1rem", pl: "0px" }}
         >
@@ -164,67 +196,70 @@ const UserWidget = ({ width, user }) => {
           </Box>
         </>
       ) : null}
-
-      {previewUser.socials ? (
-        <>
-          <Divider sx={styles.divider} />
-          <Box>
+      <Divider sx={styles.divider} />
+      <Box>
+        <Typography
+          variant="h5"
+          color="text.secondary"
+          fontWeight="500"
+          mb="1rem"
+        >
+          Social Profiles
+        </Typography>
+        <Stack sx={styles.textValue}>
+          <MailOutlineIcon />
+          <div style={{ minWidth: "100px", flex: 1 }}>
             <Typography
-              variant="h5"
-              color="common.main"
               fontWeight="500"
-              mb="1rem"
+              sx={{
+                color: "text.secondary"
+              }}
             >
-              Social Profiles
+              {previewUser.email}
             </Typography>
-            {Object.keys(previewUser.socials).map((l, i) => {
-              const url = previewUser.socials[l];
-              return (
-                <Stack sx={styles.textValue} key={i}>
+            <Typography>Mail Service</Typography>
+          </div>
+        </Stack>
+        {Object.keys(previewUser.socials).map((l, i) => {
+          const url = previewUser.socials[l];
+          return (
+            <Stack sx={styles.textValue} key={i}>
+              {
+                {
+                  twitter: <TwitterIcon />,
+                  linkedIn: <LinkedInIcon />
+                }[l]
+              }
+              <div style={{ minWidth: "100px", flex: 1 }}>
+                <Typography
+                  component="a"
+                  href={url}
+                  target="_blank"
+                  referrerPolicy="no-referrer"
+                  rel="noopener"
+                  fontWeight="500"
+                  sx={{
+                    color: "text.secondary",
+                    "&:hover": {
+                      textDecoration: "underline"
+                    }
+                  }}
+                >
+                  {url}
+                </Typography>
+                <Typography>
                   {
                     {
-                      twitter: <TwitterIcon />,
-                      linkedIn: <LinkedInIcon />
+                      twitter: "Social Network",
+                      linkedIn: "Network platform"
                     }[l]
                   }
-                  <div style={{ minWidth: "100px", flex: 1 }}>
-                    <Typography
-                      component="a"
-                      href={url}
-                      target="_blank"
-                      // noOpener
-                      // noReffer
-                      fontWeight="500"
-                      sx={{
-                        color: "common.main",
-                        "&:hover": {
-                          textDecoration: "underline"
-                        }
-                      }}
-                    >
-                      {url}
-                    </Typography>
-                    <Typography>
-                      {
-                        {
-                          twitter: "Social Network",
-                          linkedIn: "Network platform"
-                        }[l]
-                      }
-                    </Typography>
-                  </div>
-                  <IconButton
-                    component={StyledLink}
-                    to={`${userLink}#user-${l}`}
-                  >
-                    <EditOutlined />
-                  </IconButton>
-                </Stack>
-              );
-            })}
-          </Box>
-        </>
-      ) : null}
+                </Typography>
+              </div>
+            </Stack>
+          );
+        })}
+      </Box>
     </WidgetContainer>
   );
 };

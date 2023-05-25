@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-const schema = mongoose.Schema(
+const schema = new mongoose.Schema(
   {
     text: String,
     url: {
@@ -44,14 +44,13 @@ const schema = mongoose.Schema(
   }
 );
 
-// index all string fields
 schema.index({ text: 1 });
-schema.index(
-  {
-    expireAt: 1
-  },
-  { expireAfterSeconds: 0 }
-);
+// schema.index(
+//   {
+//     createdAt: 1
+//   },
+//   { expireAfterSeconds: 24 * 60 * 60 }
+// );
 const Short = mongoose.model("short", schema);
 
 export default Short;

@@ -1,129 +1,142 @@
-import React, {
-  useState,
-  useEffect,
-  useCallback,
-  useMemo,
-  useRef
-} from "react";
+import React, { useEffect, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
-import { WidgetContainer } from "./styled";
-import { Typography } from "@mui/material";
-import FollowMe from "./FollowMe";
-import { Snackbar } from "@mui/material";
-import Alert from "@mui/material/Alert";
-import CloseIcon from "@mui/icons-material/Close";
-import http from "api/http";
-import { useContext } from "redux/store";
+import { WidgetContainer } from "components/styled";
+import EmptyData from "components/EmptyData";
+import { Typography, Stack } from "@mui/material";
+import Person from "./Person";
+import { useContext } from "context/store";
 import { useSelector, useDispatch } from "react-redux";
-import { updateUser } from "redux/userSlice";
 import { useParams } from "react-router-dom";
 import InfiniteScroll from "components/InfiniteScroll";
+import useFollowDispatch from "hooks/useFollowDispatch";
+import { addToSet } from "utils";
+
 const FollowMeWidget = ({
-  title = "People to follow",
+  title = "",
   url = "suggest",
+  searchParams,
   priority = "toggle",
   secondaryTitle,
-  width
+  variant = "block",
+  infiniteScrollProps
 }) => {
-  const { currentUser, previewUser } = useSelector(state => state.user || {});
+  const { cid, previewUser } = useSelector(state => ({
+    cid: state.user.currentUser?.id,
+    previewUser: state.user.previewUser
+  }));
   let { userId } = useParams();
-  const { setSnackBar, socket } = useContext();
+  const isCurrentUser = cid === userId;
+  const { socket } = useContext();
   const dispatch = useDispatch();
-  const isCurrentUser = useMemo(() => currentUser?.id === userId, [
-    currentUser?.id,
-    userId
-  ]);
   const infiniteScrollRef = useRef();
   const stateRef = useRef({
     toggle: {},
     follow: {},
-    unfollow: {}
-  }).current;
+    unfollow: {},
+    priority
+  });
   const handleAction = useCallback((reason, socketUser) => {
-    const { setData } = infiniteScrollRef.current;
+    const { setData, data } = infiniteScrollRef.current;
     switch (reason) {
       case "new":
-        setData(data => {
-          if (data.data.length >= data.data.length + 1) return data;
-          return {
-            ...data,
-            data: [socketUser, ...data.data]
-          };
+        setData({
+          ...data,
+          data: addToSet(data.data, socketUser)
         });
         break;
       case "filter":
-        setData(data => {
-          if (data.data.length <= data.data.length - 1) return data;
-          return {
+        setData(
+          {
             ...data,
             data: data.data.filter(u => u.id !== socketUser.id)
-          };
-        });
+          },
+          0,
+          true
+        );
+        break;
       case "update":
-        setData(data => {
-          const users = [];
-          for (let i = 0; i < data.data.length; i++) {
-            if (socketUser.id !== data.data[i].id) users.push(data.data[i]);
-            else users.push(socketUser);
-          }
-          return {
-            ...data,
-            data: users
-          };
+        setData({
+          ...data,
+          data: data.data.map(u => (u.id === socketUser.id ? socketUser : u))
         });
+        break;
       default:
         break;
     }
   }, []);
 
+  const { following, toggleFollow, isProcessingFollow } = useFollowDispatch(
+    undefined,
+    priority
+  );
+
   useEffect(() => {
     const user = previewUser?.followUser;
-    if (user) {
-      priority !== "toggle" && handleAction("filter", user);
-      if (user.isFollowing) priority === "follow" && handleAction("new", user);
-      else {
-        (user.priority ===
-          {
-            follow: "unfollow",
-            unfollow: "follow"
-          }[priority] ||
-          (user.priority === "toggle" && priority === "unfollow")) &&
-          handleAction("new", user);
+    if (user && user.id === userId) {
+      if (user.filter) {
+        if (priority !== "toggle") {
+          if (priority === user.priority) handleAction("new", user);
+          else handleAction("filter", user);
+        }
+      } else {
+        priority !== "toggle" && handleAction("filter", user);
+        if (user.isFollowing)
+          priority === "follow" && handleAction("new", user);
+        else {
+          (user.priority ===
+            {
+              follow: "unfollow",
+              unfollow: "follow"
+            }[priority] ||
+            (user.priority === "toggle" && priority === "unfollow")) &&
+            handleAction("new", user);
+        }
       }
+      stateRef.current[priority].followId = user.id + userId;
+      stateRef.current[priority].unfollowId = user.id + userId;
     }
-  }, [previewUser?.followUser, handleAction, priority]);
+  }, [previewUser?.followUser, handleAction, priority, userId]);
 
   useEffect(() => {
-    socket.on("unfollow", ({ to, from }) => {
-      console.log("socket unfollow");
-      if (to.id === currentUser.id) {
-        if (stateRef[priority].unfollowId === to.id + from.id) return;
-        stateRef[priority].unfollowId = to.id + from.id;
-        if (priority === "toggle") handleAction("filter", from);
+    const handleFollowing = toFollow => ({ to, from }) => {
+      const isFrm = from.id === userId;
+      const isTo = to.id === userId;
+      const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
+      if (isTo || isFrm) {
+        if (stateRef.current[key]) return;
+        stateRef.current[key] = true;
+        if (isTo && priority === "toggle")
+          handleAction(toFollow ? "new" : "filter", from);
+        else if (isFrm) {
+          if (isCurrentUser) {
+            if (priority === "unfollow")
+              handleAction(toFollow ? "new" : "filter", to);
+            else if (priority === "follow")
+              handleAction(toFollow ? "filter" : "new", to);
+          }
+        }
+        stateRef.current[
+          (toFollow ? "unfollowId" : "followId") + to.id + from.id
+        ] = undefined;
       }
-    });
-    socket.on("follow", ({ to, from }) => {
-      console.log("socket follow");
-      if (to.id === currentUser.id) {
-        if (stateRef[priority].followId === to.id + from.id) return;
-        stateRef[priority].followId = to.id + from.id;
-        if (priority === "toggle") handleAction("new", from);
-      }
-    });
-  }, [
-    socket,
-    dispatch,
-    currentUser?.id,
-    handleAction,
-    userId,
-    priority,
-    isCurrentUser,
-    stateRef
-  ]);
+    };
 
-  // if (priority === "follow" && !(currentUser || users.length)) return null;
+    socket.on("unfollow", handleFollowing());
+    socket.on("follow", handleFollowing(true));
+    socket.on("suggest-followers", data => {
+      if (priority === "follow" && !stateRef.current[priority]) {
+        stateRef.current[priority] = true;
+        infiniteScrollRef.current.setData({
+          ...data,
+          data: infiniteScrollRef.current.data.data.concat(data.data)
+        });
+        stateRef.current[priority] = undefined;
+      }
+    });
+  }, [socket, dispatch, handleAction, userId, priority, isCurrentUser]);
   return (
     <InfiniteScroll
+      key={"follome-widget-" + priority}
       ref={infiniteScrollRef}
       url={
         {
@@ -133,26 +146,85 @@ const FollowMeWidget = ({
         }[url] || url
       }
       Component={WidgetContainer}
+      fullHeight={false}
+      searchParams={searchParams}
+      {...infiniteScrollProps}
+      withCredentials={!!following}
+      verify={priority === "toggle"}
+      notifierDelay={
+        isCurrentUser ? (priority === "toggle" ? undefined : -1) : undefined
+      }
     >
-      {({ data: { data } }) => {
+      {({ data: { data }, setObservedNode }) => {
+        const renderPersons = () => {
+          return data.map((u = {}, i) => {
+            const isFollowing = {
+              toggle: following && following.includes(u.id),
+              follow: false,
+              unfollow: true
+            }[userId === cid ? priority : "toggle"];
+
+            return (
+              <Person
+                ref={
+                  i === data.length - 1
+                    ? node => setObservedNode(node)
+                    : undefined
+                }
+                variant={variant}
+                key={i + u.id + priority}
+                sx={
+                  variant !== "block" || following
+                    ? undefined
+                    : {
+                        minHeight: "100px"
+                      }
+                }
+                user={u}
+                btnLabel={
+                  following ? (isFollowing ? "Unfollow" : "Follow") : null
+                }
+                onBtnClick={e => toggleFollow(e, u, isFollowing)}
+                disabled={isProcessingFollow}
+                isOwner={u.id === cid}
+              />
+            );
+          });
+        };
         return (
           <>
-            {priority}
-            <div style={{ marginBottom: "16px" }}>
-              <Typography variant="h5" fontWeight="bold">
-                {title}
-              </Typography>
-              {priority}
-              {secondaryTitle ? data.length + " " + secondaryTitle : null}
-            </div>{" "}
-            {data.map((u, i) => (
-              <FollowMe
-                user={u}
-                key={i + u.id}
-                priority={isCurrentUser ? priority : "toggle"}
-                handleAction={handleAction}
+            {title || secondaryTitle ? (
+              <div style={{ marginBottom: "16px" }}>
+                <Typography variant="h5" fontWeight="bold">
+                  {title}
+                </Typography>
+                {secondaryTitle ? data.length + " " + secondaryTitle : null}
+              </div>
+            ) : null}
+            {data.length ? (
+              variant === "block" ? (
+                <Stack flexWrap="wrap" justifyContent="normal" gap={2} p={2}>
+                  {renderPersons()}
+                </Stack>
+              ) : (
+                renderPersons()
+              )
+            ) : (
+              <EmptyData
+                label={
+                  {
+                    toggle: isCurrentUser
+                      ? "You don't have any followers"
+                      : `Followers list is currently empty.`,
+                    unfollow: isCurrentUser
+                      ? "Your following list is currently empty. Start following other users to see their updates"
+                      : `Following list appears to be empty at this time.`,
+                    follow:
+                      "We're sorry it seems there is no one to follow at the moment"
+                  }[priority]
+                }
               />
-            ))}
+            )}
           </>
         );
       }}

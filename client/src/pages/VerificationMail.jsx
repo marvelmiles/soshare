@@ -4,14 +4,14 @@ import useForm, { isEmail } from "hooks/useForm";
 import Button from "@mui/material/Button";
 import {
   WidgetContainer,
-  Loading,
   StyledTypography,
   StyledLink
 } from "components/styled";
+import Loading from "components/Loading";
 import { InputBase, Stack, debounce } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import http from "api/http";
-import { useContext } from "redux/store";
+import { useContext } from "context/store";
 import CloseIcon from "@mui/icons-material/Close";
 import DoneIcon from "@mui/icons-material/Done";
 import { useLocation } from "react-router-dom";
@@ -66,14 +66,11 @@ const VerificationMail = props => {
         component="form"
         onSubmit={async e => {
           const formData = handleSubmit(e);
-          // return console.log("on submit.. ", formData);
           if (formData) {
-            console.log(isVerifying, " is verfying...");
             try {
               setSnackBar(await http.post("/auth/recover-password", formData));
               reset();
             } catch (err) {
-              console.log("ddddddddddd");
               if (err === "Account isn't registered") {
                 err = (
                   <Typography>
@@ -103,7 +100,7 @@ const VerificationMail = props => {
         <Typography variant="h5" textAlign="center">
           Verification Mail
         </Typography>
-        <Typography variant="capti" color="warning.main">
+        <Typography variant="caption" color="warning.main">
           Your email needs to be registered before you can proceed with
           verification. Thank you for your cooperation
         </Typography>
@@ -113,12 +110,10 @@ const VerificationMail = props => {
           placeholder="Verification mail"
           value={formData.email || ""}
           onInput={async e => {
-            console.log("home ucon...", e.target, formData);
             handleChange(e);
             verifyUser(
               e.target.value,
               (err, bool) => {
-                console.log(err, bool, " er ");
                 if (err) setSnackBar(err);
                 else if (bool) {
                   if (bool === "pending") setIsVerifying(bool);

@@ -1,70 +1,84 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import http from "api/http";
-import { useContext } from "redux/store";
+import { useContext } from "context/store";
 import { useSelector, useDispatch } from "react-redux";
-import { updateUser, updatePreviewUser } from "redux/userSlice";
+import { updateUser, updatePreviewUser } from "context/slices/userSlice";
 
-export default (uid, priority = "toggle") => {
+export default (user, priority = "toggle") => {
   const following = useSelector(state => state.user.currentUser || {})
     .following;
   const dispatch = useDispatch();
   const { setSnackBar } = useContext();
-  const [isProcessingFollow, setIsProcessingFollow] = useState(false);
-  const isFollowing = {
-    toggle: following?.includes(uid),
-    follow: false,
-    unfollow: true
-  }[priority];
-
+  const [activeFollowId, setActiveFollowId] = useState("");
+  const [isFollowing, setIsFollowing] = useState(
+    user
+      ? following
+        ? {
+            toggle: following.includes(user.id),
+            follow: false,
+            unfollow: true
+          }[priority]
+        : false
+      : false
+  );
+  const stateRef = useRef({});
   const toggleFollow = useCallback(
-    async e => {
-      if (isProcessingFollow) return;
+    async (e, _user, _isFollowing) => {
+      if (e) e.stopPropagation();
       if (following) {
-        if (e) e.stopPropagation();
+        _user = _user || user;
+        _isFollowing =
+          typeof _isFollowing === "boolean" ? _isFollowing : isFollowing;
+
+        if (stateRef.current.isProc) return;
+        stateRef.current.isProc = true;
         const prop = {};
-        const updateFollowMe = isFollowing => {
-          setIsProcessingFollow(true);
+        const updateFollowMe = (isFollowing, filter) => {
+          setActiveFollowId(_user.id);
+          setIsFollowing(
+            {
+              toggle: !isFollowing,
+              follow: false,
+              unfollow: true
+            }[priority]
+          );
           dispatch(
             updatePreviewUser({
               followUser: {
-                // ...user,
+                ..._user,
                 priority,
-                isFollowing
+                isFollowing,
+                filter
               }
             })
           );
           prop.following = isFollowing
-            ? following.filter(id => id !== uid)
-            : [uid, ...following];
+            ? following.filter(id => id !== _user.id)
+            : [_user.id, ...following];
           dispatch(updateUser(prop));
-          if (priority === "toggle") setIsProcessingFollow(false);
+          setActiveFollowId("");
         };
-
         try {
-          updateFollowMe(isFollowing);
+          updateFollowMe(_isFollowing);
           await http.put(
-            `/users/${uid}/${isFollowing ? "unfollow" : "follow"}`
+            `/users/${_user.id}/${_isFollowing ? "unfollow" : "follow"}`
           );
         } catch (message) {
           setSnackBar(message);
-          updateFollowMe(!isFollowing);
+          updateFollowMe(!_isFollowing, true);
+        } finally {
+          stateRef.current.isProc = false;
         }
       } else setSnackBar();
     },
-    [
-      dispatch,
-      following,
-      isFollowing,
-      priority,
-      setSnackBar,
-      uid,
-      isProcessingFollow
-    ]
+    [dispatch, following, isFollowing, priority, setSnackBar, user]
   );
   return {
     toggleFollow,
-    isProcessingFollow,
+    activeFollowId,
     isFollowing,
-    isLoggedIn: !!following
+    isLoggedIn: !!following,
+    following,
+    isProcessingFollow: activeFollowId === user?.id
   };
 };

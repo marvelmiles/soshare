@@ -1,47 +1,43 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import propTypes from "prop-types";
-import { WidgetContainer } from "./styled";
+import { WidgetContainer } from "components/styled";
+import Loading from "components/Loading";
 import {
   Stack,
   Avatar,
-  InputBase,
   Divider,
   Typography,
   Box,
   IconButton,
   Button,
-  FormControl,
   Select,
   MenuItem,
-  FormControlLabel,
-  Checkbox
+  Popover,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText
 } from "@mui/material";
-import useForm, { isFileList } from "../hooks/useForm";
-import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
-import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import useForm from "hooks/useForm";
 import useMediaQuery from "@mui/material/useMediaQuery";
-import AttachFileOutlinedIcon from "@mui/icons-material/AttachFileOutlined";
 import GifBoxOutlinedIcon from "@mui/icons-material/GifBoxOutlined";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import MicOutlinedIcon from "@mui/icons-material/MicOutlined";
 import MoreHorizOutlinedIcon from "@mui/icons-material/MoreHorizOutlined";
 import CloseIcon from "@mui/icons-material/Close";
-import Carousel from "./Carousel";
-import { useNavigate } from "react-router-dom";
-import { useContext } from "../redux/store";
+import MediaCarousel from "components/MediaCarousel";
+import { useContext } from "context/store";
 import { useSelector } from "react-redux";
 import DeleteIcon from "@mui/icons-material/Delete";
-import http from "../api/http";
+import http from "api/http";
 import { useTheme } from "@mui/material";
-import { removeFileFromFileList } from "utils";
-import { v4 as uniq } from "uuid";
 import { useDispatch } from "react-redux";
-import { updateUser } from "redux/userSlice";
+import { updateUser } from "context/slices/userSlice";
 import DeleteDialog from "components/DeleteDialog";
-
+import useDeleteDispatch from "hooks/useDeleteDispatch";
 const InputBox = ({
   sx,
-  autoFocus = false,
+  autoFocus = true,
   hideTextArea = false,
   multiple = true,
   mediaRefName = "medias",
@@ -60,16 +56,24 @@ const InputBox = ({
   message,
   method,
   resetData = true,
-  withPlaceholders
+  boldFont,
+  dialogTitle,
+  urls = {},
+  maxUpload = "500mb",
+  maxDuration = "12h",
+  withPlaceholders,
+  fileId
 }) => {
+  const [currentSlide, setCurrentSlide] = useState(0);
   const { setSnackBar } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
+  const [moreActionPopover, setMoreActionPopover] = useState({});
   const {
     palette: {
       background: { blend }
     }
   } = useTheme();
-  const isMd = useMediaQuery("(min-width:576px)");
+  const isSm = useMediaQuery("(min-width:576px)");
   let {
     formData,
     handleChange,
@@ -77,178 +81,302 @@ const InputBox = ({
     errors,
     reset,
     isSubmitting,
-    stateChanged
+    stateChanged,
+    setErrors
   } = useForm({
     placeholders,
     required,
     returnFormObject: true,
     returnFilesArray: true,
     mergeFile: multiple,
-    formAppendMap: {
-      [mediaRefName]: multiple
-    }
+    maxUpload,
+    maxDuration
   });
   const [dialog, setDialog] = useState({});
-  const navigate = useNavigate();
   const mediaCarouselRef = useRef();
   const fileRef = useRef();
+  const inputRef = useRef();
   const stateRef = useRef({
     currentSlide: 0,
     visibility: formData.visibility || "everyone",
     excludeMedias: [],
-    key: `input-box-file-dialog-${new Date().getTime()}`
+    key: fileId || `input-box-file-dialog-${new Date().getTime()}`
   }).current;
-
   const dispatch = useDispatch();
   const actionBtnSx = {
-    justifyContent: "center",
+    alignItems: "center",
     flexWrap: "wrap",
-    gap: 1,
-    "&:hover": {
-      backgroundColor: "none"
-    },
-    color: "common.mediumMain",
-    "&:hover": {
-      color: "common.medium"
+    gap: "4px",
+    "& *": {
+      color: "primary.main"
     }
   };
-  const closeDialogAndReset = () => {
-    if (!formData[mediaRefName])
-      reset(formData, { stateChanged: !!formData.text });
+
+  const deleteMedia = useCallback(() => {
+    if (formData[mediaRefName]) {
+      if (multiple) {
+        if (dialog.multiple) {
+          formData[mediaRefName].forEach(m => {
+            placeholders && stateRef.excludeMedias.push(m.id);
+          });
+          setErrors(errors => {
+            delete errors[mediaRefName + "-duration"];
+            delete errors[mediaRefName + "-upload"];
+            return {
+              ...errors
+            };
+          });
+          formData[mediaRefName] = [];
+        } else {
+          if (placeholders)
+            stateRef.excludeMedias.push(
+              formData[mediaRefName][currentSlide].id
+            );
+          delete formData[mediaRefName].splice(currentSlide, 1);
+          setErrors(errors => {
+            if (errors[mediaRefName + "-duration"])
+              delete errors[mediaRefName + "-duration"][currentSlide];
+            if (errors[mediaRefName + "-upload"])
+              delete errors[mediaRefName + "-upload"][currentSlide];
+            return {
+              ...errors
+            };
+          });
+          setCurrentSlide(currentSlide => {
+            if (currentSlide) {
+              currentSlide = currentSlide - 1;
+              mediaCarouselRef.current.goToSlide(currentSlide);
+            }
+          });
+        }
+        if (!formData[mediaRefName].length) delete formData[mediaRefName];
+      } else {
+        delete formData[mediaRefName];
+        setErrors(errors => {
+          delete errors[mediaRefName + "-duration"];
+          delete errors[mediaRefName + "-upload"];
+          return {
+            ...errors
+          };
+        });
+      }
+      if (!formData[mediaRefName]) fileRef.current.value = "";
+      reset(
+        { ...formData },
+        {
+          stateChanged: !!formData.text,
+          resetErrors: !formData[mediaRefName] && !formData.text
+        }
+      );
+      setDialog(dialog => ({
+        ...dialog,
+        open: false
+      }));
+    }
+  }, [
+    formData,
+    mediaRefName,
+    placeholders,
+    stateRef,
+    reset,
+    dialog?.multiple,
+    currentSlide,
+    multiple,
+    setErrors
+  ]);
+
+  const showDelDialog = (openFor = "delete", multiple, e) => {
+    if (e) e.stopPropagation();
     setDialog({
-      ...dialog,
+      open: true,
+      openFor,
+      multiple,
+      title: dialogTitle || multiple ? "medias" : "media"
+    });
+  };
+
+  const { handleDelete, activeDelItem } = useDeleteDispatch({ handleAction });
+
+  const _handleAction = useCallback(
+    async (reason, data) => {
+      switch (reason) {
+        case "delete-temp":
+          deleteMedia();
+          break;
+        case "delete":
+          handleDelete(urls.delPath, [placeholders.id]);
+        case "checked":
+          dispatch(
+            updateUser({
+              settings:
+                dialog.openFor === "delete"
+                  ? {
+                      hideDelDialog: true
+                    }
+                  : {
+                      [dialog.multiple
+                        ? "hideDelMediasDialog"
+                        : "hideDelMediaDialog"]: data
+                    }
+            })
+          );
+          break;
+        default:
+          setDialog({
+            ...dialog,
+            open: false
+          });
+          break;
+      }
+    },
+    [deleteMedia, dialog, dispatch, handleDelete, urls, placeholders]
+  );
+  const handleDeleteMediaFromDB = e => {
+    if (currentUser.settings.hideDelDialog) _handleAction("delete");
+    else showDelDialog("delete", false, e);
+  };
+  const onSubmit = useCallback(
+    async e => {
+      try {
+        if (e) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+        if (!currentUser.id) return setSnackBar();
+        const _formData = handleSubmit();
+        if (_formData) {
+          multiple &&
+            placeholders &&
+            _formData.append("excludeMedias", stateRef.excludeMedias);
+          handleAction && handleAction("temp-data", formData, url);
+
+          let res = await http[method ? method : placeholders ? "put" : "post"](
+            url,
+            _formData
+          );
+          setSnackBar({
+            message:
+              message && message.success
+                ? message.success
+                : placeholders
+                ? `Updated ${mediaRefName} successfully!`
+                : `Your ${mediaRefName} has been uploaded!`,
+            severity: "success"
+          });
+          if (placeholders && !res[mediaRefName] && res.url) {
+            res = {
+              ...res,
+              [mediaRefName]: {
+                id: res.id,
+                url: res.url,
+                mimetype: res.mimetype
+              }
+            };
+          }
+          reset(
+            placeholders ? (withPlaceholders ? placeholders : res) : !resetData
+          );
+          handleAction && handleAction(placeholders ? "update" : "new", res);
+        } else errors[mediaRefName] && setSnackBar(errors[mediaRefName]);
+      } catch (msg) {
+        msg = message
+          ? message.error || msg.message || msg
+          : msg.message || msg;
+        if (Array.isArray(msg)) {
+          let err;
+          err = `Failed to upload`;
+          for (let i = 0; i < msg.length; i++) {
+            const index = msg[i].errIndex;
+            err += ` ${formData[mediaRefName][index].name}${
+              i === msg.length - 1 ? "." : ","
+            }`;
+          }
+          err += ` make sure all requirements are met or check connectivity`;
+          msg = err;
+        }
+        setSnackBar(msg);
+        reset(true, { stateChanged: true });
+        handleAction && handleAction("error", msg);
+      }
+    },
+    [
+      currentUser.id,
+      errors,
+      formData,
+      handleAction,
+      handleSubmit,
+      mediaRefName,
+      message,
+      method,
+      multiple,
+      placeholders,
+      reset,
+      resetData,
+      setSnackBar,
+      stateRef.excludeMedias,
+      url,
+      withPlaceholders
+    ]
+  );
+  const showMoreTools = ({ currentTarget }) =>
+    setMoreActionPopover({
+      ...moreActionPopover,
+      open: true,
+      anchorEl: currentTarget
+    });
+
+  const closeMoreActionPopover = e => {
+    e.stopPropagation();
+    setMoreActionPopover({
+      ...moreActionPopover,
       open: false
     });
   };
-  const deleteMedia = () => {
-    if (multiple) {
-      const media = formData[mediaRefName][stateRef.currentSlide];
-      // console.log(
-      //   isFileList(formData[mediaRefName]),
-      //   formData[mediaRefName],
-      //   stateRef.currentSlide,
-      //   !!media
-      // );
-      formData[mediaRefName] = formData[mediaRefName].filter((m, i) => {
-        if (i === stateRef.currentSlide) {
-          if (stateRef.currentSlide) {
-            stateRef.currentSlide = i - 1;
-            mediaCarouselRef.current.goToSlide(stateRef.currentSlide);
+
+  useEffect(() => {
+    const node = inputRef.current;
+    const onKeyDown = e => {
+      switch (e.keyCode) {
+        case 13:
+          if (!e.shiftKey) {
+            e.preventDefault();
+            console.log(url);
+            onSubmit();
           }
-          m.id && placeholders && stateRef.excludeMedias.push(m.id);
-          return false;
-        }
-        return true;
+          break;
+      }
+    };
+    node.addEventListener("keydown", onKeyDown, false);
+    return () => {
+      node.removeEventListener("keydown", onKeyDown, false);
+    };
+  }, [onSubmit, url]);
+
+  useEffect(() => {
+    handleAction &&
+      handleAction("context", {
+        processing: isSubmitting
+          ? placeholders
+            ? "updating"
+            : "uploading"
+          : undefined
       });
-      if (!formData[mediaRefName].length) delete formData[mediaRefName];
-    } else delete formData[mediaRefName];
-    closeDialogAndReset();
-  };
+  }, [isSubmitting, handleAction, placeholders]);
 
-  const deleteMedias = () => {
-    // console.log(formData[mediaRefName]);
-    formData[mediaRefName].forEach(m => stateRef.excludeMedias.push(m.id));
-    delete formData[mediaRefName];
-    closeDialogAndReset();
-  };
-
-  const showDeleteDialog = ({ currentTarget }) =>
-    setDialog({
-      open: true,
-      for: "delete-post",
-      anchorEl: currentTarget
-    });
-  const onSubmit = async e => {
-    try {
-      e.stopPropagation();
-      e.preventDefault();
-      const _formData = handleSubmit(e);
-      // return (
-      //   _formData &&
-      //   console.log(
-      //     "is submitng media ",
-      //     _formData.getAll(mediaRefName),
-      //     stateRef.excludeMedias,
-      //     formData.visibility,
-      //     formData,
-      //     _formData.get("document")
-      //   )
-      // );
-
-      if (_formData) {
-        multiple &&
-          placeholders &&
-          _formData.append("excludeMedias", stateRef.excludeMedias);
-        handleAction && handleAction("temp-data", formData);
-        console.log("submitting");
-        let res = await http[method ? method : placeholders ? "put" : "post"](
-          url,
-          _formData
+  useEffect(() => {
+    const err =
+      errors[mediaRefName] ||
+      errors[mediaRefName + "-duration"] ||
+      errors[mediaRefName + "-upload"];
+    if (err) {
+      if (err.code)
+        setSnackBar(
+          `We're sorry to inform you that we were unable to preview your file due to an issue with the network or the file itself. It appears that the file may be corrupted or damaged or your browser have no support for it!`
         );
-        setSnackBar({
-          message:
-            message && message.success
-              ? message.success
-              : placeholders
-              ? `Updated ${mediaRefName} successfully!`
-              : `Your ${mediaRefName} has been uploaded!`,
-          severity: "success"
-        });
-        if (placeholders && !res[mediaRefName] && res.url) {
-          res = {
-            ...res,
-            [mediaRefName]: {
-              id: res.id,
-              url: res.url,
-              mimetype: res.mimetype
-            }
-          };
-        }
-        reset(
-          resetData && withPlaceholders === undefined
-            ? undefined
-            : withPlaceholders
-            ? placeholders
-            : res
-        );
-        handleAction && handleAction("new", res);
-      } else errors[mediaRefName] && setSnackBar(errors[mediaRefName]);
-    } catch (msg) {
-      console.log("has input box error ");
-      reset(true);
-      setSnackBar(message ? message.error || msg : msg);
-      handleAction && handleAction("failed", msg);
+      else setSnackBar(`Maximum duration or upload size exceeded!`);
     }
-  };
-  const _handleAction = async (reason, data) => {
-    switch (reason) {
-      case "delete-temp":
-        dialog.multiple ? deleteMedias() : deleteMedia();
-        break;
-      case "delete":
-        await http.delete(`/posts/${placeholders.id}`);
-        navigate("/u/profile?d=user-posts");
-      case "checked":
-        dispatch(
-          updateUser(
-            dialog.multiple
-              ? {
-                  hideDelMediasDialog: data
-                }
-              : {
-                  hideDelMediaDialog: data
-                }
-          )
-        );
-        break;
-      default:
-        setDialog({
-          ...dialog,
-          open: false
-        });
-        break;
-    }
-  };
+  }, [errors, mediaRefName, setSnackBar]);
+  const disabled = isSubmitting || activeDelItem === placeholders?.id;
   return (
     <>
       <WidgetContainer
@@ -262,22 +390,21 @@ const InputBox = ({
           backgroundColor: "transparent",
           borderBottom: "1px solid #333",
           borderBottomColor: "divider",
-          borderRadius: 0
-          // border: "1px solid red"
+          borderRadius: 0,
+          mb: 0
         }}
       >
-        {isSubmitting ? (
+        {disabled ? (
           <div
             style={{
               position: "absolute",
               zIndex: 1,
               width: "100%",
-              height: "100%"
-              // border: "10px solid red"
+              height: "calc(100% - 16px)"
             }}
-          />
+          ></div>
         ) : null}
-        <form onSubmit={onSubmit} style={{ border: "1k" }}>
+        <form onSubmit={onSubmit}>
           <Stack alignItems="flex-start" gap={2} px={2}>
             <Avatar
               variant="sm"
@@ -298,63 +425,84 @@ const InputBox = ({
                 }
               }}
             >
-              <Select
-                className="Mui-custom-select"
-                value={formData.visibility || "everyone"}
+              <Stack
                 sx={{
-                  width: "90%",
-                  maxWidth: "150px",
-                  marginInline: "auto",
-                  borderRadius: 24,
-                  p: 0,
-                  m: 0,
-                  borderColor: "primary.main",
-                  "& *": {
-                    border: "none !important"
-                  },
-                  color: "primary.main",
-                  "&:hover,&:focus": {
-                    background: "none"
-                  },
-                  "& .MuiSvgIcon-root": {
-                    pr: "0.25rem",
-                    fontSize: "32px",
-                    color: "primary.main"
-                  },
-                  "& .MuiInputBase-input": {
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    textTransform: "capitalize",
-                    p: 1
-                  }
-                }}
-                onChange={({ target: { value } }) => {
-                  formData.visibility = value;
-                  reset(formData);
+                  minWidth: "0",
+                  width: "150px"
                 }}
               >
-                <MenuItem value="everyone">Everyone</MenuItem>
-                <MenuItem value="private">Private</MenuItem>
-                <MenuItem value="followers">Followers only</MenuItem>
-              </Select>
+                <Select
+                  className="Mui-custom-select"
+                  value={formData.visibility || "everyone"}
+                  sx={{
+                    width: "90%",
+                    maxWidth: "150px",
+                    marginInline: "auto",
+                    borderRadius: 24,
+                    p: 0,
+                    m: 0,
+                    // flex: 1,
+                    color: "primary.main",
+                    "&:hover,&:focus": {
+                      background: "none"
+                    },
+                    "& .MuiSvgIcon-root": {
+                      pr: "0.25rem",
+                      fontSize: "32px",
+                      color: "primary.main"
+                    },
+                    "& .MuiInputBase-input": {
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      textTransform: "capitalize",
+                      p: 1
+                    },
+                    ".MuiOutlinedInput-notchedOutline": {
+                      borderColor: "primary.main"
+                    },
+                    "&:hover .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "primary.main"
+                    }
+                  }}
+                  onChange={({ target: { value } }) => {
+                    formData.visibility = value;
+                    reset(formData, { stateChanged: true });
+                  }}
+                >
+                  <MenuItem value="everyone">Everyone</MenuItem>
+                  <MenuItem value="private">Private</MenuItem>
+                  <MenuItem value="followers only">Followers only</MenuItem>
+                </Select>
+                {isSubmitting ? (
+                  <Loading
+                    sx={{
+                      minHeight: "none",
+                      height: "auto",
+                      p: 0,
+                      width: "auto",
+                      minWidth: 0
+                    }}
+                  />
+                ) : null}
+              </Stack>
               {hideTextArea ? null : (
                 <div>
                   <Typography
+                    ref={inputRef}
                     name="text"
                     autoFocus={autoFocus}
                     value={formData.text || ""}
-                    onChange={e => {
-                      if (e.currentTarget.value.length <= max) handleChange(e);
-                    }}
+                    onChange={handleChange}
                     placeholder={placeholder}
                     component="textarea"
                     sx={{
                       color: "primary.contrastText",
-                      fontSize: "24px",
+                      fontSize: boldFont ? "24px" : "16px",
                       "&::placeholder": {
                         color: "primary.contrastText"
                       }
                     }}
+                    data-max={max}
                   />
                   <Typography style={{ float: "right" }}>
                     {formData.text?.length || 0} / {max}
@@ -364,77 +512,58 @@ const InputBox = ({
             </Box>
           </Stack>
           {hideTextArea ? null : <Divider sx={{ my: 1 }} />}
-          {(multiple ? (
-            formData[mediaRefName]?.length
-          ) : (
-            formData[mediaRefName]
-          )) ? (
-            <Carousel
-              showIndicator={multiple && showIndicator}
-              ref={mediaCarouselRef}
-              stateRef={stateRef}
-              videoPlayerProps={videoPlayerProps}
-              actionBar={
-                showActionBar ? (
-                  <>
+          <MediaCarousel
+            showIndicator={multiple && showIndicator}
+            ref={mediaCarouselRef}
+            beforeChange={setCurrentSlide}
+            currentSlide={currentSlide}
+            videoPlayerProps={videoPlayerProps}
+            actionBar={
+              showActionBar ? (
+                <>
+                  <IconButton
+                    disabled={disabled}
+                    sx={{
+                      color: "common.light",
+                      background: blend
+                    }}
+                    onClick={e => {
+                      e.stopPropagation();
+                      if (currentUser.settings.hideDelMediasDialog)
+                        deleteMedia();
+                      else showDelDialog("delete-temp", true);
+                    }}
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                  {multiple ? (
                     <IconButton
+                      disabled={disabled}
                       sx={{
                         color: "common.light",
                         background: blend
                       }}
-                      onClick={
-                        currentUser.hideDelMediasDialog
-                          ? multiple
-                            ? deleteMedias
-                            : deleteMedia
-                          : () =>
-                              setDialog({
-                                ...dialog,
-                                multiple,
-                                open: true,
-                                openFor: "delete-temp",
-                                title: formData[mediaRefName].name
-                              })
-                      }
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (currentUser.settings.hideDelMediaDialog)
+                          deleteMedia();
+                        else showDelDialog("delete-temp");
+                      }}
                     >
-                      <CloseIcon />
+                      <DeleteIcon />
                     </IconButton>
-                    {multiple ? (
-                      <IconButton
-                        sx={{
-                          color: "common.light",
-                          background: blend
-                        }}
-                        onClick={
-                          currentUser.hideDelMediaDialog
-                            ? deleteMedia
-                            : () => {
-                                const media = multiple
-                                  ? formData[mediaRefName][
-                                      stateRef.currentSlide
-                                    ]
-                                  : formData[mediaRefName];
-                                setDialog({
-                                  open: true,
-                                  openFor: "delete-temp",
-                                  title: media.name
-                                });
-                              }
-                        }
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-                    ) : null}
-                  </>
-                ) : (
-                  undefined
-                )
-              }
-              medias={
-                multiple ? formData[mediaRefName] : [formData[mediaRefName]]
-              }
-            />
-          ) : null}
+                  ) : null}
+                </>
+              ) : (
+                undefined
+              )
+            }
+            medias={
+              multiple
+                ? formData[mediaRefName]
+                : formData[mediaRefName] && [formData[mediaRefName]]
+            }
+          />
           <Stack mt={1} px={2}>
             <input
               multiple={multiple}
@@ -451,23 +580,23 @@ const InputBox = ({
               style={{ display: "none" }}
               onChange={handleChange}
             />
-            <Stack
-              sx={{
-                "& *": {
-                  color: "primary.main"
-                }
-              }}
-            >
+            <Stack>
               <Button
-                // sx={actionBtnSx}
                 component="label"
+                sx={{
+                  ...actionBtnSx,
+                  display: {
+                    xs: "none",
+                    s280: "inline-flex"
+                  }
+                }}
                 htmlFor={stateRef.key}
               >
                 <ImageOutlinedIcon />
                 <Typography>Media</Typography>
               </Button>
 
-              {isMd ? (
+              {isSm ? (
                 <>
                   <Button sx={actionBtnSx}>
                     <GifBoxOutlinedIcon />
@@ -480,15 +609,15 @@ const InputBox = ({
                 </>
               ) : null}
             </Stack>
-            <Stack
-              alignItems="flex-start"
-              flexWrap="wrap"
-              justifyContent="center"
-            >
+            <Stack alignItems="flex-start" flexWrap="wrap" gap="8px">
               <IconButton
                 sx={{
-                  display: isMd ? "none" : "inline-flex"
+                  display: isSm ? "none" : "inline-flex",
+                  [`&:focus,&:active`]: {
+                    backgroundColor: "background.alt"
+                  }
                 }}
+                onClick={showMoreTools}
               >
                 <MoreHorizOutlinedIcon color={"common.mediumMain"} />
               </IconButton>
@@ -496,42 +625,92 @@ const InputBox = ({
                 <Button
                   variant="contained"
                   sx={{
-                    color: "background.alt",
-                    backgroundColor: "primary.main",
                     borderRadius: 6,
-                    "&:hover": {
-                      backgroundColor: "primary.main"
-                    },
                     mx: 1,
                     display: {
                       xs: "none",
                       sm: "inlne-flex"
                     }
                   }}
-                  onClick={showDeleteDialog}
+                  onClick={handleDeleteMediaFromDB}
+                  disabled={disabled}
                 >
                   Delete
                 </Button>
               ) : null}
+
               <Button
                 sx={{
-                  color: "background.alt",
-                  backgroundColor: "primary.main",
-                  borderRadius: 6,
-                  "&:hover": {
-                    backgroundColor: "primary.main"
-                  }
+                  borderRadius: 6
                 }}
                 type="submit"
-                disabled={isSubmitting || !stateChanged}
+                disabled={disabled || !stateChanged}
+                variant="contained"
               >
-                {actionText ? actionText : placeholders ? "Update" : "Post"}
+                {actionText ? actionText : placeholders ? "Update" : "Soshare"}
               </Button>
             </Stack>
           </Stack>
         </form>
       </WidgetContainer>
       <DeleteDialog {...dialog} handleAction={_handleAction} />
+      <Popover {...moreActionPopover} onClose={closeMoreActionPopover}>
+        <List>
+          {[
+            {
+              icon: ImageOutlinedIcon,
+              title: "Media",
+              htmlFor: stateRef.key,
+              component: "label",
+              display: {
+                xs: "flex",
+                s280: "none"
+              }
+            },
+            {
+              icon: GifBoxOutlinedIcon,
+              title: "Gif"
+            },
+            {
+              icon: MicOutlinedIcon,
+              title: "Audio"
+            },
+            {
+              icon: DeleteIcon,
+              title: "Delete",
+              onClick: handleDeleteMediaFromDB,
+              nullify: !showDeleteBtn
+            }
+          ].map((l, i) =>
+            l.nullify ? null : (
+              <ListItemButton
+                disabled={disabled}
+                onClick={e => {
+                  closeMoreActionPopover(e);
+                  l.onClick && l.onClick();
+                }}
+                component={l.component || "li"}
+                key={i}
+                htmlFor={l.htmlFor || undefined}
+                sx={{
+                  borderBottom: "1px solid currentColor",
+                  borderColor: "divider",
+                  p: 2,
+                  display: l.display
+                }}
+              >
+                <ListItemIcon>
+                  <l.icon />
+                </ListItemIcon>
+                <ListItemText
+                  primary={l.title}
+                  sx={{ textTransform: "capitalize" }}
+                />
+              </ListItemButton>
+            )
+          )}
+        </List>
+      </Popover>
     </>
   );
 };

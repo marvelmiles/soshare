@@ -2,21 +2,24 @@ import mongoose from "mongoose";
 
 const schema = new mongoose.Schema(
   {
-    reports: {
-      type: Map,
-      of: {},
-      default: {}
-    },
-    type: String,
-    from: {
+    type: {
       type: String,
-      ref: "user"
+      enum: ["follow", "like", "comment"]
     },
     to: {
       type: String,
       ref: "user"
     },
-    foreignKey: String,
+    users: [
+      {
+        type: String,
+        ref: "user"
+      }
+    ],
+    marked: {
+      type: Boolean,
+      default: false
+    },
     document: {
       type: String,
       refPath: "docType"
@@ -30,8 +33,8 @@ const schema = new mongoose.Schema(
   },
   {
     collection: "notification",
-    timestamps: true,
     versionKey: false,
+    timestamps: true,
     toJSON: {
       transform(_, ret) {
         ret.id = ret._id;
@@ -47,4 +50,5 @@ schema.index(
   },
   { expireAfterSeconds: 0 }
 );
+
 export default mongoose.model("notification", schema);

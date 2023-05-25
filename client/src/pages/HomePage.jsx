@@ -1,40 +1,27 @@
-import React, { useState, useRef } from "react";
+import React from "react";
 import { useSelector } from "react-redux";
-import { Box, Dialog, DialogContent, Button } from "@mui/material";
-import Layout from "../components/Layout";
-import UserWidget from "../components/UserWidget";
-import InputBox from "../components/InputBox";
-import PostsView from "../components/PostsView";
-import AdvertWidget from "../components/AdvertWidget";
-import FollowMeWidget from "../components/FollowMeWidget";
-import ShortsWidget from "../components/ShortsWidget";
-import { Link } from "react-router-dom";
+import InputBox from "components/InputBox";
+import PostsView from "views/PostsView";
 import MainView from "views/MainView";
-
+import AddIcon from "@mui/icons-material/Add";
+import { useNavigate } from "react-router-dom";
 const HomePage = () => {
-  const { id } = useSelector(state => state.user.currentUser || {});
-  const rootRef = useRef();
-
+  const cid = useSelector(state => (state.user.currentUser || {}).id);
+  const navigate = useNavigate();
   return (
-    <MainView borderline>
-      {/* <Button disabled>ss</Button> */}
-      <PostsView
-        sx={{
-          p: 0
-        }}
-        rootRef={rootRef}
-      >
-        {id ? (
-          <InputBox
-            sx={{
-              mb: 0,
-              // borderBottom: "1px solid #fff",
-              // borderBottomColor: "divider",
-              borderRadius: 0,
-              backgroundColor: "transparent"
-            }}
-          />
-        ) : null}
+    <MainView
+      borderline
+      layoutProps={
+        cid
+          ? {
+              fabIcon: <AddIcon />,
+              handleFabAction: () => navigate("?compose=create-post")
+            }
+          : undefined
+      }
+    >
+      <PostsView scrollNodeRef={null}>
+        {cid ? <InputBox boldFont autoFocus={false} /> : null}
       </PostsView>
     </MainView>
   );

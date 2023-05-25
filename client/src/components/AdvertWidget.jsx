@@ -1,7 +1,7 @@
 import React from "react";
 import { WidgetContainer, StyledLink, Image } from "./styled";
 import { Stack, Typography } from "@mui/material";
-import img1 from "../imgs/img1.jpg";
+import img1 from "../imgs/advert.jpg";
 
 const AdvertWidget = () => {
   return (
@@ -18,12 +18,12 @@ const AdvertWidget = () => {
           wordBreak: "break-word"
         }}
       >
-        <Typography color="common.main">MikaCosmetics</Typography>
-        <Typography color="primary.dark">www.mikacosmetics.com</Typography>
+        <Typography color="common.main">Fredcoalagency</Typography>
+        <StyledLink>www.fredcoalagency.com</StyledLink>
       </Stack>
       <Typography color="common.medium" my={1}>
-        Your pathway to stunning and immaculate beauty and made sure your skin
-        is exfoliating skin and shining like light.
+        Unlocking the Power of digital: Creating Innovative Solutions for your
+        brand's Success
       </Typography>
     </WidgetContainer>
   );

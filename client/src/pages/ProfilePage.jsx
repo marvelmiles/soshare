@@ -1,129 +1,127 @@
-import React, { useState, useEffect, useMemo } from "react";
-import Layout from "../components/Layout";
-import UserWidget from "../components/UserWidget";
-import FollowMeWidget from "../components/FollowMeWidget";
-import PostsView from "../components/PostsView";
-import InputBox from "../components/InputBox";
-import UserProfileForm from "../components/UserProfileForm";
-import {
-  Button,
-  Typography,
-  IconButton,
-  Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
-} from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import { useParams, useNavigate } from "react-router-dom";
-import ShortsWidget from "components/ShortsWidget";
-import { useContext } from "redux/store";
+import React, { useState, useEffect } from "react";
+import Layout from "components/Layout";
+import UserWidget from "components/UserWidget";
+import FollowMeWidget from "components/FollowMeWidget";
+import UserProfileForm from "components/UserProfileForm";
+import { useParams } from "react-router-dom";
+import { useContext } from "context/store";
 import http from "api/http";
-import { useDispatch, useSelector } from "react-redux";
-import { StyledLink } from "components/styled";
-import Compose from "pages/Compose";
-Dialog.defaultProps = {
-  open: false
-};
+import { useSelector } from "react-redux";
+import Loading from "components/Loading";
+import { Stack } from "@mui/material";
+import User404 from "./404/User404";
+import { updateUser, updatePreviewUser } from "context/slices/userSlice";
+import { useDispatch } from "react-redux";
 const ProfilePage = () => {
   let { userId } = useParams();
   const { socket } = useContext();
   const [user, setUser] = useState();
-  const navigate = useNavigate();
-  const { id } = useSelector(state => {
-    return state.user.currentUser || {};
+  const dispatch = useDispatch();
+  const cid = useSelector(state => {
+    return (state.user.currentUser || {}).id;
   });
-  const isCurrentUser = id === userId;
+  const isCurrentUser = cid === userId;
   useEffect(() => {
-    console.log("once...");
     (async () => {
       try {
-        setUser(await http.get(`/users/${userId}`));
+        setUser(await http.get(`/users/${userId}`, { withCredentials: !!cid }));
       } catch (message) {
-        console.log(message);
-        // if (status === 400) setUser({});
         setUser(null);
       }
     })();
-  }, [userId]);
+  }, [userId, cid]);
 
   useEffect(() => {
     if (user?.id) {
       socket.on("update-user", u => {
-        console.log("updaitng user... ", user.id);
-        u.id === user.id && setUser(u);
+        if (u.id === user.id) setUser(u);
+        if (isCurrentUser) {
+          dispatch(updateUser(u));
+          dispatch(updatePreviewUser({}));
+        }
       });
     }
-  }, [isCurrentUser, socket, user?.id]);
+  }, [isCurrentUser, socket, user?.id, dispatch]);
 
-  if (user === undefined) return <div>loading...</div>;
-  else if (!user) return <div>Something went wrong try again...</div>;
-  else if (!user.id)
-    return (
-      <div>
-        Looks like you search for a non existing user. check{" "}
-        <StyledLink to="/">feed</StyledLink> for more user
-      </div>
-    );
   const width = {
     md: "48%"
   };
-
   return (
     <>
       <Layout
+        uid={userId}
+        isCurrentUser={isCurrentUser}
         routePage="profilePage"
-        gridBreakpoint="768px"
-        sx={{
-          flexWrap: "wrap",
-          gap: 3,
-          maxWidth: "1024px",
-          pt: 2,
-          "& > *": {
-            width: {
-              xs: "100%",
-              md: "48%"
-            }
-          }
-        }}
         key={userId}
       >
-        <UserWidget width={width} hideUserSettingsIcon user={user} />
-        {isCurrentUser ? (
-          <UserProfileForm
-            placeholders={user}
-            width={width}
-            withConfirmPwd={true}
-          />
-        ) : null}
-        <FollowMeWidget
-          url="followers"
-          title={isCurrentUser ? "Your Followers" : "Followers"}
-          secondaryTitle="followers"
-          width={width}
-          filterUser={false}
-          readOnly={!isCurrentUser}
-        />
-        <FollowMeWidget
-          url="following"
-          title={isCurrentUser ? "People you follow" : "Following"}
-          secondaryTitle="following"
-          width={width}
-          priority="unfollow"
-          isCurrentUser={isCurrentUser}
-        />
+        {user === undefined ? (
+          <Loading />
+        ) : user?.id ? (
+          <Stack
+            alignItems="flex-start"
+            justifyContent="normal"
+            sx={{
+              flexWrap: "wrap",
+              gap: 3,
+              maxWidth: "1024px",
+              mx: "auto",
+              pt: 2,
+              width: "100%",
+              "& > *": {
+                minWidth: {
+                  xs: "100%",
+                  md: "48%"
+                }
+              }
+            }}
+          >
+            <UserWidget
+              width={width}
+              hideUserSettingsIcon
+              user={user}
+              isCurrentUser={isCurrentUser}
+            />
 
-        <FollowMeWidget width={width} priority="follow" />
+            {isCurrentUser ? (
+              <UserProfileForm placeholders={user} width={width} hidePwd />
+            ) : null}
+            <FollowMeWidget
+              url="followers"
+              title={isCurrentUser ? "Your Followers" : "Followers"}
+              secondaryTitle="followers"
+              width={width}
+              filterUser={false}
+              readOnly={!isCurrentUser}
+              variant="flex"
+              key="followers"
+              user={user}
+            />
+            <FollowMeWidget
+              url="following"
+              title={isCurrentUser ? "People you follow" : "Following"}
+              secondaryTitle="following"
+              width={width}
+              priority="unfollow"
+              isCurrentUser={isCurrentUser}
+              variant="flex"
+              key="following"
+              user={user}
+            />
+            {isCurrentUser ? (
+              <FollowMeWidget
+                width={width}
+                priority="follow"
+                variant="flex"
+                key="suggest"
+                title="People to follow"
+                user={user}
+              />
+            ) : null}
+          </Stack>
+        ) : (
+          <User404 contentOnly />
+        )}
       </Layout>
-      <Compose
-        openFor={{
-          "create-post": true,
-          "create-short": true,
-          "user-shorts": true,
-          "user-posts": true
-        }}
-      />
     </>
   );
 };

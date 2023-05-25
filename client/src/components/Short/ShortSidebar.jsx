@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React from "react";
 import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import MoreActions from "components/MoreActions";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
+import Skeleton from "@mui/material/Skeleton";
 
-const ShortSidebar = ({ id, isOwner, user, handleAction }) => {
+const ShortSidebar = ({ id, user, handleAction, loading, animation }) => {
   return (
     <>
       <Box
@@ -12,31 +13,39 @@ const ShortSidebar = ({ id, isOwner, user, handleAction }) => {
           position: "absolute",
           top: "8px",
           right: "16px",
-          color: "#fff"
+          "*": {
+            color: "common.white"
+          },
+          "& > *": {
+            backgroundColor: "common.blend",
+            "&:hover": {
+              backgroundColor: "common.blendHover"
+            }
+          }
         }}
       >
-        <MoreActions
-          handleAction={handleAction}
-          composeDoc={{
-            id,
-            user
-          }}
-          isOwner={isOwner}
-          Icon={MoreVertIcon}
-          title="short"
-          urls={{
-            delPath: `/shorts/${id}`
-          }}
-          btnSx={{
-            background:
-              "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)",
-            // mixBlendMode: "multiply",
-            color: "#fff !important",
-            "& > *": {
-              fill: "#fff !important"
-            }
-          }}
-        />
+        {loading ? (
+          <Skeleton
+            variant="circular"
+            width={30}
+            height={30}
+            animation={animation}
+          />
+        ) : (
+          <MoreActions
+            handleAction={handleAction}
+            composeDoc={{
+              id,
+              user
+            }}
+            Icon={MoreVertIcon}
+            title="short"
+            urls={{
+              delPath: `/shorts`
+            }}
+            nullifyEdit
+          />
+        )}
       </Box>
     </>
   );

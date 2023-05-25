@@ -1,78 +1,110 @@
-import React, {
-  useMemo,
-  useState,
-  useRef,
-  useEffect,
-  useCallback
-} from "react";
-import {
-  BrowserRouter,
-  Routes,
-  Route,
-  Navigate,
-  useLocation
-} from "react-router-dom";
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import {
   ThemeProvider,
   createTheme,
   CssBaseline,
   GlobalStyles
 } from "@mui/material";
-import { themeSettings } from "theme";
+import { themeSettings, INPUT_AUTOFILL_SELECTOR } from "theme";
 import { useSelector } from "react-redux";
-import Button from "@mui/material/Button";
-import Typography from "@mui/material/Typography";
 import HomePage from "pages/HomePage";
 import ProfilePage from "pages/ProfilePage";
 import Signin from "pages/Signin";
-import UserProfileForm from "components/UserProfileForm";
 import Signup from "pages/Signup";
-import { context } from "redux/store";
-import { Snackbar } from "@mui/material";
+import { context } from "context/store";
+import { Snackbar, useMediaQuery, Button, Typography } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import CloseIcon from "@mui/icons-material/Close";
 import io from "socket.io-client";
-import { API_ENDPOINT } from "config";
+import { API_ENDPOINT, HTTP_403_MSG } from "context/config";
 import Post from "pages/Post";
 import Search from "pages/Search";
 import ShortsPage from "pages/ShortsPage";
-import Compose from "pages/Compose";
-import { createRedirectURL } from "api/http";
 import VerificationMail from "pages/VerificationMail";
 import ResetPwd from "pages/ResetPwd";
+import http, {
+  handleCancelRequest,
+  handleRefreshToken,
+  getHttpErrMsg
+} from "api/http";
+import Auth404 from "pages/404/Auth404";
+import Page404 from "pages/404/Page404";
+import BrandIcon from "components/BrandIcon";
+import EmptyData from "components/EmptyData";
+import Comments from "components/Comments";
+import { reloadBrowser } from "utils";
 
 const socket = io.connect(API_ENDPOINT, {
-  path: "/mernsocial"
+  path: "/mernsocial",
+  withCredentials: window.location.pathname !== "/auth/signin"
 });
 
 const App = () => {
   const [snackbar, setSnackbar] = useState({});
   const [composeDoc, setComposeDoc] = useState();
-  const { mode } = useSelector(state => state.config);
-
+  const [readyState, setReadyState] = useState("pending");
+  const mode = useMediaQuery("(prefers-color-scheme: dark)") ? "dark" : "light";
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
-  const id = useSelector(state => state.user?.currentUser?.id);
-  const { from } = useLocation().state || {};
-  useEffect(() => {
-    console.log(socket.disconnected, id, " socket disconnected");
-    let backHandler;
-    if (id) {
-      socket.connect();
-      socket.emit("register-user", id);
-      socket.on("register-user", () => socket.emit("register-user", id));
-    }
-    // backHandler = e => {
-    //   console.log("GOING BACK..", e, from);
-    //   e.preventDefault();
-    //   if (from === "signin") window.location.href = createRedirectURL();
-    // };
-    window.addEventListener("popstate", backHandler, false);
+  const cid = useSelector(state => state.user?.currentUser?.id);
+  const navigate = useNavigate();
 
+  useEffect(() => {
+    socket.connect();
+    if (cid) {
+      socket.on("register-user", () =>
+        socket.emit("register-user", cid, () => setReadyState("ready"))
+      );
+    } else setReadyState("ready");
+    socket.on("comment", comment => setComposeDoc(comment));
+    socket.on("filter-comment", comment => setComposeDoc(comment));
+    let handlingErr;
+    socket.on("connect_error", error => {
+      if (handlingErr) return;
+      handlingErr = true;
+      switch (error.message) {
+        case "Token expired or isn't valid":
+          handleRefreshToken()
+            .then(() => socket.connect())
+            .catch(() => setReadyState("403"))
+            .finally(() => {
+              handlingErr = undefined;
+            });
+          break;
+        case "xhr poll error":
+          setReadyState("reject");
+          break;
+        default:
+          break;
+      }
+    });
     return () => {
       socket.connected && socket.disconnect();
-      backHandler && window.removeEventListener("popstate", backHandler, false);
+      handleCancelRequest();
     };
-  }, [id, from]);
+  }, [cid]);
+
+  useEffect(() => {
+    http.interceptors.response.use(
+      res => res,
+      err => {
+        if (socket.connected || readyState !== "pending")
+          switch (err) {
+            case HTTP_403_MSG:
+              if (
+                cid &&
+                window.location.pathname.toLowerCase() !== "/auth/signin"
+              )
+                navigate("?view=session-timeout");
+              break;
+            default:
+              break;
+          }
+        return Promise.reject(getHttpErrMsg(err));
+      }
+    );
+  }, [navigate, readyState, cid]);
+
   const setSnackBar = useCallback(
     (
       snackbar = {
@@ -94,22 +126,24 @@ const App = () => {
       ...snackbar,
       open: false
     });
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <GlobalStyles
         styles={{
           "*": {
-            transition: "all ease-in-out .25s"
+            fontFamily: `'Rubik', sans-serif`
           },
           textarea: {
-            resize: "none"
+            resize: "none",
+            background: "transparent"
           },
           a: {
             textDecoration: "none"
           },
           "html,body,#root": {
-            height: "100vh",
+            minHeight: "100vh",
             scrollBehavior: "smooth",
             position: "relative",
             backgroundColor: theme.palette.background.default
@@ -119,17 +153,7 @@ const App = () => {
             transition: "transform 0.2s ease-out, opacity 0.5s ease-out 2s",
             opacity: "0 !important"
           },
-          [`
-            input:-webkit-autofill,
-input:-webkit-autofill:hover,
-input:-webkit-autofill:focus,
-textarea:-webkit-autofill,
-textarea:-webkit-autofill:hover,
-textarea:-webkit-autofill:focus,
-select:-webkit-autofill,
-select:-webkit-autofill:hover,
-select:-webkit-autofill:focus 
-              `]: {
+          [INPUT_AUTOFILL_SELECTOR]: {
             backgroundColor: "transparent",
             transition: "background-color 5000s ease-in-out 0s",
             textFillColor: theme.palette.text.primary,
@@ -140,6 +164,12 @@ select:-webkit-autofill:focus
           },
           "html .MuiInputBase-input::placeholder": {
             opacity: "1"
+          },
+          input: {
+            background: "transparent"
+          },
+          "html .MuiButton-contained": {
+            color: theme.palette.common.white
           }
         }}
       />
@@ -148,37 +178,61 @@ select:-webkit-autofill:focus
           setSnackBar,
           socket,
           setComposeDoc,
-          composeDoc
+          composeDoc,
+          readyState,
+          setReadyState
         }}
       >
-        <Routes path="/">
-          <Route index element={<HomePage />} />
-          <Route path="post/:id" element={<Post key="posts" />} />
-          <Route
-            path="comment/:id"
-            element={<Post key="comments" kind="comments" />}
-          />
-          <Route path="search" element={<Search />} />
-          <Route path="shorts" element={<ShortsPage />} />
-          <Route path="compose">
-            <Route path="post" element={<Compose />} />
-          </Route>
-          <Route path="auth">
-            <Route path="signin" element={<Signin />} />
-            <Route path="signup" element={<Signup />} />
+        {{
+          reject: (
+            <EmptyData
+              maxWidth="400px"
+              label={
+                <div>
+                  <BrandIcon staticFont sx={{ mb: 1 }} />
+                  <Typography variant="h5">
+                    Something went wrong, but don’t fret — let’s give it another
+                    shot.
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    sx={{ mt: 1 }}
+                    onClick={reloadBrowser}
+                  >
+                    Try again
+                  </Button>
+                </div>
+              }
+            />
+          ),
+          pending: <BrandIcon hasLoader />
+        }[readyState] || (
+          <Routes path="/">
+            <Route index element={<HomePage />} />
+            <Route path="/auth">
+              <Route path="signin" element={<Signin />} />
+              <Route path="signup" element={<Signup />} />
+              <Route path="*" element={<Auth404 />} />
+            </Route>
+            <Route path="u/:userId" element={<ProfilePage />} />
+            <Route path="search" element={<Search />} />
+            <Route path="shorts" element={<ShortsPage />} />
             <Route path="verification-mail" element={<VerificationMail />} />
-            <Route path="reset-password/:token" element={<ResetPwd />} />
-          </Route>
-          <Route path="u">
-            <Route path=":userId" element={<ProfilePage />} />
-          </Route>
-        </Routes>
+            <Route
+              path="reset-password"
+              element={<ResetPwd setSnackBar={setSnackBar} />}
+            />
+            <Route path=":kind/:id" element={<Post />} />
+            <Route path="*" element={<Page404 />} />
+          </Routes>
+        )}
       </context.Provider>
 
       <Snackbar
         open={snackbar.open}
         autoHideDuration={snackbar.autoHideDuration || 10000}
         onClose={closeSnackBar}
+        sx={{ maxWidth: "500px" }}
       >
         <Alert
           severity={snackbar.severity || "error"}

@@ -21,4 +21,6 @@ admin.initializeApp({
   credential: firebaseCredential
 });
 
+export const storage = admin.storage();
+
 export default admin;

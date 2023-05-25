@@ -1,32 +1,3 @@
-export const removeFileFromFileList = (index, input) => {
-  const dt = new DataTransfer();
-  const { files } = input;
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    if (index !== i) dt.items.add(file);
-  }
-  input.files = dt.files;
-};
-
-export const getScrollAtIndexes = e => {
-  const t = e.currentTarget || e.target;
-  const scrollAtIndex =
-    Math.floor(
-      (t ? t.scrollTop : window.scrollY) /
-        (t || e).firstElementChild.clientHeight
-    ) || 0;
-  const initNoOfItemsViewed =
-    Math.floor(
-      (t ? t.clientHeight : window.innerHeight) /
-        (t || e).firstElementChild.clientHeight
-    ) || 0;
-  return {
-    scrollAtIndex,
-    initNoOfItemsViewed,
-    noOfItemsViewed: scrollAtIndex + initNoOfItemsViewed
-  };
-};
-
 export const removeFirstItemFromArray = (item, array) => {
   for (let i = 0; i < array.length; i++) {
     if (item === array[i]) {
@@ -38,28 +9,53 @@ export const removeFirstItemFromArray = (item, array) => {
   return array;
 };
 
-export const isOverflowing = (node = document.documentElement, root) => {
-  let bool;
-  if (root) {
-    bool =
-      (node.clientHeight || node.style.height || node.offsetHeight) +
-        node.offsetTop >
-      (root.clientHeight || root.style.height || root.offsetHeight);
-    // console.log(node.clientHeight, node.offsetTop, root.clientHeight);
-  } else {
-    const flow = node.style.overflow;
-    node.style.overflow = "hidden";
-    bool = node ? node.clientHeight < node.scrollHeight : false;
-    node.style.overflow = flow;
-  }
-  return bool;
+export const mapValidItems = (arr, container) => {
+  const maps = [];
+  if (Array.isArray(arr))
+    for (const item of arr) {
+      const m = container.find(
+        _item => (_item.id || _item) === (item.id || item)
+      );
+      if (m) maps.push(m);
+    }
+  return maps;
 };
-export const scheduleTask = () => {
-  let date = new Date();
-  let sec = date.getSeconds();
-  setTimeout(() => {
-    setInterval(() => {
-      // do something
-    }, 60 * 1000);
-  }, (60 - sec) * 1000);
+
+export const reloadBrowser = e => {
+  e.stopPropagation();
+  window.location.reload();
+};
+
+export const handleScrollUp = () =>
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+export const filterDuplicateFromArray = arr => {
+  const uniq = [];
+  const map = {};
+  for (const item of arr) {
+    const id = item.id || item._id || item;
+    if (!map[id]) {
+      map[id] = true;
+      uniq.push(item);
+    }
+  }
+  return uniq;
+};
+
+export const addToSet = (arr = [], item) => {
+  const map = item
+    ? {
+        [item.id || item._id || JSON.stringify(item)]: true
+      }
+    : {};
+  const items = [];
+  item && items.push(item);
+  for (const _item of arr) {
+    const id = _item.id || _item._id || JSON.stringify(item);
+    if (!map[id]) {
+      items.push(_item);
+      map[id] = id;
+    }
+  }
+  return items;
 };

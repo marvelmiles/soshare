@@ -1,0 +1,94 @@
+import React, { useState, useEffect } from "react";
+import PropTypes from "prop-types";
+import NorthIcon from "@mui/icons-material/North";
+import Button from "@mui/material/Button";
+import AvatarGroup from "@mui/material/AvatarGroup";
+import Avatar from "@mui/material/Avatar";
+import ReactDom from "react-dom";
+import { Link } from "react-router-dom";
+import Typography from "@mui/material/Typography";
+
+Avatar.defaultProps = {
+  sx: {
+    width: 25,
+    height: 25,
+    fontSize: "12px"
+  }
+};
+
+const DataNotifier = ({
+  data,
+  message = "Soshared",
+  open,
+  sx,
+  containerRef,
+  yCoords = 100,
+  position,
+  closeNotifier
+}) => {
+  const [portal, setPortal] = useState(null);
+  useEffect(() => {
+    const node = containerRef
+      ? containerRef.current || containerRef
+      : document.documentElement;
+
+    if (node)
+      setPortal(
+        ReactDom.createPortal(
+          <Button
+            variant="contained"
+            sx={{
+              zIndex: "modal",
+              borderRadius: "32px",
+              minWidth: "0px",
+              width: "250px",
+              flexWrap: "wrap",
+              gap: 1,
+              left: "50%",
+              top: 0,
+              transition: `transform 0.3s ease-out`,
+              transform: `translate(-50%,${open ? yCoords : -(yCoords * 2)}px)`,
+              position: "absolute"
+            }}
+            onClick={e => {
+              e.stopPropagation();
+              node.scrollTo({ top: 0, behavior: "smooth" });
+              closeNotifier();
+            }}
+          >
+            <NorthIcon
+              sx={{ minWidth: "auto", width: "auto", color: "common.white" }}
+            />
+            <AvatarGroup max={4}>
+              {data.map((item, i) => {
+                const { username, photoUrl, id } = item.user || item;
+                return (
+                  <Avatar
+                    key={i}
+                    alt={`${username} avatar`}
+                    src={`${photoUrl}`}
+                    component={Link}
+                    to={`/u/${id}`}
+                  />
+                );
+              })}
+            </AvatarGroup>
+            <Typography
+              variant="subtitle"
+              sx={{
+                wordBreak: "break-word"
+              }}
+            >
+              {message}
+            </Typography>
+          </Button>,
+          node.parentElement || node
+        )
+      );
+  }, [containerRef, data, message, open, sx, yCoords, position, closeNotifier]);
+  return portal;
+};
+
+DataNotifier.propTypes = {};
+
+export default DataNotifier;

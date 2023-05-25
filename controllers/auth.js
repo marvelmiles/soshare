@@ -1,15 +1,16 @@
 import User from "../models/User.js";
 import { createError } from "../utils/error.js";
 import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-import { setTokens, generateToken, sendMail } from "../utils/index.js";
+import { setTokens, generateToken } from "../utils/index.js";
 import { isEmail } from "../utils/validators.js";
-
+import { sendMail } from "../utils/file-handlers.js";
+import { verifyToken } from "../utils/middlewares.js";
+import { GMAIL_USER } from "../config.js";
 export const signup = async (req, res, next) => {
   try {
     if (!isEmail(req.body.email))
       throw createError("Account email address is invalid");
-    const user = await User.findOne({
+    let user = await User.findOne({
       $or: [{ username: req.body.username }, { email: req.body.email }]
     });
     if (user)
@@ -22,7 +23,7 @@ export const signup = async (req, res, next) => {
       await bcrypt.genSalt()
     );
     req.body.photoUrl = req.file?.publicUrl;
-    await new User(req.body).save();
+    user = await new User(req.body).save();
     res.json("Thank you for registering. You can login!");
   } catch (err) {
     next(err);
@@ -31,7 +32,6 @@ export const signup = async (req, res, next) => {
 
 export const signin = async (req, res, next) => {
   try {
-    console.log("signin...");
     const query = {
       $or: [
         { email: req.body.placeholder || req.body.email },
@@ -53,11 +53,10 @@ export const signin = async (req, res, next) => {
           throw createError("Invalid credentials");
         break;
     }
+    await user.updateOne({
+      isLogin: true
+    });
     await setTokens(res, user.id, req.query.rememberMe);
-    user &&
-      (await user.updateOne({
-        isLogin: true
-      }));
     res.json(await User.findOne(query));
   } catch (err) {
     next(err);
@@ -66,11 +65,23 @@ export const signin = async (req, res, next) => {
 
 export const signout = async (req, res, next) => {
   try {
-    await User.findByIdAndUpdate(req.user.id, {
+    setTokens(res);
+    res.json("Signed out successfully");
+    const user = await User.findByIdAndUpdate(req.user.id, {
       isLogin: false
     });
-    await setTokens(res);
-    res.json("Signed out successfully");
+    if (user)
+      await User.updateOne(
+        {
+          _id: req.user.id
+        },
+        {
+          settings: {
+            ...user.settings,
+            ...req.body.settings
+          }
+        }
+      );
   } catch (err) {
     next(err);
   }
@@ -78,7 +89,6 @@ export const signout = async (req, res, next) => {
 
 export const userExist = async (req, res, next) => {
   try {
-    console.log("chek user exist");
     return res.json(
       !!(await User.findOne(
         {
@@ -104,76 +114,25 @@ export const userExist = async (req, res, next) => {
 
 export const refreshTokens = async (req, res, next) => {
   try {
-    const err = verifyToken(
-      req,
-      {
-        applyRefresh: true
-      },
-      next
-    );
-    if (err) return next(err);
-
-    // console.log(req.user, "reee user");
-    await setTokens(res, req.user.id, req.cookies.refresh_token.rememberMe);
+    verifyToken(req, {
+      applyRefresh: true
+    });
+    if (req.user)
+      await setTokens(
+        res,
+        req.user.id,
+        req.cookies.refresh_token.rememberMe,
+        true
+      );
+    else throw createError(`Forbidden access`, 403);
     res.json("Token refreshed");
   } catch (err) {
-    console.log("dddddd", err.message);
-    next(err);
+    next(createError(err.message, 403));
   }
-};
-
-export const verifyToken = (req, { applyRefresh, _noNext, throwErr }, next) => {
-  console.log("verifiying...");
-  const token = applyRefresh
-    ? req.cookies.refresh_token?.jwt
-    : req.cookies.access_token;
-  const status = applyRefresh ? 403 : 401;
-  _noNext = _noNext || applyRefresh;
-  if (!token)
-    return _noNext
-      ? createError(
-          applyRefresh ? "Invalid credentials" : "You are not authorized",
-          status
-        )
-      : next(
-          createError(
-            applyRefresh ? "Invalid credentials" : "You are not authorized",
-            status
-          )
-        );
-
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-    if (err) {
-      console.log(err.message, !!_noNext);
-      if (_noNext)
-        if (throwErr)
-          throw createError(
-            applyRefresh
-              ? "Refresh token is not valid. Please make a new signin request"
-              : "Token is not valid!",
-            status
-          );
-        else
-          next(
-            createError(
-              applyRefresh
-                ? "Refresh token is not valid. Please make a new signin request"
-                : "Token is not valid!",
-              status
-            )
-          );
-      return;
-    }
-    console.log("user verified...");
-    req.user = user;
-    delete req.body._id;
-    !_noNext && next();
-  });
 };
 
 export const recoverPwd = async (req, res, next) => {
   try {
-    console.log("resetting password...");
     const { email } = req.body;
     const user = await User.findOne({
       email
@@ -188,16 +147,15 @@ export const recoverPwd = async (req, res, next) => {
     sendMail(
       {
         to: email,
-        from: process.env.GMAIL_USERNAME || "noreply@service.com",
+        from: GMAIL_USER,
         subject: "Mern-social account password Reset",
         text: `You are receiving this email because you (or someone else) have requested the reset of the password for your account.\n\n
           Please click on the following link, or paste this into your browser to complete the process:\n\n
           http://${req.headers.origin}/auth/reset-password/${token}\n\n
           If you did not request this, please ignore this email and your password will remain unchanged.\n`
       },
-      (err, nt) => {
+      err => {
         if (err) {
-          console.log(err.message);
           return next(err);
         } else {
           return res.json(
@@ -213,7 +171,6 @@ export const recoverPwd = async (req, res, next) => {
 
 export const verifyUserToken = async (req, res, next) => {
   try {
-    console.log("verify token...", req.body);
     const user = await User.findOne({
       resetToken: req.body.token
     });
@@ -221,16 +178,15 @@ export const verifyUserToken = async (req, res, next) => {
     const start = new Date();
     start.setHours(start.getHours() - (Number(req.query.timeHr) || 1));
     const resetDate = new Date(user.resetDate);
-    // if (!(resetDate.getTime() >= start.getTime()))
-    //   throw createError("Token expired");
+    if (!(resetDate.getTime() >= start.getTime()))
+      throw createError("Token expired");
 
     const expires = new Date();
     expires.setMinutes(30);
     res.cookie("reset-pwd-token", req.body.token, {
-      httpOnly: true
-      // expires
+      httpOnly: true,
+      expires
     });
-    console.log("cookie s set");
     res.json(user);
   } catch (err) {
     next(err);

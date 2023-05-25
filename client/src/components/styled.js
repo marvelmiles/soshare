@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
 import { styled } from "@mui/system";
-import { Typography, Box, MenuItem, Button } from "@mui/material";
+import { Typography, Box, MenuItem } from "@mui/material";
 import Badge from "@mui/material/Badge";
 import { keyframes } from "@mui/system";
-import CircularProgress from "@mui/material/CircularProgress";
+
 export const StyledLink = styled(Link, {
   shouldForwardProp: prop => {
     switch (prop) {
@@ -19,7 +19,7 @@ export const StyledLink = styled(Link, {
     theme: {
       typography,
       palette: {
-        primary: { main, dark }
+        primary: { main }
       }
     },
     variant,
@@ -47,11 +47,21 @@ export const StyledLink = styled(Link, {
   }
 );
 
-export const StyledTypography = styled(Typography)(
+export const StyledTypography = styled(Typography, {
+  shouldForwardProp: prop => {
+    switch (prop) {
+      case "textEllipsis":
+      case "maxLine":
+        return false;
+      default:
+        return true;
+    }
+  }
+})(
   ({
-    $maxLine,
+    maxLine,
     variant,
-    $textEllipsis,
+    textEllipsis,
     theme: {
       palette: {
         primary: { main }
@@ -59,22 +69,22 @@ export const StyledTypography = styled(Typography)(
     }
   }) => {
     let styles = {};
-    $textEllipsis &&
+    textEllipsis &&
       (styles = {
         ...styles,
         textOverflow: "ellipsis",
         overflow: "hidden",
         whiteSpace: "nowrap"
       });
-    $maxLine &&
+    maxLine &&
       (styles = {
         ...styles,
         overflow: "hidden",
         textOverflow: "ellipsis",
         display: "-webkit-box",
-        "-webkit-box-orient": "vertical",
-        "-webkit-line-clamp": `${$maxLine}`,
-        maxHeight: ($maxLine > 2 ? 1.8 * $maxLine : 2.92) + "em"
+        WebkitBoxOrient: "vertical",
+        WebkitLineClamp: `${maxLine}`,
+        maxHeight: (maxLine > 2 ? 1.8 * maxLine : 2.92) + "em"
       });
     styles = {
       ...styles,
@@ -92,42 +102,40 @@ export const StyledTypography = styled(Typography)(
     return styles;
   }
 );
-
-export const WidgetContainer = styled(Box)(
-  ({
-    theme: {
-      palette: {
-        background: { alt, default: defaultC }
-      }
-    },
-    $plainWidget
-  }) => {
-    return {
-      width: "100%",
-      minHeight: "200px",
-      borderRadius: "8px",
-      padding: "16px",
-      backgroundColor: alt,
-      marginBottom: "24px",
-      maxHeight: "400px",
-      overflow: "auto",
-      position: "relative",
-
-      // border: "1px solid green",
-      ...($plainWidget && {
-        overflow: "none",
-        marginInline: "auto",
-        maxHeight: "none",
-        borderRadius: "0",
-        marginBottom: 0,
-        backgroundColor: "transparent",
-        height: "inherit",
-        minHeight: "inherit"
-        // height: "inherit"
-      })
-    };
+export const WidgetContainer = styled(Box, {
+  shouldForwardProp: prop => {
+    switch (prop) {
+      case "plainWidget":
+      case "sx":
+        return false;
+      default:
+        return true;
+    }
   }
-);
+})(({ theme: { palette: { background: { alt } } }, plainWidget }) => {
+  return {
+    width: "100%",
+    minHeight: "300px",
+    borderRadius: "8px",
+    padding: "16px",
+    backgroundColor: alt,
+    marginBottom: "24px",
+    maxHeight: "450px",
+    overflow: "auto",
+    position: "relative",
+
+    ...(plainWidget && {
+      overflow: "none",
+      marginInline: "auto",
+      maxHeight: "none",
+      borderRadius: "0",
+      marginBottom: 0,
+      backgroundColor: "transparent",
+      height: "inherit",
+      minHeight: "inherit"
+    })
+  };
+});
 
 export const Image = styled("img")`
   width: 100%;
@@ -176,23 +184,6 @@ export const spin = keyframes`
   }
 `;
 
-export const Loading = ({ sx }) => (
-  <Box
-    sx={{
-      color: "primary.dark",
-      display: "flex",
-      justifyContent: "center",
-      alignItems: "center",
-      minHeight: "inherit",
-      height: "inherit",
-      // border: "1px solid green",
-      ...sx
-    }}
-  >
-    <CircularProgress />
-  </Box>
-);
-
 export const slideinDown = keyframes`
 from {
     -webkit-transform: translate3d(0, -100%, 0);
@@ -206,29 +197,38 @@ from {
   }
 `;
 
-export const StyledButton = styled(Button)`
-  ${({
-    variant,
-    theme: {
-      palette: {
-        mode,
-        background: { alt },
-        primary: { contrastText }
-      }
-    },
-    ...p
-  }) => {
-    let styled = ``;
-    switch (variant) {
-      case "contained":
-        styled += ` 
-        color:${contrastText};
-        &:hover {
-          color: ${alt}
-        };
-        `;
-        break;
-    }
-    return styled;
-  }}
-`;
+export const zoom = keyframes`
+  0% {
+    transform: scale(0, 0);
+    opcaity:1;
+  }
+  20% {
+    transform: scale(0.2, 0.2);
+  }
+  20% {
+    transform: scale(0.4, 0.4);
+  }
+  50% {
+    transform: scale(0.5, 0.5);
+    opacity:0.5
+  }
+  60% {
+    transform: scale(0.6, 0.6);
+    opacity:0.5
+  }
+  65% {
+    transform: scale(0.8, 0.8);
+    opacity:0.5
+  }
+  70% {
+    transform: scale(1, 1);
+    opacity:0.5
+  }
+  80% {
+    transform: scale(1.4,1.4);
+  }
+  100%{
+    transform: scale(1.4,1.4);
+    opacity:0
+  }
+  `;

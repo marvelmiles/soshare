@@ -1,9 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 const firebaseConfig = {
-  apiKey:
-    process.env.REACT_APP_FIREBASE_API_KEY ||
-    "AIzaSyAwQWGuOIRcft2jrCLArKMCsJuFxUG7fVc",
+  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
   authDomain: "mern-social-1842b.firebaseapp.com",
   projectId: "mern-social-1842b",
   storageBucket: "mern-social-1842b.appspot.com",

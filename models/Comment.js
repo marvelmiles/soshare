@@ -88,6 +88,11 @@ const schema = new mongoose.Schema(
       ],
       ref: "user",
       default: []
+    },
+    thread: Object,
+    threadDepth: {
+      type: Number,
+      default: 0
     }
   },
   {
@@ -98,7 +103,6 @@ const schema = new mongoose.Schema(
       versionKey: false,
       virtuals: true,
       transform: function(doc, ret) {
-        // console.log("tranform comment ");
         ret.id = ret._id;
         delete ret._id;
       }

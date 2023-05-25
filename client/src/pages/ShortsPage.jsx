@@ -1,19 +1,20 @@
-import React, { useRef, useCallback, useState } from "react";
+import React from "react";
 import PropTypes from "prop-types";
 import MainView from "views/MainView";
-import ShortsWidget from "components/ShortsWidget";
+import ShortsView from "views/ShortsView";
 
 const ShortsPage = props => {
   return (
-    <MainView publicView="posts">
-      <ShortsWidget
+    <MainView sideView={undefined}>
+      <ShortsView
+        loop
         key="shorts-page"
         plainWidget
         miniShort={false}
         sx={{
           maxWidth: "450px"
         }}
-        loop
+        scrollNodeRef={null}
       />
     </MainView>
   );

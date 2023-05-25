@@ -21,7 +21,7 @@ const schema = new mongoose.Schema(
     followers: {
       type: [
         {
-          type: String,
+          type: mongoose.Types.ObjectId,
           ref: "user"
         }
       ],
@@ -30,18 +30,21 @@ const schema = new mongoose.Schema(
     following: {
       type: [
         {
-          type: String,
+          type: mongoose.Types.ObjectId,
           ref: "user"
         }
       ],
       default: []
     },
-    socials: {},
+    socials: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
     bio: String,
     location: String,
     occupation: String,
     recommendationBlacklist: {
-      type: Array,
+      type: [{ type: mongoose.Types.ObjectId, ref: "user" }],
       default: []
     },
     lastLogin: Date,
@@ -54,17 +57,32 @@ const schema = new mongoose.Schema(
     },
     provider: String,
     resetToken: String,
-    resetDate: Date
+    resetDate: Date,
+    shortsCount: {
+      type: Number,
+      default: 0
+    },
+    postsCount: {
+      type: Number,
+      default: 0
+    },
+    settings: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    }
   },
   {
     collection: "user",
     timestamps: true,
     versionKey: false,
     toJSON: {
+      minimize: false,
       transform(_, ret) {
         ret.id = ret._id;
         delete ret._id;
         delete ret.password;
+        if (ret.settings) delete ret.settings._id;
+        if (ret.socials) delete ret.socials._id;
       }
     }
   }

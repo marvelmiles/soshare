@@ -1,19 +1,13 @@
-import React, { useRef, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
-import { Box, Avatar, Typography, IconButton, Stack } from "@mui/material";
+import { Box } from "@mui/material";
 import VideoPlayer from "components/VideoPlayer";
-import EditIcon from "@mui/icons-material/Edit";
-import { Link } from "react-router-dom";
-import { useTheme } from "@mui/material";
-import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlined";
-import FavoriteOutlinedIcon from "@mui/icons-material/FavoriteOutlined";
 import { useSelector } from "react-redux";
-import { useContext } from "redux/store";
 import http from "api/http";
 import ShortFooter from "./ShortFooter";
 import ShortSidebar from "./ShortSidebar";
-import { StyledLink } from "components/styled";
 import { useNavigate } from "react-router-dom";
+import { useContext } from "context/store";
 
 const Short = React.forwardRef(
   (
@@ -25,35 +19,56 @@ const Short = React.forwardRef(
       },
       miniShort,
       handleAction,
-      loop,
-      mx
+      loop
     },
     ref
   ) => {
-    const { id } = useSelector(state => state.user.currentUser || {});
-    const { setSnackBar } = useContext();
-    const stateRef = useRef({}).current;
-    const {
-      palette: {
-        background: { blend }
-      }
-    } = useTheme();
+    const { setComposeDoc } = useContext();
+    const cid = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
+    const stateRef = useRef({
+      backdropText: "Unable to play video"
+    });
+    const [loading, setLoading] = useState(true);
     const onTimeUpdate = useCallback(async () => {
       try {
-        if (miniShort || short.views[id]) return;
+        if (miniShort || short.views[cid]) return;
         handleAction("update", {
           id: short.id,
           views: await http.patch(`/shorts/${short.id}/view`)
         });
-      } catch (msg) {
-        console.log(msg);
-      }
-    }, [short.id, short.views, id, handleAction, miniShort]);
-    // console.log(short.pause, "is oner");
+      } catch (msg) {}
+    }, [short.id, short.views, cid, handleAction, miniShort]);
 
+    const onLoadedMetadata = useCallback(() => setLoading(false), []);
+    const onClick = useCallback(
+      e => {
+        e.stopPropagation();
+        console.log(" clicked... ", short.id);
+        miniShort &&
+          setComposeDoc({
+            id: short.id,
+            docType: "short",
+            reason: "fetch"
+          });
+
+        window.location.pathname.toLowerCase() !== "/shorts" &&
+          navigate(`/shorts`);
+      },
+      [navigate, setComposeDoc, short.id, miniShort]
+    );
+    const onError = useCallback(
+      ({ severity, withReload }) => {
+        if (!withReload) setLoading(false);
+        if (severity === 1) handleAction("filter", short.id, undefined, false);
+      },
+      [handleAction, short.id]
+    );
+    const onReload = useCallback(() => setLoading(true), []);
     return (
       <Box
+        id={short.id}
+        key={short.id + miniShort + "short"}
         ref={ref}
         sx={{
           position: "relative",
@@ -64,31 +79,46 @@ const Short = React.forwardRef(
                 md: "110px"
               }
             : "100%",
-          // maxWidth: miniShort ? "150px" : undefined,
           height: miniShort ? "200px" : "80vh",
           mb: 1,
-
-          border: "1px solid red",
-          borderColor: "divider",
-          // mx: "auto",
-          "&:last-of-type": {
-            // mx: 2
-          }
-          // border: "1px solid red"
+          border: "1px solid currentColor",
+          borderColor: "divider"
         }}
       >
         <VideoPlayer
+          id={short.id}
+          key={short.id + miniShort + "short"}
           loop={loop}
           src={short.url}
+          mimetype={short.mimetype}
           hideControls
+          enableIndicator={!miniShort}
+          backdrops={{
+            RELOAD: true
+          }}
           pause={short.pause}
           autoPlay={!miniShort}
           withIntersection={!miniShort}
-          hoverPlayDelay={miniShort && 1000}
+          hoverPlayDelay={miniShort && 500}
           hideTimeline={miniShort}
           onTimeUpdate={onTimeUpdate}
-          onClick={
-            miniShort ? () => navigate(`/shorts?ref=${short.id}`) : undefined
+          onClick={onClick}
+          onLoadedMetadata={onLoadedMetadata}
+          onReload={onReload}
+          onError={onError}
+          sx={
+            miniShort
+              ? {
+                  cursor: "pointer"
+                }
+              : undefined
+          }
+          footerSx={
+            !miniShort && {
+              background: "none",
+              py: 0,
+              bottom: "-5.5px"
+            }
           }
         />
 
@@ -97,15 +127,17 @@ const Short = React.forwardRef(
           text={short.text}
           views={short.views ? Object.keys(short.views).length : 0}
           miniShort={miniShort}
-          isOwner={short.user.id === id}
           id={short.id}
           handleAction={handleAction}
+          loading={loading}
+          animation={stateRef.current.backdropText ? false : undefined}
         />
         <ShortSidebar
           id={short.id}
-          isOwner={short.user.id === id}
           user={short.user}
           handleAction={handleAction}
+          loading={loading}
+          animation={stateRef.current.backdropText ? false : undefined}
         />
       </Box>
     );

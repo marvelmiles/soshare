@@ -1,39 +1,58 @@
 import jwt from "jsonwebtoken";
-import { verifyToken } from "../controllers/auth.js";
-import { createError } from "./error.js";
-import User from "../models/User.js";
 import Notification from "../models/Notification.js";
-import { ObjectId } from "bson";
-import Post from "../models/Post.js";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
-export const setTokens = async (res, id, rememberMe) => {
-  console.log("remeber me ", rememberMe);
+import { Types } from "mongoose";
+import { isObject } from "./validators.js";
+import Comment from "../models/Comment.js";
+import { shuffleArray } from "../utils/normalizers.js";
+import User from "../models/User.js";
+
+export const setTokens = async (res, id, rememberMe, accessOnly) => {
   rememberMe = rememberMe === "true";
   const shortT = new Date();
-  shortT.setMinutes(shortT.getMinutes() + 30);
   const longT = new Date();
-  if (rememberMe) longT.setDate(longT.getDate() + 28);
-  else longT.setHours(longT.getHours() + 6);
-  res
-    .cookie(
-      "access_token",
-      jwt.sign({ id }, process.env.JWT_SECRET, {
-        expiresIn: "30m"
-      }),
-      {
-        httpOnly: true,
-        expires: shortT
-      }
-    )
-    .cookie(
+  if (id) {
+    shortT.setMinutes(shortT.getMinutes() + 30);
+    if (rememberMe) longT.setDate(longT.getDate() + 28);
+    else longT.setHours(longT.getHours() + 6);
+  } else {
+    shortT.setFullYear(1990);
+    longT.setFullYear(1990);
+  }
+  res.cookie(
+    "access_token",
+    id
+      ? jwt.sign(
+          {
+            id
+          },
+          process.env.JWT_SECRET,
+          {
+            expiresIn: "5m"
+          }
+        )
+      : "",
+    {
+      httpOnly: true,
+      expires: shortT
+    }
+  );
+
+  if (!accessOnly)
+    res.cookie(
       "refresh_token",
-      {
-        jwt: jwt.sign({ id }, process.env.JWT_SECRET, {
-          expiresIn: rememberMe ? "28d" : "6h"
-        }),
-        rememberMe
-      },
+      id
+        ? JSON.stringify({
+            jwt: jwt.sign(
+              {
+                id
+              },
+              process.env.JWT_SECRET,
+              { expiresIn: "15m" }
+            ),
+            rememberMe
+          })
+        : "",
       {
         httpOnly: true,
         expires: longT
@@ -41,251 +60,194 @@ export const setTokens = async (res, id, rememberMe) => {
     );
 };
 
-const encrypt = str => {
-  return str;
-};
-
-const decrypt = enc => {
-  return enc;
-};
-
 // Rm duplicate: group by _id and project a new root of the first document
 // only which will verify no document is returned twice.
 export const getAll = async ({
   query = {},
   model,
-  match,
+  match = {},
+  dataKey,
   populate,
   sort = {},
-  asc = false,
-  dataKey
+  t
 }) => {
-  let { limit = 0, cursor, query_op } = query;
-  limit = Number(limit) || 20;
-  if (cursor) cursor = decodeURIComponent(cursor);
+  try {
+    let {
+      limit = 20,
+      cursor,
+      asc = "false",
+      withEq = "true",
+      randomize,
+      withMatchedDocs = "false",
+      exclude = ""
+    } = query;
 
-  let result;
-  if (dataKey) {
-    cursor = cursor || 0;
-    result = (await (await model.findOne(match)).populate(dataKey))[dataKey];
-    result = result.slice(cursor, cursor + limit);
-    cursor = cursor + result.length;
-    cursor = cursor < result.length ? cursor : null;
-    if (!asc) {
-      result.sort(function(a, b) {
-        return (
-          new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
-        );
-      });
+    limit = (Number(limit) || 20) + 1;
+    asc = asc === "true";
+    withEq = withEq === "true";
+    withMatchedDocs = withMatchedDocs === "true";
+    randomize = randomize === "true";
+    exclude = (exclude ? exclude.split(",") : []).map(
+      id => new Types.ObjectId(id)
+    );
+
+    if (match._id?.$nin) {
+      exclude = exclude.concat(match._id.$nin);
+      delete match._id?.$nin;
     }
-  } else {
-    limit = limit + 1;
-    if (asc) sort._id = 1;
-    else sort._id = -1;
-    if (cursor) {
-      match = {
-        ...match,
-        $expr: {
-          [asc ? "$gte" : "$lte"]: ["$_id", new ObjectId(cursor)]
-        }
+
+    if (populate === undefined) {
+      const select = {
+        "settings._id": 0,
+        "socials._id": 0,
+        password: 0
+      };
+      const options = { virtuals: true };
+      populate = [
+        {
+          select,
+          options,
+          path: "user"
+        },
+        dataKey
+          ? {
+              select,
+              options,
+              path: dataKey
+            }
+          : ""
+      ];
+    }
+
+    if (cursor) cursor = decodeURIComponent(cursor);
+
+    let result, matchedDocs, skippedLimit;
+
+    if (asc) sort[dataKey ? dataKey : "_id"] = 1;
+    else sort[dataKey ? dataKey : "_id"] = -1;
+
+    if (isObject(match._id)) {
+      match._id = {
+        ...match._id,
+        $nin: exclude
+      };
+    } else {
+      match._id = {
+        ...(match._id
+          ? {
+              $eq: new Types.ObjectId(match._id)
+            }
+          : {}),
+        $nin: exclude
       };
     }
 
-    // if (query_op) {
-    //   switch (query_op.toLowerCase()) {
-    //     case "relevant":
-    //       console.log("limit", limit);
-    //       match = {
-    //         ...match,
-    //         user: userId
-    //       };
-    //       break;
-    //   }
-    // }
-    result = await model.aggregate([
-      {
-        $match: match
-      },
-      { $sort: sort },
-      {
-        $limit: limit
-      },
-      {
-        $addFields: {
-          id: "$_id"
-        }
-      },
-      {
-        $unset: ["_id"]
-      }
-    ]);
+    (withMatchedDocs || randomize) &&
+      (matchedDocs = dataKey
+        ? ((await model.findOne(match)) || {})[dataKey]?.length || 0
+        : await model.countDocuments(match));
 
-    if (populate) result = await model.populate(result, populate);
+    const pipelines = dataKey
+      ? [
+          { $match: match },
+          { $project: { [dataKey]: 1 } },
+          { $unwind: `$${dataKey}` }, // flatten dataKey as current data
+          {
+            $sort: sort
+          },
+          {
+            $match: {
+              [dataKey]: {
+                $nin: exclude
+              }
+            }
+          },
+          {
+            $group: {
+              _id: "$_id",
+              [dataKey]: { $push: `$${dataKey}` }
+            }
+          }
+        ]
+      : [
+          {
+            $match: match
+          },
+          { $sort: sort },
+          {
+            $limit: limit
+          },
+          {
+            $addFields: {
+              id: "$_id"
+            }
+          },
+          {
+            $unset: ["_id", "password"]
+          }
+        ];
+    if (randomize)
+      pipelines.splice(dataKey ? 4 : 2, 0, { $sample: { size: limit } });
+
+    if (cursor) {
+      const cursorIdRules = {
+        [asc
+          ? withEq
+            ? "$gte"
+            : "$gt"
+          : withEq
+          ? "$lte"
+          : "$lt"]: new Types.ObjectId(cursor)
+      };
+      if (dataKey) {
+        pipelines.splice(
+          randomize ? 5 : 4,
+          0,
+          {
+            $match: {
+              [dataKey]: {
+                ...pipelines[4].$match[dataKey],
+                ...cursorIdRules
+              }
+            }
+          },
+          { $limit: limit }
+        );
+      } else
+        pipelines.splice(0, 0, {
+          $match: {
+            ...pipelines[0].$match,
+            _id: {
+              ...pipelines[0].$match._id,
+              ...cursorIdRules
+            }
+          }
+        });
+    }
+    // if (t) {
+    //   console.clear();
+    //   console.log(match);
+    // }
+    result = await model.populate(await model.aggregate(pipelines), populate);
+
+    if (dataKey && result[0]) result = result[0][dataKey];
+
     cursor = null;
     if (result.length === limit) {
       cursor = result[limit - 1].id;
       result.pop();
     }
-  }
-  // model.modelName === "comment" && console.log(result, " result..");
-  // (query.shuffle || "true") === "true" && shuffleArray(result);
-  // model.modelName === "comment" && console.log(match);
-  return new Promise((re, rj) => {
-    setTimeout(() => {
-      re({
-        data: result,
-        paging: {
-          nextCursor: cursor ? encodeURIComponent(cursor) : null
-        }
-      });
-    }, 3000);
-  });
-};
-
-/* Randomize array in-place using Durstenfeld shuffle algorithm */
-export function shuffleArray(array, modify = true) {
-  !modify && (array = array.slice());
-  for (var i = array.length - 1; i > 0; i--) {
-    var j = Math.floor(Math.random() * (i + 1));
-    var temp = array[i];
-    array[i] = array[j];
-    array[j] = temp;
-  }
-}
-
-export const createVisibilityQuery = async (
-  userId,
-  searchRef,
-  expires,
-  query
-) => {
-  if (query) {
-    query.$or = [
-      {
-        visibility: "everyone"
-      },
-      ...(query.$or ? query.$or : [])
-    ];
-  } else
-    query = {
-      $or: [
-        {
-          visibility: "everyone"
-        }
-      ]
+    return {
+      data: result,
+      paging: {
+        matchedDocs,
+        skippedLimit,
+        nextCursor: cursor ? encodeURIComponent(cursor) : null
+      }
     };
-
-  if (expires) query.$or[0].createdAt = expires;
-  if (userId) {
-    // console.log(userId, "create visibility  user id");
-    const user = await User.findById(userId);
-    if (!user) throw createError("User doesn't exist", 404);
-
-    query.$or.push({
-      user: { $in: user.following }
-    });
-    query.user = {
-      $nin: user.recommendationBlacklist
-    };
-    query.$or.push({
-      user: userId
-    });
-  }
-  if (searchRef) {
-    query.$or.push({
-      _id: searchRef
-    });
-  }
-  return query;
-};
-
-export const getFeedMedias = async ({
-  req,
-  res,
-  next,
-  model,
-  populate,
-  match,
-  expireAt,
-  validateDoc,
-  ...rest
-}) => {
-  try {
-    verifyToken(req, {
-      _noNext: true
-    });
-    let isOwner;
-    if (req.user && validateDoc) {
-      isOwner =
-        (await {
-          post: Post
-        }[validateDoc].findById(match.document)).user === req.user.id;
-    }
-    const q = isOwner
-      ? match
-      : await createVisibilityQuery(
-          req.user?.id,
-          req.query.searchRef,
-          expireAt,
-          match
-        );
-    // expireAt && console.log(q, model.modelName);
-    const t = await getAll({
-      model,
-      match: q,
-      query: req.query,
-      populate: populate || {
-        path: "user"
-        // select: req.query.user_select
-      },
-      userId: req.user?.id,
-      ...rest
-    });
-    // console.log(t.data.length, isOwner, validateDoc, req.user?.id, q);
-    return res.json(t);
   } catch (err) {
-    next(createError(err.message, 404));
-  }
-};
-
-export const likeMedia = async (model, req, res, next) => {
-  try {
-    const media = await model.findById(req.params.id);
-    if (media.likes.get(req.user.id))
-      return next(
-        createError(
-          `${model.collection.collectionName} already liked by you`,
-          200
-        )
-      );
-    media.likes.set(req.user.id, true);
-    res.json(
-      (await model.findByIdAndUpdate(
-        req.params.id,
-        {
-          likes: media.likes
-        },
-        { new: true }
-      )).likes
-    );
-    sendAndUpdateNotification({
-      req,
-      type: "like",
-      docType: model.modelName,
-      document: media.id,
-      reportIds: {
-        like: media.likes,
-        comment: media.comments,
-        user: [media.user]
-      },
-      docPopulate: [
-        {
-          path: "user"
-        }
-      ]
-    });
-  } catch (err) {
-    next(createError(err.message, 409));
+    console.log(err.message, " err ");
+    throw err;
   }
 };
 
@@ -297,206 +259,193 @@ export const sendAndUpdateNotification = async ({
   filter = false,
   to,
   eventName,
-  toAll = {
-    follow: false
-  }[type],
-  foreignKey,
-  docPopulate,
-  saveAlways,
-  reportIds,
-  reportFrom
+  docPopulate = "user document",
+  maxFromNotification = 20,
+  withFrom = false
 }) => {
-  toAll = toAll === undefined ? true : toAll;
-  reportFrom =
-    {
-      follow: true
-    }[type] || false;
+  const from = req.user.id;
   to =
-    to === undefined
-      ? toAll
-        ? undefined
-        : document
-        ? document.user
-          ? document.user.id || document.user
-          : document
-        : req.params.userId
-      : to;
-
+    to ||
+    req.params.userId ||
+    (document
+      ? document.user
+        ? document.user.id || document.user
+        : document.id || document
+      : undefined);
   eventName =
     eventName ||
     {
-      follow: filter ? "unfollow" : "follow",
-      like: filter ? "dislike" : "like"
+      follow: filter ? "unfollow" : "follow"
     }[type] ||
     type;
-  if (document) {
-    foreignKey =
-      foreignKey ||
-      (document &&
-        (document.foreignKey ||
-          ((document.document && (document.document.id || document.document)) ||
-            document.id ||
-            document)));
-    docType = docType || type;
-  }
-  let match;
-  if (foreignKey) {
-    match = {
-      type,
-      to,
-      foreignKey
-    };
-  } else if (document)
-    match = {
-      type,
-      document: document.id || document,
-      to
-    };
-  else {
-    match = {
-      type,
-      to,
-      from: req.user.id
-    };
-  }
-  const populate = [
-    {
-      path: "from to"
-    },
-    {
-      path: "document",
-      populate: docPopulate
-    }
-  ];
-  let notice, report;
-  if (filter) {
-    if (reportFrom)
-      notice = await Notification.findOneAndUpdate(match, {
-        [`reports.${req.user.id}.expireAt`]: new Date(
-          new Date().valueOf() + 86400000
-        )
-      }).populate(populate);
-  } else {
-    match.from = req.user.id;
-    if (
-      saveAlways ||
-      ((notice = await Notification.findOne(match))
-        ? !(report = notice.reports.get(req.user.id)) ||
-          (report.expireAt &&
-            new Date(report.expireAt).valueOf() < new Date().valueOf())
-        : true)
-    ) {
-      if (notice) {
-        await Notification.deleteOne(match);
-        if (document || foreignKey) delete match.from;
-      }
-      const reportProp = {
-        type,
-        marked: false,
-        expireAt: null
-      };
-      const prop = {
-        type,
-        foreignKey,
-        to,
-        from: req.user.id,
-        docType,
-        document: document && (document.id || document),
-        reports: reportFrom
-          ? {
-              [req.user.id]: reportProp
-            }
-          : {}
-      };
+  document = document && (document.id || document);
+  docType = docType || (document && type);
+  withFrom = type === "like";
+  if (!withFrom) to = to === from ? undefined : to;
 
-      if (reportIds)
-        for (const type in reportIds) {
-          for (const id of reportIds[type].length === undefined
-            ? reportIds[type].toBSON().keys()
-            : reportIds[type]) {
-            if (id === req.user.id) continue;
-            reportProp.type = type;
-            prop.reports[id] = reportProp;
-          }
-        }
-
-      toAll &&
-        (await Notification.updateMany(match, {
-          [`reports.${req.user.id}`]: reportProp
-        }));
-
-      notice = await (await new Notification(prop).save()).populate(populate);
-    } else if (notice) notice = await notice.populate(populate);
-  }
-  const io = req.app.get("socketIo");
-  if (io && notice)
-    if (toAll) {
-      !report && io.emit("notification", notice, filter);
-      io.emit(eventName, notice, filter);
-    } else {
-      !report && io.to(notice.to.id).emit("notification", notice, filter);
-      io.to(notice.to.id).emit(eventName, notice, filter);
-    }
-};
-
-export const dislikeMedia = async (model, req, res, next) => {
+  let match = { type, document, to, docType };
   try {
-    const media = await model.findById(req.params.id);
-    if (media.likes.get(req.user.id)) media.likes.delete(req.user.id);
-    res.json(
-      (await model.findByIdAndUpdate(
-        req.params.id,
-        {
-          likes: media.likes
-        },
-        { new: true }
-      )).likes
-    );
-
-    sendAndUpdateNotification({
-      req,
-      type: "like",
-      filter: true,
-      document: media.id,
-      docPopulate: [
-        {
-          path: "user"
+    const populate = [
+      {
+        path: "to users"
+      },
+      {
+        path: "document",
+        populate: docPopulate
+      }
+    ];
+    let report = true,
+      isNew = false,
+      filterNotice = false,
+      notice;
+    notice = await Notification.findOne(match);
+    if (filter) {
+      if (notice)
+        if (notice.users.length - 1 === 0) {
+          filterNotice = true;
+          await notice.deleteOne();
+        } else {
+          notice = await Notification.findByIdAndUpdate(
+            notice.id,
+            {
+              users: notice.users.filter(id => id !== from)
+            },
+            {
+              new: true
+            }
+          );
         }
-      ]
-    });
-  } catch (err) {
-    next(err);
-  }
-};
-
-export const removeFirstItemFromArray = (item, array) => {
-  for (let i = 0; i < array.length; i++) {
-    if (item === array[i]) {
-      array.splice(i, 1);
-      break;
+    } else if (notice && !notice.marked) {
+      if (notice.users.includes(from)) report = false;
+      else {
+        notice.users.unshift(from);
+        notice = await Notification.findByIdAndUpdate(
+          notice.id,
+          {
+            users: notice.users
+          },
+          {
+            new: true
+          }
+        );
+        report = notice.users.length <= maxFromNotification;
+      }
+    } else {
+      isNew = true;
+      match.users = [from];
+      notice = await new Notification(match).save();
     }
-    continue;
+
+    if (notice) notice = await notice.populate(populate);
+
+    const io = req.app.get("socketIo");
+    console.clear();
+    console.log(!!notice?.to, eventName, notice?.marked, filter);
+    if (io && notice) {
+      if (report) {
+        if (filterNotice) io.emit("filter-notifications", [notice.id]);
+        else
+          io.emit("notification", notice, {
+            filter,
+            eventName,
+            isNew
+          });
+      }
+      eventName &&
+        io.emit(
+          eventName,
+          {
+            follow: {
+              to: notice.to,
+              from: notice.users[0] || (await User.findById(from))
+            }
+          }[type] ||
+            notice.document ||
+            notice
+        );
+    }
+  } catch (err) {
+    match.users = [from];
+    console.error(
+      `[Error Sending Notification]: Match data: ${
+        err.message
+      }: ${JSON.stringify(match)} at ${new Date()}.`
+    );
+    throw err;
   }
-  return array;
 };
 
-export const generateToken = (max, expires = "1h") => {
+export const generateToken = () => {
   return crypto.randomBytes(20).toString("hex");
 };
 
-export const sendMail = (
-  mailOptions,
-  cb,
-  service = "Gmail",
-  user = process.env.GMAIL_USERNAME || "marvellousabidemi2@gmail.com",
-  pass = process.env.GMAIL_PASSWORD || "wwjlkxytsqzbrewa"
-) => {
-  const transporter = nodemailer.createTransport({
-    service,
-    auth: {
-      user,
-      passs
+export const findThreadByRelevance = async ({
+  model = Comment,
+  docId,
+  populate,
+  query: { ro, threadPriorities = "ro,most comment" }
+}) => {
+  let refIndex = -1,
+    doc;
+  threadPriorities = threadPriorities.split(",");
+  do {
+    refIndex++;
+    doc = {
+      ro: await model
+        .findOne({
+          user: ro,
+          document: docId
+        })
+        .sort({ createdAt: -1 })
+        .populate(populate),
+      "most comment": await Comment.findOne({
+        document: docId
+      })
+        .sort({ comments: -1 })
+        .populate(populate)
+    }[threadPriorities[refIndex]];
+    doc = doc === null ? undefined : doc === undefined ? {} : doc;
+  } while (!doc);
+  return doc.id ? doc : null;
+};
+
+export const handleMiscDelete = async (docId, io, withComment = true) => {
+  try {
+    if (withComment) {
+      const deleteQuery = {
+        $or: [
+          { _id: docId },
+          { document: docId },
+          {
+            rootThread: docId
+          }
+        ]
+      };
+      (await Comment.find(deleteQuery)).forEach(
+        c => c.media?.url && deleteFile(c.media.url)
+      );
+      await Comment.deleteMany(deleteQuery);
     }
-  });
-  transporter.sendMail(mailOptions, cb);
+
+    const docQuery = {
+      document: docId
+    };
+    const notices = await Notification.find(docQuery);
+    io &&
+      notices.length &&
+      io.emit("filter-notifications", notices.map(n => n.id || n));
+    await Notification.deleteMany(docQuery);
+  } catch (err) {
+    console.error(
+      `[Error misc delete]: id: ${doocId}. ${err.message} at ${new Date()}.`
+    );
+  }
+};
+
+export const getRoomSockets = (io, roomId) => {
+  const ids = [];
+  for (let id of io.sockets.adapter.rooms.get(roomId)?.values() || []) {
+    ids.push(id);
+  }
+  return ids;
 };

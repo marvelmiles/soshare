@@ -12,17 +12,10 @@ export const themeSettings = mode => ({
           background: {
             alt: "rgb(22, 24, 28)",
             default: "#000",
-            paper: "#0f1013"
+            paper: "rgb(22, 24, 28)"
           },
-          common: {
-            dark: "#E0E0E0",
-            main: "rgba(255,255,255,0.7)",
-            mediumMain: "#A3A3A3",
-            medium: "#858585",
-            light: "#333",
-            black: "#333",
-            heart: "#FF1493",
-            blend: "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)"
+          action: {
+            altHover: `rgba(11,12,14,.95)`
           }
         }
       : {
@@ -32,26 +25,33 @@ export const themeSettings = mode => ({
             light: "#4dabf5",
             contrastText: "#000"
           },
-          common: {
-            dark: "#000",
-            main: "#333",
-            mediumMain: "#222",
-            medium: "#555",
-            light: "#F0F0F0",
-            hover: "rgba(0, 0, 0, 0.04)",
-            darkGray: "rgba(0, 0, 0, 0.54)",
-            heart: "#FF1493",
-            blend: "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)"
-          },
+
           background: {
             default: "#fff",
             alt: "rgb(247, 249, 249)",
-            blend: "linear-gradient(to top, rgba(0, 0, 0, 0.75), transparent)",
             paper: "#fff"
+          },
+          text: {
+            secondary: "#424242"
+          },
+          action: {
+            altHover: `rgba(204, 204, 204,.78)`
           }
-        })
+        }),
+    common: {
+      heart: "#FF1493",
+      blend: "rgba(0,0,0,.4)",
+      blendHover: "rgb(0,0,0,.6)"
+    }
   },
   components: {
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          backgroundImage: "none"
+        }
+      }
+    },
     MuiStack: {
       styleOverrides: {
         root: {
@@ -110,50 +110,6 @@ export const themeSettings = mode => ({
         }
       }
     },
-    MuiInputBase: {
-      styleOverrides: {
-        root: ({
-          ownerState: { error },
-          theme: {
-            palette: {
-              divider,
-              error: { main },
-              text
-            }
-          }
-        }) => {
-          return {
-            border: `1px solid ${error ? main : divider}`,
-            borderRadius: "5px",
-            backgroundColor: "transparent",
-            width: "100%",
-            marginBottom: "8px",
-            marginTop: "16px",
-            "input,textarea": {
-              padding: "4px",
-              paddingLeft: "8px",
-              border: "none",
-              outline: 0,
-              color: text.primary,
-              caretColor: text.primary
-            },
-            textarea: {
-              width: "100%",
-              paddingTop: "16px",
-              "&::placeholder": {
-                color: "inherit"
-              }
-            },
-            input: {
-              "&::placeholder": {
-                opacity: 1
-              }
-            }
-          };
-        }
-      }
-    },
-
     MuiDrawer: {
       styleOverrides: {
         paper: {
@@ -164,18 +120,16 @@ export const themeSettings = mode => ({
     },
     MuiDialog: {
       styleOverrides: {
-        paper: ({ theme }) => {
-          return {
-            margin: 0,
-            ["@media (min-width:200px)"]: {
-              marginLeft: "8px",
-              marginRight: "8px"
-            },
-            ["@media (min-width:280px)"]: {
-              marginLeft: "16px",
-              marginRight: "16px"
-            }
-          };
+        paper: {
+          margin: 0,
+          ["@media (min-width:200px)"]: {
+            marginLeft: "8px",
+            marginRight: "8px"
+          },
+          ["@media (min-width:280px)"]: {
+            marginLeft: "16px",
+            marginRight: "16px"
+          }
         }
       }
     },
@@ -183,7 +137,9 @@ export const themeSettings = mode => ({
       styleOverrides: {
         root: {
           paddingLeft: "8px",
-          paddingRight: "8px"
+          paddingRight: "8px",
+          height: "inherit",
+          minHeight: "inherit"
         }
       }
     },
@@ -195,18 +151,30 @@ export const themeSettings = mode => ({
         }
       }
     },
-
+    MuiDialogTitle: {
+      styleOverrides: {
+        root: ({
+          theme: {
+            palette: { divider }
+          }
+        }) => ({
+          borderBottom: "1px solid currentColor",
+          borderBottomColor: divider,
+          padding: "8px"
+        })
+      }
+    },
     MuiAvatar: {
       styleOverrides: {
         root: {
           width: 30,
           height: 30
+        },
+        fallback: {
+          color: "#fff"
         }
       },
       variants: [
-        // {
-        //   // props:{variant:"xs"},style
-        // },
         {
           props: { variant: "sm" },
           style: {
@@ -223,13 +191,17 @@ export const themeSettings = mode => ({
         {
           props: { variant: "md" },
           style: {
+            "@media (min-width: 0px)": {
+              width: "20px",
+              height: "20px"
+            },
             "@media (min-width: 280px)": {
-              width: "40px",
-              height: "40px"
+              width: "30px",
+              height: "30px"
             },
             "@media (min-width: 360px)": {
-              width: "40px",
-              height: "40px"
+              width: "45px",
+              height: "45px"
             }
           }
         }
@@ -276,3 +248,15 @@ export const themeSettings = mode => ({
     }
   }
 });
+
+export const INPUT_AUTOFILL_SELECTOR = `
+            input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus 
+              `;

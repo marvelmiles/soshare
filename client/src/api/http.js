@@ -1,67 +1,113 @@
-import rootAxios from "axios";
-import { API_ENDPOINT } from "config";
+import rootAxios, { AxiosError } from "axios";
+import {
+  API_ENDPOINT,
+  CANCELED_REQUEST_MSG,
+  HTTP_403_MSG
+} from "context/config";
 
 let isRefreshing = false;
-let failedQueue = [];
+let requestQueue = [];
 
-export const createRedirectURL = (path = "/auth/signin", searchParam = "") => {
+const cancelRequests = [];
+
+export const createRelativeURL = (keyToRemove, searchParams = "") => {
+  const params = new URLSearchParams(window.location.search);
+  keyToRemove && params.delete(keyToRemove);
   return (
-    window.location.protocol +
-    "//" +
-    window.location.host +
-    path +
-    (window.location.search +
-      `?redirect_url=${encodeURIComponent(
-        window.location.href
-      )}${searchParam}`) +
+    window.location.pathname +
+    "?" +
+    params.toString() +
+    (searchParams ? "&" + searchParams : "") +
     window.location.hash
   );
 };
 
-export const processQueue = (err, token) => {
-  failedQueue.forEach(prom => {
-    if (err) {
-      prom.reject(err);
-    } else prom.resolve(token);
+export const processQueue = (err, data) => {
+  requestQueue.forEach((prom, i) => {
+    if (err) prom.reject(err);
+    else prom.resolve(data);
   });
-  failedQueue = [];
+  requestQueue = [];
 };
 
 export const getHttpErrMsg = err => {
   let message = "Something went wrong. Check your network and try again.";
-  switch (err.code) {
-    case "auth/popup-closed-by-user":
-      message = "Popup closed by you";
-      break;
-    default:
-      if (err.response) {
-        if (err.response.status !== 500) message = err.response.data;
-      } else if (err.status !== 500) message = err.message;
-      break;
-  }
+  if (err instanceof AxiosError) {
+    switch (err.code) {
+      case "auth/popup-closed-by-user":
+        message = "Popup closed by you";
+        break;
+      default:
+        if (err.response) {
+          if (err.response.status === 403) message = HTTP_403_MSG;
+          else if (err.response.status === 404) message = "404";
+          else if (err.response.status !== 500)
+            message = err.response.data || message;
+        } else if (err.status !== 500) message = err.message || message;
+        break;
+    }
+  } else message = err;
+
   return message;
 };
-
-let cancelRequest = [];
 export const isTokenCancelled = rootAxios.isCancel;
 export const handleCancelRequest = (
-  url = "pathname",
-  msg = "Request was canceled"
+  url = "paths",
+  msg = CANCELED_REQUEST_MSG
 ) => {
   switch (url) {
-    case "pathname":
-      for (let i = 0; i < cancelRequest.length; i++) {
-        cancelRequest[i].pathname === window.location.pathname &&
-          cancelRequest[i].cancel(msg);
+    case "paths":
+      for (let i = 0; i < cancelRequests.length; i++) {
+        cancelRequests[i].cancel(msg);
       }
       break;
     default:
-      url = cancelRequest.find(req => req.url === url);
+      url = cancelRequests.find(req => req.url === url);
       url && url.cancel(msg);
       break;
   }
 };
-// You can setup  config for post and get with defualt authorization header
+
+export const refetchHasVisitor = (err, originalRequest, method = "get") => {
+  if (
+    originalRequest.withCredentials &&
+    originalRequest.method === method &&
+    originalRequest.url !== "/auth/refresh-token"
+  ) {
+    originalRequest.withCredentials = false;
+    originalRequest._refetchedHasVisitor = true;
+    return Promise.resolve(http.request(originalRequest));
+  }
+  return Promise.reject(getHttpErrMsg(err));
+};
+
+export const handleRefreshToken = (requestConfig, refetchHasVisitior) => {
+  isRefreshing = true;
+  return http
+    .get(`/auth/refresh-token`, {
+      withCredentials: true
+    })
+    .then(res => {
+      requestConfig && (requestConfig._refreshed = true);
+      processQueue(null);
+      return requestConfig
+        ? http
+            .request(requestConfig)
+            .then(d => Promise.resolve(d))
+            .catch(err => refetchHasVisitor(err, requestConfig))
+        : Promise.resolve(res);
+    })
+    .catch(err => {
+      err = getHttpErrMsg(err);
+      processQueue(refetchHasVisitior ? "visitor" : err);
+      return refetchHasVisitior
+        ? refetchHasVisitor("visitor", requestConfig)
+        : Promise.reject(err);
+    })
+    .finally(() => {
+      isRefreshing = false;
+    });
+};
 const http = rootAxios.create({
   baseURL: API_ENDPOINT + "/api"
 });
@@ -71,74 +117,41 @@ http.interceptors.request.use(function(config) {
   if (config.headers["authorization"]) config.withCredentials = true;
   const source = rootAxios.CancelToken.source(); // create new source token on every request
   source.url = config.url;
-  source.pathname = window.location.pathname;
   config.cancelToken = source.token;
-  cancelRequest.push(source);
+  cancelRequests.push(source);
   return config;
 });
 http.interceptors.response.use(
-  response => {
-    return Promise.resolve(response.data);
-  },
+  response => Promise.resolve(response.data),
   async err => {
-    if (rootAxios.isCancel(err)) return Promise.reject(err);
-
-    console.log(
-      err.code,
-      err.status,
-      err.message,
-      err.response?.data,
-      err.response?.status,
-      " rootAxios err url "
-    );
+    // console.log(err.response?.data, err.message, err.code);
+    if (!(err instanceof AxiosError) || rootAxios.isCancel(err))
+      return Promise.reject(getHttpErrMsg(err));
     const originalRequest = err.config;
-    const handleErr403 = err => {
-      if (window.location.pathname.toLowerCase().indexOf("auth/signin") > -1)
-        return Promise.reject(getHttpErrMsg(err));
-      window.location.href = createRedirectURL();
-    };
-    if (err.response?.status === 401) {
-      console.log("401...");
-      if (!(originalRequest._retry || originalRequest._queued)) {
+    if (!originalRequest._refreshed || !originalRequest._refetchedHasVisitor) {
+      if (err.response?.status === 401 && !originalRequest._noRefresh) {
         if (isRefreshing) {
           return new Promise(function(resolve, reject) {
-            failedQueue.push({ resolve, reject });
+            requestQueue.push({ resolve, reject, url: originalRequest.url });
           })
-            .then(_ => {
-              originalRequest._queued = true;
-              return http.request(originalRequest);
-            })
-            .catch(_ => {
-              return Promise.reject(getHttpErrMsg(err));
-            });
-        }
-        originalRequest._retry = true;
-        isRefreshing = true;
-        console.log("is refre");
-        return new Promise((resolve, reject) => {
-          http
-            .get(`/auth/refresh-token`, {
-              withCredentials: true
-            })
-            .then(() => {
-              console.log("has set new jwtToken ", originalRequest);
-              processQueue(null);
-              return resolve(http.request(originalRequest));
-            })
-            .catch(handleErr403);
-        });
-      } else
-        console.log(
-          "reject cos  queued or retrying",
-          originalRequest.role,
-          originalRequest._retry,
-          originalRequest._queued
-        );
-    } else if (err.response?.status === 403) handleErr403(err);
-    else {
-      console.log("default error");
-      return Promise.reject(getHttpErrMsg(err));
+            .then(_ =>
+              http
+                .request(originalRequest)
+                .then(res => Promise.resolve(res))
+                .catch(err => refetchHasVisitor(err, originalRequest))
+            )
+            .catch(_err =>
+              _err === "visitor"
+                ? refetchHasVisitor(err, originalRequest)
+                : Promise.reject(err)
+            );
+        } else if (originalRequest.withCredentials)
+          return handleRefreshToken(originalRequest, true);
+      }
     }
+    originalRequest._refreshed = undefined;
+    originalRequest._refetchedHasVisitor = undefined;
+    return Promise.reject(getHttpErrMsg(err));
   }
 );
 

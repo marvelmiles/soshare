@@ -1,38 +1,55 @@
 import Short from "../models/Short.js";
 import { createError } from "../utils/error.js";
-import { deleteFile } from "../utils/fileHandler.js";
-import { likeMedia, dislikeMedia, getFeedMedias } from "../utils/index.js";
+import { deleteFile } from "../utils/file-handlers.js";
+import {
+  likeMedia,
+  dislikeMedia,
+  getFeedMedias,
+  deleteDocument
+} from "../utils/req-res-hooks.js";
 import User from "../models/User.js";
 export const createShort = async (req, res, next) => {
   try {
-    console.log("creating short");
     if (!req.file) throw createError("Invalid request expect a video file");
     req.body.user = req.user.id;
     req.body.url = req.file.publicUrl;
     req.body.mimetype = req.file.mimetype;
-    const short = await new Short(req.body).save();
-    const io = req.app.get("socketIo");
-    console.log(!!io, short.visibility);
+    let short = await new Short(req.body).save();
+    await User.updateOne(
+      {
+        _id: short.user
+      },
+      {
+        $inc: {
+          shortsCount: 1
+        }
+      }
+    );
+    console.log("creaitng short....");
+    short = await short.populate("user");
     res.json(short);
-    if (io && short.visibility !== "private")
-      io.volatile.emit("feed-short", short);
+    const io = req.app.get("socketIo");
+    if (io && short.visibility !== "private") {
+      io.emit("short", short);
+      io.emit("update-user", short.user);
+    }
   } catch (err) {
-    console.log(err.name, "er dddd");
     next(err);
   }
 };
 
 export const getFeedShorts = async (req, res, next) => {
-  console.log("get shorts");
   const start = new Date();
-  start.setDate(start.getDate() - 1);
+  start.setDate(start.getDate() - 3);
   return getFeedMedias({
     model: Short,
     req,
     res,
     next,
-    expireAt: {
-      $gte: start
+    match: {
+      // createdAt: {
+      //   $gte: start
+      // }
     }
   });
 };
@@ -66,13 +83,11 @@ export const updateShort = async (req, res, next) => {
   }
 };
 
-export const likeShort = async (req, res, next) => {
+export const likeShort = async (req, res, next) =>
   likeMedia(Short, req, res, next);
-};
 
-export const dislikeShort = async (req, res, next) => {
+export const dislikeShort = async (req, res, next) =>
   dislikeMedia(Short, req, res, next);
-};
 
 export const blacklistShort = async (req, res, next) => {
   try {
@@ -110,15 +125,5 @@ export const incrementShortViews = async (req, res, next) => {
   }
 };
 
-export const deleteShort = async (req, res, next) => {
-  try {
-    const { url, _id } = (await Short.findByIdAndDelete(req.params.id)) || {};
-    const io = req.app.get("socketIo");
-    console.log(!!io);
-    if (io && _id) io.volatile.emit("filter-short", _id);
-    res.json("Deleted short successfuuly");
-    url && deleteFile(url);
-  } catch (err) {
-    next(err);
-  }
-};
+export const deleteShort = async (req, res, next) =>
+  deleteDocument({ req, res, next, model: Short });

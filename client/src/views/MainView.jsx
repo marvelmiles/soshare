@@ -1,102 +1,112 @@
-import React, { useState } from "react";
+import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
-import { Box, Dialog, DialogContent, Button } from "@mui/material";
-import Layout from "../components/Layout";
-import UserWidget from "../components/UserWidget";
-import InputBox from "../components/InputBox";
-import PostsView from "../components/PostsView";
-import AdvertWidget from "../components/AdvertWidget";
-import FollowMeWidget from "../components/FollowMeWidget";
-import ShortsWidget from "../components/ShortsWidget";
-import { Link } from "react-router-dom";
+import { Box, useMediaQuery } from "@mui/material";
+import Layout from "components/Layout";
+import UserWidget from "components/UserWidget";
+import AdvertWidget from "components/AdvertWidget";
+import ShortsView from "views/ShortsView";
 
 const MainView = ({
   children,
-  publicView = "shorts",
-  styles = {},
+  sideView = "shorts",
   borderline = true,
+  layoutProps,
   sx
 }) => {
-  const { currentUser } = useSelector(state => state.user);
+  const cid = useSelector(state => (state.user.currentUser || {}).id);
+  const responsiveStyle = useMemo(
+    () => ({
+      "& .data-scrollable-container,& .widget-container": {
+        // calc is based on widget max-height
+        // helps avoids issue with scrolling down
+        // during an infinite view
+        maxHeight: window.innerHeight <= 800 ? "300px" : "400px"
+      }
+    }),
+    []
+  );
+  const isLg = useMediaQuery("(min-width:1024px)");
 
   return (
-    <>
-      <Layout sx={sx}>
-        <Box
-          sx={{
-            width: {
-              xs: "100%",
-              md: "40%",
-              lg: "30%"
-            },
-            display: {
-              xs: "none",
-              lg: "block"
-            },
-            position: "sticky",
-            left: 0,
-            top: 80,
-            mx: "auto"
-          }}
-        >
-          {
-            {
-              shorts: <ShortsWidget miniShort={true} type="trending" />,
-              posts: (
-                <PostsView
-                  plainWidget={false}
-                  minHeight={"480px"}
-                  sx={{
-                    px: 0
-                  }}
+    <Layout sx={sx} {...layoutProps} uid={cid}>
+      <Box
+        sx={{
+          width: {
+            xs: "100%",
+            md: "40%",
+            lg: "30%"
+          },
+          display: {
+            xs: "none",
+            lg: "block"
+          },
+          position: "sticky",
+          left: 0,
+          top: 80,
+          mx: "auto",
+          ...responsiveStyle
+        }}
+      >
+        {isLg
+          ? {
+              shorts: (
+                <ShortsView
+                  key="mainview-shorts"
+                  miniShort={true}
+                  type="trending"
                 />
               )
-            }[publicView]
-          }
-          {currentUser ? <UserWidget /> : null}
-        </Box>
-        <Box
-          sx={{
-            height: "inherit",
-            minHeight: "inherit",
-            alignSelf: "normal",
-            width: {
-              xs: "100%",
-              lg: "45%"
-            },
-            position: "relative",
-            mx: "auto",
-            border: "1px solid transparent",
-            borderLeftColor: borderline && "divider",
-            borderRightColor: borderline && "divider"
-            // border: "4px solid green"
-            // ...styles.main
-          }}
-          id="boss"
-        >
-          {children}
-        </Box>
-        <Box
-          sx={{
-            width: {
-              xs: "100%",
-              md: "25%"
-            },
-            display: {
-              xs: "none",
-              lg: "block"
-            },
-            position: "sticky",
-            left: 0,
-            top: 80,
-            mx: "auto"
-            // border: "1px solid blue"
-          }}
-        >
-          <AdvertWidget />
-        </Box>
-      </Layout>
-    </>
+            }[sideView]
+          : null}
+        {cid ? <UserWidget /> : null}
+      </Box>
+
+      <Box
+        sx={{
+          height: "inherit",
+          minHeight: "inherit",
+          boxSizing: "border-box",
+          alignSelf: "normal",
+          width: {
+            xs: "100%",
+            lg: "45%"
+          },
+          position: "relative",
+          mx: "auto",
+          border: "1px solid transparent",
+          borderLeftColor: borderline && "divider",
+          borderRightColor: borderline && "divider",
+          "& .data-scrollable-container": borderline
+            ? {
+                p: 0
+              }
+            : {}
+        }}
+        className="main-content-container"
+      >
+        {children}
+      </Box>
+
+      <Box
+        sx={{
+          width: {
+            xs: "100%",
+            md: "25%"
+          },
+          display: {
+            xs: "none",
+            lg: "block"
+          },
+          position: "sticky",
+          left: 0,
+          top: 80,
+          mx: "auto",
+          ...responsiveStyle
+        }}
+      >
+        <AdvertWidget />
+      </Box>
+    </Layout>
   );
 };
 

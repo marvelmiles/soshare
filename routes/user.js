@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyToken } from "../controllers/auth.js";
+import { verifyToken } from "../utils/middlewares.js";
 import {
   getUser,
   getUserPosts,
@@ -13,20 +13,24 @@ import {
   getUnseenAlerts,
   markNotifications,
   getUserShorts,
-  blacklistUserRecommendation
+  blacklistUserRecommendation,
+  deleteUserNotification,
+  getBlacklist,
+  whitelistUsers
 } from "../controllers/user.js";
-import { uploadFile } from "../utils/fileHandler.js";
+import { uploadFile } from "../utils/file-handlers.js";
 
 const router = express.Router();
 
 router
-  .get("/posts", getUserPosts)
-  .get("/shorts", getUserShorts)
+  .get("/blacklist", verifyToken, getBlacklist)
+  .get("/notifications", verifyToken, getUserNotifications)
+  .get("/unseen-alerts", verifyToken, getUnseenAlerts)
+  .get("/:id/posts", getUserPosts)
+  .get("/:id/shorts", getUserShorts)
   .get("/:id/suggest-followers", verifyToken, suggestFollowers)
   .get("/:id/followers", getFollowers)
   .get("/:id/following", getFollowing)
-  .get("/notifications", verifyToken, getUserNotifications)
-  .get("/unseen-alerts", verifyToken, getUnseenAlerts)
   .get("/:id", getUser)
   .put(
     "/",
@@ -46,5 +50,7 @@ router
     verifyToken,
     blacklistUserRecommendation
   )
-  .patch("/notifications/mark", verifyToken, markNotifications);
+  .patch("/notifications/mark", verifyToken, markNotifications)
+  .patch("/whitelist", verifyToken, whitelistUsers)
+  .delete("/notifications/:id", verifyToken, deleteUserNotification);
 export default router;

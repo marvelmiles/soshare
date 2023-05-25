@@ -1,5 +1,5 @@
 import express from "express";
-import { verifyToken } from "../controllers/auth.js";
+import { verifyToken } from "../utils/middlewares.js";
 import {
   addComment,
   getComments,
@@ -8,7 +8,7 @@ import {
   dislikeComment,
   getComment
 } from "../controllers/comment.js";
-import { uploadFile } from "../utils/fileHandler.js";
+import { uploadFile } from "../utils/file-handlers.js";
 const router = express.Router();
 
 router

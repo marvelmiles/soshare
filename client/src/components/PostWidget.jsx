@@ -1,30 +1,22 @@
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import { useSelector } from "react-redux";
 import PropTypes from "prop-types";
-import { WidgetContainer, StyledTypography, StyledLink } from "./styled";
 import {
-  Stack,
-  Avatar,
-  Typography,
-  Box,
-  Button,
-  IconButton
-} from "@mui/material";
-import Carousel from "./Carousel";
+  WidgetContainer,
+  StyledTypography,
+  StyledLink
+} from "components/styled";
+import { Stack, Avatar, Typography, Box, IconButton } from "@mui/material";
+import MediaCarousel from "components/MediaCarousel";
 import ChatBubbleOutlineOutlinedIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlined";
 import FavoriteOutlinedIcon from "@mui/icons-material/FavoriteOutlined";
-import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
-import FollowMe from "./FollowMe";
-import { useContext } from "../redux/store";
-import EditIcon from "@mui/icons-material/Edit";
-import DeleteIcon from "@mui/icons-material/Delete";
-import http from "api/http";
+import { useContext } from "context/store";
 import { useNavigate } from "react-router-dom";
-import MoreActions from "./MoreActions";
-import DeleteDialog from "./DeleteDialog";
-import Comments from "./comments";
+import MoreActions from "components/MoreActions";
 import moment from "moment";
+import useLikeDispatch from "hooks/useLikeDispatch";
+
 const PostWidget = React.forwardRef(
   (
     {
@@ -34,69 +26,29 @@ const PostWidget = React.forwardRef(
       showThread,
       docType = "post",
       caption,
-      readOnly,
+      enableSnippet,
       plainWidget,
-      mb,
       sx,
-      isAuth
+      isRO,
+      index,
+      secondaryAction,
+      searchParams,
+      disableNavigation
     },
     ref
   ) => {
-    // console.log(docType, "dodocod");
     const [showAll, setShowAll] = useState(false);
-    const { id } = useSelector(state => state.user.currentUser || {});
-    const { setSnackBar } = useContext();
-    const stateRef = useRef({}).current;
+    const id = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
-    const toggleLike = async e => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (id) {
-        const likedPost = post.likes[id];
-        try {
-          if (stateRef.isLiking) return;
-          stateRef.isLiking = true;
-          if (likedPost) delete post.likes[id];
-          else post.likes[id] = true;
-          handleAction("update", { id: post.id, likes: post.likes });
-          await http.patch(
-            `/${docType}s/${post.id}/${likedPost ? "dislike" : "like"}`
-          );
-          stateRef.isLiking = false;
-          console.log("done liking...");
-        } catch (message) {
-          if (likedPost) post.likes[id] = true;
-          else delete post.likes[id];
-          handleAction("update", { id: post.id, likes: post.likes });
-          stateRef.isLiking = false;
-          setSnackBar(message);
-        }
-      } else setSnackBar();
-    };
+    const { handleLikeToggle } = useLikeDispatch({
+      handleAction,
+      docType,
+      id: post.id,
+      likes: post.likes
+    });
 
+    const { setSnackBar } = useContext();
     const likeCount = Object.keys(post.likes || {}).length;
-
-    // return (
-    //   <div class="tweet">
-    //     <div class="avatar">
-    //       <img
-    //         src="https://via.placeholder.com/50x50"
-    //         alt="User profile picture"
-    //       />
-    //     </div>
-    //     <div class="details">
-    //       <div class="info">
-    //         <span class="username">John Doe</span>
-    //         <span class="handle">@johndoe</span>
-    //         <span class="date">March 14, 2023</span>
-    //       </div>
-    //       <p class="content">
-    //         Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed luctus
-    //         vestibulum velit, vel fermentum eros maximus sit amet.
-    //       </p>
-    //     </div>
-    //   </div>
-    // );
     const isOwner = post.user.id === id;
     const formatedDate = (() => {
       let str = moment(post.createdAt).fromNow();
@@ -104,7 +56,8 @@ const PostWidget = React.forwardRef(
       digit = digit ? digit[0] : new Date(post.createdAt);
       if (str.indexOf("second") >= 0) {
         digit = digit.getSeconds ? digit.getSeconds() : digit;
-        str = digit + "s";
+        if (digit > 10) str = digit + "s";
+        else str = "now";
       } else if (str.indexOf("hour") >= 0) {
         digit = digit.getHours ? digit.getHours() : digit;
         str = digit + "h";
@@ -128,16 +81,16 @@ const PostWidget = React.forwardRef(
     })();
     return (
       <>
+        {post.id}
         <WidgetContainer
-          $plainWidget={plainWidget}
+          plainWidget={plainWidget}
           onClick={
-            readOnly
+            enableSnippet || disableNavigation
               ? undefined
               : e => {
                   e.preventDefault();
                   e.stopPropagation();
-                  console.log("post clicked...");
-                  navigate(`/${docType}/${post.id}`);
+                  navigate(`/${docType}s/${post.id}`);
                 }
           }
           sx={{
@@ -149,35 +102,33 @@ const PostWidget = React.forwardRef(
             alignItems: "flex-start",
             height: "auto",
             minHeight: "0",
-            cursor: "pointer",
+            maxHeight: "none",
+            cursor: disableNavigation ? "" : "pointer",
             backgroundColor: "transparent !important",
-            "&:last-child": {
-              // border: "1px solid red",
-              // borderBottom: "none"
-              // mb: 2
-            },
-            "&:first-of-type": {
-              // borderTop: "1px solid red",
-              // borderTopColor: "divider"
-            },
+            mb: 0,
+            pb: 1,
             ...(showThread && {
               border: "none",
               borderRadius: "0",
               position: "relative",
+              mb: 0,
+              pb: 0,
               "&::before": {
                 content: `""`,
-                backgroundColor: "red",
+                backgroundColor: "primary.main",
                 position: "absolute",
-                // 100% - avatar size +  16px pd + 10px margin = net 5px spacing
-                // considering bottom
-                minHeight: `calc(100% - 50px)`,
+                top: "30px",
+                // 100% - avatar size +  16px pt
+                height: `calc(100% - 30px)`,
                 width: "1px",
-                left: "36px", // half the avatar size
-                bottom: "5px",
-                zIndex: 1
+                transform: {
+                  xs: "translateX(10px)",
+                  s280: "translateX(15px)"
+                }, // half the avatar size
+                bottom: "0px"
+                // zIndex: 1
               }
             }),
-            mb,
             ...sx
           }}
           ref={ref}
@@ -188,37 +139,36 @@ const PostWidget = React.forwardRef(
               sx={{
                 position: "relative",
                 display: "flex",
-                // flexWrap: "wrap",
                 "& > *": {
                   minWidth: "0"
-                  // flex: 1
                 }
               }}
             >
               <div
                 style={{
                   display: "flex"
-                  // maxWidth: "70%"
                 }}
               >
-                <StyledTypography
-                  component="span"
-                  $textEllipsis
+                <StyledLink
+                  textEllipsis
                   variant="caption"
                   fontWeight="500"
-                  color="text.secondaryMain"
+                  sx={{ color: "text.primary", fontWeight: "500" }}
+                  onClick={e => e.stopPropagation()}
+                  to={`/u/${post.user.id}`}
                 >
                   {isOwner
                     ? "You"
                     : post.user.displayName || post.user.username}
-                </StyledTypography>
+                </StyledLink>
                 {isOwner ? null : (
                   <StyledTypography
                     variant="caption"
-                    $textEllipsis
-                    color="common.main"
+                    textEllipsis
+                    color="primary.contrastText"
                     sx={{
-                      ml: "3px"
+                      ml: "3px",
+                      fontWeight: "500"
                     }}
                     component="span"
                   >
@@ -231,7 +181,7 @@ const PostWidget = React.forwardRef(
                   component="span"
                   sx={{
                     mx: "2px",
-                    color: "common.main"
+                    color: "text.secondary"
                   }}
                 >
                   ·
@@ -239,8 +189,8 @@ const PostWidget = React.forwardRef(
                 <StyledTypography
                   component="span"
                   variant="caption"
-                  $textEllipsis={formatedDate.length > 7}
-                  color="common.main"
+                  textEllipsis={formatedDate.length > 7}
+                  color="text.secondary"
                 >
                   {formatedDate}
                 </StyledTypography>
@@ -275,7 +225,7 @@ const PostWidget = React.forwardRef(
                 </Typography>
               ) : null}
               {post.moreText ? (
-                readOnly ? (
+                enableSnippet ? (
                   <Typography component="span">...</Typography>
                 ) : (
                   <StyledTypography
@@ -297,13 +247,13 @@ const PostWidget = React.forwardRef(
             ) : (
               post.media
             )) ? (
-              <Carousel medias={post.medias || [post.media]} to="/dd" />
+              <MediaCarousel medias={post.medias || [post.media]} />
             ) : null}
-            {hideToolbox || readOnly ? null : (
+            {hideToolbox || enableSnippet ? null : (
               <Stack flexWrap="wrap">
                 <Stack>
                   <Stack gap="4px">
-                    <IconButton onClick={toggleLike}>
+                    <IconButton onClick={handleLikeToggle}>
                       {post.likes[id] ? (
                         <FavoriteOutlinedIcon
                           sx={{
@@ -320,13 +270,14 @@ const PostWidget = React.forwardRef(
                     gap="4px"
                     onClick={e => {
                       e.stopPropagation();
-                      console.log("clicked...");
-                      navigate(`?compose=comment`, {
-                        state: {
-                          post,
-                          docType
-                        }
-                      });
+                      if (id)
+                        navigate(`?compose=comment`, {
+                          state: {
+                            composeDoc: post,
+                            docType
+                          }
+                        });
+                      else setSnackBar();
                     }}
                   >
                     <IconButton>
@@ -339,14 +290,20 @@ const PostWidget = React.forwardRef(
                   handleAction={handleAction}
                   composeDoc={post}
                   isOwner={isOwner}
-                  isAuth={isAuth}
+                  isRO={isRO}
                   title={docType}
                   urls={{
-                    delPath: `/${docType}s/${post.id}`
+                    delPath: {
+                      url: `/${docType}s`,
+                      searchParams
+                    }
                   }}
+                  index={index}
+                  docType={docType}
                 />
               </Stack>
             )}
+            <div style={{ paddingTop: "8px" }}>{secondaryAction}</div>
           </Box>
         </WidgetContainer>
       </>

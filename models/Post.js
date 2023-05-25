@@ -34,7 +34,9 @@ export const postSchema = mongoose.Schema(
     collection: "post",
     timestamps: true,
     versionKey: false,
+    virtuals: true,
     toJSON: {
+      virtuals: true,
       transform(_, ret) {
         ret.id = ret._id;
         delete ret._id;

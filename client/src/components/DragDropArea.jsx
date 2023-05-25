@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
+import Box from "@mui/material/Box";
 import PropTypes from "prop-types";
 
 function DragDropArea({
@@ -9,7 +10,8 @@ function DragDropArea({
   accept = "",
   multiple = true,
   children,
-  disabled
+  disabled,
+  sx
 }) {
   const [dragActive, setDragActive] = React.useState(false);
   const [hasDropedFile, setHasDropedFile] = useState(false);
@@ -47,12 +49,13 @@ function DragDropArea({
     }
   };
   return (
-    <div
+    <Box
       onDrop={onDataTransfer}
       onDragOver={handleDrag}
       onDragLeave={handleDrag}
-      style={{
-        position: "relative"
+      sx={{
+        position: "relative",
+        ...sx
       }}
       className={`drag-drop-area ${dragActive ? "drag-active" : ""}`}
     >
@@ -91,7 +94,7 @@ function DragDropArea({
           {hasDropedFile ? dropView : null}
         </div>
       ) : null}
-    </div>
+    </Box>
   );
 }
 
