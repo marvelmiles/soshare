@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef } from "react";
 import PropTypes from "prop-types";
 import Box from "@mui/material/Box";
 import MoreActions from "components/MoreActions";
@@ -6,6 +6,15 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import Skeleton from "@mui/material/Skeleton";
 
 const ShortSidebar = ({ id, user, handleAction, loading, animation }) => {
+  const stateRef = useRef({
+    document: {
+      id,
+      user
+    },
+    moreUrls: {
+      delPath: `/shorts`
+    }
+  });
   return (
     <>
       <Box
@@ -34,15 +43,10 @@ const ShortSidebar = ({ id, user, handleAction, loading, animation }) => {
         ) : (
           <MoreActions
             handleAction={handleAction}
-            composeDoc={{
-              id,
-              user
-            }}
+            document={stateRef.current.document}
             Icon={MoreVertIcon}
             title="short"
-            urls={{
-              delPath: `/shorts`
-            }}
+            urls={stateRef.current.moreUrls}
             nullifyEdit
           />
         )}

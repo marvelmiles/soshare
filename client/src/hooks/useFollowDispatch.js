@@ -1,20 +1,20 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import http from "api/http";
 import { useContext } from "context/store";
 import { useSelector, useDispatch } from "react-redux";
 import { updateUser, updatePreviewUser } from "context/slices/userSlice";
 
-export default (user, priority = "toggle") => {
-  const following = useSelector(state => state.user.currentUser || {})
-    .following;
+export default (user, priority = "toggle", following) => {
+  const ffl = useSelector(state => state.currentUser?.following);
+  const _following = useMemo(() => following || ffl, [following, ffl]);
   const dispatch = useDispatch();
   const { setSnackBar } = useContext();
   const [activeFollowId, setActiveFollowId] = useState("");
   const [isFollowing, setIsFollowing] = useState(
     user
-      ? following
+      ? _following
         ? {
-            toggle: following.includes(user.id),
+            toggle: _following.includes(user.id),
             follow: false,
             unfollow: true
           }[priority]
@@ -22,10 +22,11 @@ export default (user, priority = "toggle") => {
       : false
   );
   const stateRef = useRef({});
+
   const toggleFollow = useCallback(
     async (e, _user, _isFollowing) => {
       if (e) e.stopPropagation();
-      if (following) {
+      if (_following) {
         _user = _user || user;
         _isFollowing =
           typeof _isFollowing === "boolean" ? _isFollowing : isFollowing;
@@ -53,8 +54,8 @@ export default (user, priority = "toggle") => {
             })
           );
           prop.following = isFollowing
-            ? following.filter(id => id !== _user.id)
-            : [_user.id, ...following];
+            ? _following.filter(id => id !== _user.id)
+            : [_user.id, ..._following];
           dispatch(updateUser(prop));
           setActiveFollowId("");
         };
@@ -71,14 +72,14 @@ export default (user, priority = "toggle") => {
         }
       } else setSnackBar();
     },
-    [dispatch, following, isFollowing, priority, setSnackBar, user]
+    [dispatch, _following, isFollowing, priority, setSnackBar, user]
   );
   return {
     toggleFollow,
     activeFollowId,
     isFollowing,
-    isLoggedIn: !!following,
-    following,
+    isLoggedIn: !!_following,
+    following: _following,
     isProcessingFollow: activeFollowId === user?.id
   };
 };

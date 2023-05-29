@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import PropTypes from "prop-types";
 import { Box } from "@mui/material";
 import VideoPlayer from "components/VideoPlayer";
@@ -23,7 +23,7 @@ const Short = React.forwardRef(
     },
     ref
   ) => {
-    const { setComposeDoc } = useContext();
+    const { setComposeDoc, composeDoc } = useContext();
     const cid = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
     const stateRef = useRef({

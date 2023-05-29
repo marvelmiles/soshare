@@ -50,7 +50,8 @@ const InfiniteScroll = React.forwardRef(
       withIntersection = false,
       NotifierComponent = DataNotifier,
       exclude,
-      className
+      className,
+      withShowRetry
     },
     ref
   ) => {
@@ -77,7 +78,9 @@ const InfiniteScroll = React.forwardRef(
             nodeKey
           },
       infinitePaging: {},
-      prevNotice: []
+      prevNotice: [],
+      retryCount: 0,
+      maxRetry: 10
     });
     const { intersectionKey } = useViewIntersection(
       observedNode,
@@ -113,177 +116,207 @@ const InfiniteScroll = React.forwardRef(
       }, resetDelay);
     }, []);
 
-    const fetchData = useCallback(() => {
-      setData(data => {
-        const dataChanged = intersectionKey !== data.paging?.nextCursor;
-        const infinitePaging = stateRef.current.infinitePaging;
-        const shouldSearch = searchId && searchId !== stateRef.current.searchId;
-        const shouldFetch =
-          !stateRef.current.isFetching &&
-          !stateRef.current.preventFetch &&
-          !reachedMax &&
-          (withIntersection || shouldSearch
-            ? true
-            : infinitePaging.matchedDocs
-            ? data.data.length < infinitePaging.matchedDocs && intersectionKey
-            : data.paging?.nextCursor === undefined ||
-              (intersectionKey && data.paging.nextCursor !== null));
+    const fetchData = useCallback(
+      retry => {
+        setData(data => {
+          const dataChanged = intersectionKey !== data.paging?.nextCursor;
+          const infinitePaging = stateRef.current.infinitePaging;
+          const shouldSearch =
+            searchId && searchId !== stateRef.current.searchId;
+          const shouldFetch =
+            retry ||
+            (!stateRef.current.isFetching &&
+              !stateRef.current.preventFetch &&
+              !reachedMax &&
+              (withIntersection || shouldSearch
+                ? true
+                : infinitePaging.matchedDocs
+                ? data.data.length < infinitePaging.matchedDocs &&
+                  intersectionKey
+                : data.paging?.nextCursor === undefined ||
+                  (intersectionKey && data.paging.nextCursor !== null)));
+          if (retry) stateRef.current.retryCount++;
+          if (shouldFetch) {
+            setLoading(true);
+            let withFetch = true;
+            let withEq = true;
+            let _randomize =
+              randomize === undefined ? !intersectionKey : !!randomize;
+            let _limit = limit;
 
-        if (shouldFetch) {
-          setLoading(true);
-          let withFetch = true;
-          let withEq = true;
-          let _randomize =
-            randomize === undefined ? !intersectionKey : !!randomize;
-          let _limit = limit;
-
-          if (shouldSearch) {
-            stateRef.current.searchId = searchId;
-            const index = data.data.findIndex(
-              d => d.id === searchId || d === searchId
-            );
-            if (index === -1) {
-              _randomize = true;
-              withEq = true;
-              data.data = [];
-              delete data.paging;
-            } else {
-              data.data = data.data
-                .slice(index)
-                .filter(
-                  item =>
-                    new Date(item.createdAt).getTime() <=
-                    new Date(data.data[index].createdAt).getTime()
-                );
-
-              if (intersectionKey) {
-                _randomize = false;
-                withEq = false;
-              }
-
-              if (
-                (data.paging.nextCursor
-                  ? false
-                  : infinitePaging.matchedDocs
-                  ? data.data.length === infinitePaging.matchedDocs
-                  : true) ||
-                (_limit =
-                  data.data.length > _limit
-                    ? _limit || Infinity
-                    : _limit > data.data.length
-                    ? _limit - data.data.length
-                    : _limit) === 0
-              ) {
-                data.paging.nextCursor = null;
-                withFetch = false;
+            if (shouldSearch) {
+              stateRef.current.searchId = searchId;
+              const index = data.data.findIndex(
+                d => d.id === searchId || d === searchId
+              );
+              if (index === -1) {
+                _randomize = true;
+                withEq = true;
+                data.data = [];
+                delete data.paging;
               } else {
-                data.paging.nextCursor = data.data[data.data.length - 1].id;
-                withFetch = intersectionKey;
-              }
+                data.data = data.data
+                  .slice(index)
+                  .filter(
+                    item =>
+                      new Date(item.createdAt).getTime() <=
+                      new Date(data.data[index].createdAt).getTime()
+                  );
 
-              handleAction &&
-                handleAction("data", {
-                  currentData: data,
-                  shallowUpdate: true,
-                  dataSize: data.data.length
-                });
+                if (intersectionKey) {
+                  _randomize = false;
+                  withEq = false;
+                }
+
+                if (
+                  (data.paging.nextCursor
+                    ? false
+                    : infinitePaging.matchedDocs
+                    ? data.data.length === infinitePaging.matchedDocs
+                    : true) ||
+                  (_limit =
+                    data.data.length > _limit
+                      ? _limit || Infinity
+                      : _limit > data.data.length
+                      ? _limit - data.data.length
+                      : _limit) === 0
+                ) {
+                  data.paging.nextCursor = null;
+                  withFetch = false;
+                } else {
+                  data.paging.nextCursor = data.data[data.data.length - 1].id;
+                  withFetch = intersectionKey;
+                }
+
+                handleAction &&
+                  handleAction("data", {
+                    currentData: data,
+                    shallowUpdate: true,
+                    dataSize: data.data.length
+                  });
+              }
+            }
+            if (withFetch) {
+              (async () => {
+                try {
+                  stateRef.current.isFetching = true;
+
+                  const _url =
+                    url +
+                    `?limit=${_limit || ""}&cursor=${data.paging?.nextCursor ||
+                      ""}&withEq=${withEq}&randomize=${_randomize}&exclude=${(
+                      exclude || []
+                    )
+                      .concat(data.data || [])
+                      .map(d => d.id || d._id || d)
+                      .join(",")}&${
+                      searchParams
+                        ? searchParams
+                        : dataKey
+                        ? `select=${dataKey}`
+                        : ""
+                    }`;
+
+                  let _data = await http.get(_url, {
+                    withCredentials,
+                    ...httpConfig
+                  });
+                  stateRef.current.dataChanged =
+                    !data.paging?.nextCursor ||
+                    data.paging.nextCursor !== _data.paging.nextCursor ||
+                    data.data.length !== _data.data.length;
+
+                  stateRef.current.isNewData = stateRef.current.dataChanged;
+
+                  if (isObject(_data)) {
+                    if (_data.paging) {
+                      if (_data.paging.matchedDocs) {
+                        infinitePaging.withMatchedCursor =
+                          _data.paging.nextCursor;
+                        infinitePaging.matchedDocs = _data.paging.matchedDocs;
+                      }
+                    } else {
+                      stateRef.current.retryCount++;
+                      setShowRetry(true);
+                    }
+
+                    handleAction &&
+                      handleAction("data", {
+                        currentData: _data,
+                        shallowUpdate: false,
+                        dataSize: _data.data.length
+                      });
+                    // console.log(
+                    //   data.data.map(c => {
+                    //     if (c.threads)
+                    //       console.log(
+                    //         c.threads.map(c => c.id || c),
+                    //         " threads"
+                    //       );
+                    //     return c.id || c;
+                    //   })
+                    // );
+                    setData(data => ({
+                      ..._data,
+                      data: data.data.concat(addToSet(_data.data))
+                    }));
+                  } else {
+                    stateRef.current.retryCount++;
+                    setShowRetry(true);
+                  }
+                } catch (msg) {
+                  console.log(msg, " msg ");
+                  if (
+                    stateRef.current.retryCount < stateRef.current.maxRetry &&
+                    (withShowRetry !== undefined
+                      ? withShowRetry
+                      : stateRef.current.withShowRetry)
+                  ) {
+                    stateRef.current.retryCount++;
+                    setShowRetry(true);
+                  } else stateRef.current.preventFetch = true;
+
+                  (withCredentials || withError) && setSnackBar(msg);
+                } finally {
+                  stateRef.current.isFetching = false;
+                  setLoading(false);
+                }
+              })();
             }
           }
-          if (withFetch) {
-            (async () => {
-              try {
-                stateRef.current.isFetching = true;
-
-                const _url =
-                  url +
-                  `?limit=${_limit || ""}&cursor=${data.paging?.nextCursor ||
-                    ""}&withEq=${withEq}&randomize=${_randomize}&exclude=${(
-                    exclude || []
-                  )
-                    .concat(data.data || [])
-                    .map(d => d.id || d._id || d)
-                    .join(",")}&${
-                    searchParams
-                      ? searchParams
-                      : dataKey
-                      ? `select=${dataKey}`
-                      : ""
-                  }`;
-
-                let _data = await http.get(_url, {
-                  withCredentials,
-                  ...httpConfig
-                });
-                stateRef.current.dataChanged =
-                  !data.paging?.nextCursor ||
-                  data.paging.nextCursor !== _data.paging.nextCursor ||
-                  data.data.length !== _data.data.length;
-
-                stateRef.current.isNewData = stateRef.current.dataChanged;
-
-                if (isObject(_data)) {
-                  if (_data.paging) {
-                    if (_data.paging.matchedDocs) {
-                      infinitePaging.withMatchedCursor =
-                        _data.paging.nextCursor;
-                      infinitePaging.matchedDocs = _data.paging.matchedDocs;
-                    }
-                  } else setShowRetry(true);
-
-                  handleAction &&
-                    handleAction("data", {
-                      currentData: _data,
-                      shallowUpdate: false,
-                      dataSize: _data.data.length
-                    });
-                  data = {
-                    ..._data,
-                    data: data.data.concat(addToSet(_data.data))
-                  };
-
-                  setData(data);
-                } else setShowRetry(true);
-              } catch (msg) {
-                console.log(msg, " msg ");
-                setShowRetry(true);
-                (withCredentials || withError) && setSnackBar(msg);
-              } finally {
-                stateRef.current.isFetching = false;
-                setLoading(false);
-              }
-            })();
+          if (withCredentials === false) {
+            // get only public data during session timeout
+            // or user isn't logged in
+            data.data = data.data.filter(
+              typeof validatePublicDatum === "function"
+                ? validatePublicDatum
+                : item =>
+                    item.visibility ? item.visibility === "everyone" : true
+            );
           }
-        }
-        if (withCredentials === false) {
-          // get only public data during session timeout
-          // or user isn't logged in
-          data.data = data.data.filter(
-            typeof validatePublicDatum === "function"
-              ? validatePublicDatum
-              : item =>
-                  item.visibility ? item.visibility === "everyone" : true
-          );
-        }
-        return dataChanged ? { ...data } : data;
-      });
-    }, [
-      url,
-      withCredentials,
-      httpConfig,
-      dataKey,
-      limit,
-      searchParams,
-      intersectionKey,
-      withIntersection,
-      searchId,
-      validatePublicDatum,
-      setSnackBar,
-      handleAction,
-      reachedMax,
-      randomize,
-      exclude,
-      withError
-    ]);
+          return dataChanged ? { ...data } : data;
+        });
+      },
+      [
+        url,
+        withCredentials,
+        httpConfig,
+        dataKey,
+        limit,
+        searchParams,
+        intersectionKey,
+        withIntersection,
+        searchId,
+        validatePublicDatum,
+        setSnackBar,
+        handleAction,
+        reachedMax,
+        randomize,
+        exclude,
+        withError,
+        withShowRetry
+      ]
+    );
 
     const propMemo = useMemo(
       () => ({
@@ -297,10 +330,13 @@ const InfiniteScroll = React.forwardRef(
         dataChanged: stateRef.current.dataChanged,
         isNewData: stateRef.current.isNewData,
         infinitePaging: stateRef.current.infinitePaging,
-        setObservedNode: (nodeOrFunc, strictMode = true) => {
+        setLoading,
+        setObservedNode: (nodeOrFunc, strictMode = true, context = {}) => {
           if (strictMode ? nodeOrFunc && stateRef.current.dataChanged : true) {
+            stateRef.current.withShowRetry = context.withShowRetry;
+            stateRef.current.intersection = context.intersectionProps;
+            setObservedNode(nodeOrFunc);
             determineFlowing();
-            setObservedNode(node => (node !== nodeOrFunc ? nodeOrFunc : node));
           }
         },
         setData: (prop, numberOfEntries, preventFetch) => {
@@ -334,7 +370,11 @@ const InfiniteScroll = React.forwardRef(
                   }));
                 }, notifierDuration);
               }, notifierDelay);
-            }
+            } else
+              setNotifier(notifier => ({
+                ...notifier,
+                open: false
+              }));
           };
           const setState = dataSize => {
             if (dataSize < data.data.length)
@@ -406,6 +446,12 @@ const InfiniteScroll = React.forwardRef(
         ref.current = propMemo;
       }
     }, [propMemo, ref]);
+
+    const handleRefetch = e => {
+      e.stopPropagation();
+      fetchData(true);
+    };
+
     endElement = isEnd
       ? endElement || (
           <Typography
@@ -460,34 +506,41 @@ const InfiniteScroll = React.forwardRef(
               closeNotifier={closeNotifier}
             />
           ) : null}
-          <div
+          <Box
             className="data-scrollable-content-container"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              flex: 1
+            sx={{
+              "&,.data-scrollable-content": {
+                display: "flex",
+                flexDirection: "column",
+                justifyContent: fullHeight ? "center" : "normal",
+                flex: 1
+                // border: "1px solid red"
+              }
             }}
           >
             <Box
               className="data-scrollable-content"
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                flex: 1,
-                justifyContent: fullHeight ? "center" : "normal"
+              style={{
+                flex: "none"
               }}
             >
-              {showRetry && !data.data.length ? (
+              {stateRef.current.retryCount === stateRef.current.maxRetry ? (
+                <EmptyData nullifyBrand withReload onClick={handleRefetch} />
+              ) : showRetry && !data.data.length ? (
                 <EmptyData
                   sx={{
                     p: 3
                   }}
-                  onClick={e => {
-                    e.stopPropagation();
-                  }}
+                  onClick={handleRefetch}
                 />
               ) : nullifyChildren ? null : (
-                children(propMemo)
+                children({
+                  ...propMemo
+                  // data: {
+                  //   data: [data.data[0]],
+                  //   paging: { nextCursor: null }
+                  // }
+                })
               )}
             </Box>
             {loading && !stateRef.current.preventLoading ? (
@@ -502,12 +555,10 @@ const InfiniteScroll = React.forwardRef(
                   height: "120px",
                   minHeight: "120px"
                 }}
-                onClick={e => {
-                  e.stopPropagation();
-                }}
+                onClick={handleRefetch}
               />
             ) : null}
-          </div>
+          </Box>
           {reachedMax ? maxSizeElement : isEnd && showEnd ? endElement : null}
         </Box>
       </Box>

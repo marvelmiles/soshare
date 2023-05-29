@@ -81,7 +81,10 @@ export const refetchHasVisitor = (err, originalRequest, method = "get") => {
   return Promise.reject(getHttpErrMsg(err));
 };
 
-export const handleRefreshToken = (requestConfig, refetchHasVisitior) => {
+export const handleRefreshToken = (
+  requestConfig,
+  refetchHasVisitior = true
+) => {
   isRefreshing = true;
   return http
     .get(`/auth/refresh-token`, {
@@ -100,7 +103,7 @@ export const handleRefreshToken = (requestConfig, refetchHasVisitior) => {
     .catch(err => {
       err = getHttpErrMsg(err);
       processQueue(refetchHasVisitior ? "visitor" : err);
-      return refetchHasVisitior
+      return refetchHasVisitior && requestConfig
         ? refetchHasVisitor("visitor", requestConfig)
         : Promise.reject(err);
     })
@@ -119,6 +122,7 @@ http.interceptors.request.use(function(config) {
   source.url = config.url;
   config.cancelToken = source.token;
   cancelRequests.push(source);
+
   return config;
 });
 http.interceptors.response.use(
@@ -128,6 +132,7 @@ http.interceptors.response.use(
     if (!(err instanceof AxiosError) || rootAxios.isCancel(err))
       return Promise.reject(getHttpErrMsg(err));
     const originalRequest = err.config;
+
     if (!originalRequest._refreshed || !originalRequest._refetchedHasVisitor) {
       if (err.response?.status === 401 && !originalRequest._noRefresh) {
         if (isRefreshing) {
@@ -146,7 +151,7 @@ http.interceptors.response.use(
                 : Promise.reject(err)
             );
         } else if (originalRequest.withCredentials)
-          return handleRefreshToken(originalRequest, true);
+          return handleRefreshToken(originalRequest);
       }
     }
     originalRequest._refreshed = undefined;

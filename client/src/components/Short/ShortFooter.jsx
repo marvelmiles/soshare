@@ -36,6 +36,7 @@ const ShortFooter = ({
   });
   const isOwner = user.id === cid;
   const _handleAction = async reason => {
+    if (reason === "mounted") return;
     const closeDialog = () => {
       handleAction("update", { id, pause: false });
       setOpenDeleteDialog(false);

@@ -18,12 +18,11 @@ const FollowMeWidget = ({
   priority = "toggle",
   secondaryTitle,
   variant = "block",
-  infiniteScrollProps
+  infiniteScrollProps,
+  userFollowing
 }) => {
-  const { cid, previewUser } = useSelector(state => ({
-    cid: state.user.currentUser?.id,
-    previewUser: state.user.previewUser
-  }));
+  const { previewUser, currentUser = {} } = useSelector(state => state.user);
+  const { id: cid, following: _following } = currentUser;
   let { userId } = useParams();
   const isCurrentUser = cid === userId;
   const { socket } = useContext();
@@ -67,9 +66,9 @@ const FollowMeWidget = ({
 
   const { following, toggleFollow, isProcessingFollow } = useFollowDispatch(
     undefined,
-    priority
+    priority,
+    _following || userFollowing
   );
-
   useEffect(() => {
     const user = previewUser?.followUser;
     if (user && user.id === userId) {
@@ -108,12 +107,11 @@ const FollowMeWidget = ({
         if (isTo && priority === "toggle")
           handleAction(toFollow ? "new" : "filter", from);
         else if (isFrm) {
-          if (isCurrentUser) {
-            if (priority === "unfollow")
-              handleAction(toFollow ? "new" : "filter", to);
-            else if (priority === "follow")
-              handleAction(toFollow ? "filter" : "new", to);
-          }
+          if (priority === "unfollow")
+            handleAction(toFollow ? "new" : "filter", to);
+          else if (priority === "follow")
+            handleAction(toFollow ? "filter" : "new", to);
+          else handleAction("update", to);
         }
         stateRef.current[
           (toFollow ? "unfollowId" : "followId") + to.id + from.id
@@ -149,7 +147,7 @@ const FollowMeWidget = ({
       fullHeight={false}
       searchParams={searchParams}
       {...infiniteScrollProps}
-      withCredentials={!!following}
+      withCredentials={!!(cid || following)}
       verify={priority === "toggle"}
       notifierDelay={
         isCurrentUser ? (priority === "toggle" ? undefined : -1) : undefined

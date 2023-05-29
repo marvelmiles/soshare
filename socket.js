@@ -6,9 +6,30 @@ import { verifyToken } from "./utils/middlewares.js";
 import { createError } from "./utils/error.js";
 import User from "./models/User.js";
 import { Types } from "mongoose";
+import Comment from "./models/Comment.js";
+import Post from "./models/Post.js";
+import Short from "./models/Short.js";
 
 export default (app, port = process.env.PORT || 8800) => {
   (async () => {
+    // await Post.updateMany(
+    //   {},
+    //   {
+    //     comments: [],
+    //     likes: {}
+    //   }
+    // );
+
+    // await Short.updateMany(
+    //   {},
+    //   {
+    //     comments: [],
+    //     likes: {}
+    //   }
+    // );
+
+    // await Comment.deleteMany({});
+
     // Find all users
     const users = await User.find();
     // Iterate over each user
@@ -41,16 +62,25 @@ export default (app, port = process.env.PORT || 8800) => {
 
   io.use((socket, next) => {
     const cookies = cookie.parse(socket.request.headers.cookie || "");
+
     try {
-      if (cookies)
+      if (cookies) {
         verifyToken({
           cookies
         });
-      socket.handshake.withCookies = true;
+        socket.handshake.withCookies = true;
+      }
       next();
     } catch (err) {
       if (socket.handshake.userId) socket.disconnect();
-      next(createError(cookies ? `Token expired or isn't valid` : err.message));
+      next(
+        cookies.access_token || cookies.refresh_token
+          ? createError(
+              cookies ? `Token expired or isn't valid` : err.message,
+              err.status || 401
+            )
+          : undefined
+      );
     }
   });
   io.on("connection", socket => {
@@ -65,6 +95,7 @@ export default (app, port = process.env.PORT || 8800) => {
       });
     }
     socket.on("disconnect", () => {
+      console.clear();
       socket.leave(socket.handshake.userId);
 
       if (socket.handshake.suggestFollowersTime)

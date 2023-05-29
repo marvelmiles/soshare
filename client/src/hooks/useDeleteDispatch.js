@@ -14,23 +14,24 @@ export default (config = {}) => {
       let i = 0;
       let errCount = 0;
       opt.label = `${opt.label || "selection"}${ids.length > 1 ? "s" : ""}`;
-
       for (let _id of ids) {
-        const id = _id.id || _id;
-        setActiveDelItem(opt.activeItem || id);
-        handleAction && handleAction("filter", _id, true, i);
+        setActiveDelItem(opt.activeItem || _id.id || _id);
+        if (!_id.document.id) {
+          console.log(_id, " use deleete ");
+        }
+        handleAction && handleAction("filter", _id);
       }
       handleAction("close");
+      console.log(" deleting.. ");
       for (let _id of ids) {
         const id = _id.id || _id;
         try {
           _url = _url || url;
-          const t = await http.delete(
-            _url.url
-              ? _url.url + `/${id}?${_url.searchParams}`
-              : _url + `/${id}`,
-            opt._httpConfig || httpConfig
-          );
+          _url = _url.url
+            ? _url.url + `/${id}?${_url.searchParams || ""}`
+            : _url + `/${id}`;
+
+          const t = await http.delete(_url, opt._httpConfig || httpConfig);
           handleAction && handleAction("clear-cache", id, i);
         } catch (message) {
           if (message === CANCELED_REQUEST_MSG) continue;

@@ -1,4 +1,4 @@
-export const removeFirstItemFromArray = (item, array) => {
+export const removeFirstItemFromArray = (item, array = []) => {
   for (let i = 0; i < array.length; i++) {
     if (item === array[i]) {
       array.splice(i, 1);
@@ -56,6 +56,14 @@ export const addToSet = (arr = [], item) => {
       items.push(_item);
       map[id] = id;
     }
+  }
+  return items;
+};
+
+export const mapArray = (arr, fn) => {
+  const items = [];
+  for (let i = 0; i < arr.length; i++) {
+    items.push(fn(arr[i], i));
   }
   return items;
 };

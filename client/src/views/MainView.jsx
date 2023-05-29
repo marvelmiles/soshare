@@ -47,7 +47,7 @@ const MainView = ({
           ...responsiveStyle
         }}
       >
-        {isLg
+        {/* {isLg
           ? {
               shorts: (
                 <ShortsView
@@ -57,7 +57,7 @@ const MainView = ({
                 />
               )
             }[sideView]
-          : null}
+          : null} */}
         {cid ? <UserWidget /> : null}
       </Box>
 

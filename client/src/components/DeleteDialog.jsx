@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -37,10 +37,15 @@ const DeleteDialog = ({
     },
     content: { pt: "18px !important", pb: 0, width: "100%" }
   };
+  // useEffect(() => {
+  //   handleAction("mounted", { open, type: "delete-dialog" });
+  //   open === false && setDeleting(false);
+  // }, [handleAction, open]);
   return (
     <Dialog
       open={open}
       onClose={e => {
+        console.log(" closed... ");
         e.stopPropagation();
         !deleting && handleAction("cancel");
       }}

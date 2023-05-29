@@ -1,9 +1,10 @@
-import { createVisibilityQuery, mergeThread } from "./serializers.js";
+import { createVisibilityQuery } from "./serializers.js";
 import { verifyToken } from "../utils/middlewares.js";
 import {
   getAll,
   sendAndUpdateNotification,
-  handleMiscDelete
+  handleMiscDelete,
+  getThreadsByRelevance
 } from "./index.js";
 import { createError } from "./error.js";
 import User from "../models/User.js";
@@ -44,19 +45,19 @@ export const getFeedMedias = async ({
       ...rest
     });
     if (req.query.withThread === "true") {
-      let i = 0;
       if (req.query.ro || req.query.threadPriorities) {
-        for (let doc of result.data.slice(
-          req.query.threadSkip || 0,
-          req.query.threadLimit || Number(req.query.limit) || 20
-        )) {
-          result.data[i] = await mergeThread(model, doc, req.query, populate);
-          i++;
+        for (let i = 0; i < result.data.length; i++) {
+          result.data[i].threads = await getThreadsByRelevance(
+            result.data[i].id,
+            req.query,
+            model
+          );
         }
       }
     }
     res.json(result);
   } catch (err) {
+    console.log(err.message, " feed medias ");
     next(err);
   }
 };
@@ -88,11 +89,6 @@ export const likeMedia = async (model, req, res, next) => {
       docType: model.modelName,
       document: media,
       eventName: `update-${model.modelName}`,
-      docPopulate: [
-        {
-          path: "user document"
-        }
-      ],
       reportIds: {
         like: media.likes,
         comment: media.comments,

@@ -20,7 +20,8 @@ import { useSelector } from "react-redux";
 const Post = () => {
   const cid = useSelector(state => state.user.currentUser?.id);
   const [post, setPost] = useState();
-  const { kind, id } = useParams();
+  let { kind = "", id = "" } = useParams();
+  kind = kind.toLowerCase();
   const navigate = useNavigate();
   const { setSnackBar, socket } = useContext();
   const [searchParams] = useSearchParams();
@@ -60,7 +61,7 @@ const Post = () => {
             if (post.comments.length <= post.comments.length - 1) return;
             return {
               ...post,
-              comments: removeFirstItemFromArray(res.uid, post.comments)
+              comments: removeFirstItemFromArray(res, post.comments)
             };
           });
           break;
@@ -162,12 +163,15 @@ const Post = () => {
             />
           )}
           <Comments
+            context={{
+              commentSize: post.comments.length
+            }}
             documentId={id}
             docType={docType}
             user={post.user}
             handleAction={_handleAction}
             isRO={post.user?.id === cid || post.rootThread?.user?.id === cid}
-            rootUid={post.user?.id}
+            rootUid={cid}
             key={post.id}
             sx={{ minHeight: 0, height: "auto" }}
           />

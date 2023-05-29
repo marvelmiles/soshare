@@ -92,6 +92,7 @@ const Navbar = ({ routePage = "homePage" }) => {
   useEffect(() => {
     if (currentUser.id) {
       socket.on("notification", (n, { filter, isNew }) => {
+        return;
         if (isNew && !filter && n.to.id === currentUser.id) {
           let notified = false;
           setUnseens(unseens => {

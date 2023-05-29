@@ -46,7 +46,7 @@ const InputBox = ({
   showDeleteBtn,
   placeholders,
   handleAction,
-  placeholder = "What's happening?",
+  placeholder = "Soshare!",
   showIndicator = true,
   showActionBar = true,
   max = 700,
@@ -221,11 +221,13 @@ const InputBox = ({
             })
           );
           break;
-        default:
+        case "close":
           setDialog({
             ...dialog,
             open: false
           });
+          break;
+        default:
           break;
       }
     },
@@ -273,9 +275,8 @@ const InputBox = ({
               }
             };
           }
-          reset(
-            placeholders ? (withPlaceholders ? placeholders : res) : !resetData
-          );
+          reset(withPlaceholders ? placeholders : resetData ? undefined : res);
+          console.log(!!handleAction, !!placeholders);
           handleAction && handleAction(placeholders ? "update" : "new", res);
         } else errors[mediaRefName] && setSnackBar(errors[mediaRefName]);
       } catch (msg) {
@@ -340,7 +341,6 @@ const InputBox = ({
         case 13:
           if (!e.shiftKey) {
             e.preventDefault();
-            console.log(url);
             onSubmit();
           }
           break;

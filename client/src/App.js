@@ -32,8 +32,6 @@ import Auth404 from "pages/404/Auth404";
 import Page404 from "pages/404/Page404";
 import BrandIcon from "components/BrandIcon";
 import EmptyData from "components/EmptyData";
-import Comments from "components/Comments";
-import { reloadBrowser } from "utils";
 
 const socket = io.connect(API_ENDPOINT, {
   path: "/mernsocial",
@@ -50,20 +48,25 @@ const App = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    socket.connect();
+    socket.connect({
+      withCredentials: !!cid
+    });
+
     if (cid) {
       socket.on("register-user", () =>
         socket.emit("register-user", cid, () => setReadyState("ready"))
       );
     } else setReadyState("ready");
-    socket.on("comment", comment => setComposeDoc(comment));
-    socket.on("filter-comment", comment => setComposeDoc(comment));
+
+    // socket.on("comment", comment => setComposeDoc(comment));
+    // socket.on("filter-comment", comment => setComposeDoc(comment));
     let handlingErr;
     socket.on("connect_error", error => {
       if (handlingErr) return;
       handlingErr = true;
       switch (error.message) {
         case "Token expired or isn't valid":
+          console.log("ffff");
           handleRefreshToken()
             .then(() => socket.connect())
             .catch(() => setReadyState("403"))
@@ -184,27 +187,7 @@ const App = () => {
         }}
       >
         {{
-          reject: (
-            <EmptyData
-              maxWidth="400px"
-              label={
-                <div>
-                  <BrandIcon staticFont sx={{ mb: 1 }} />
-                  <Typography variant="h5">
-                    Something went wrong, but don’t fret — let’s give it another
-                    shot.
-                  </Typography>
-                  <Button
-                    variant="contained"
-                    sx={{ mt: 1 }}
-                    onClick={reloadBrowser}
-                  >
-                    Try again
-                  </Button>
-                </div>
-              }
-            />
-          ),
+          reject: <EmptyData maxWidth="400px" withReload />,
           pending: <BrandIcon hasLoader />
         }[readyState] || (
           <Routes path="/">

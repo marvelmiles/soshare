@@ -109,6 +109,10 @@ export const getAll = async ({
           options,
           path: "user"
         },
+        {
+          path: "document",
+          populate: "user"
+        },
         dataKey
           ? {
               select,
@@ -237,14 +241,20 @@ export const getAll = async ({
       cursor = result[limit - 1].id;
       result.pop();
     }
-    return {
-      data: result,
-      paging: {
-        matchedDocs,
-        skippedLimit,
-        nextCursor: cursor ? encodeURIComponent(cursor) : null
-      }
-    };
+    return new Promise(r => {
+      setTimeout(
+        () =>
+          r({
+            data: result,
+            paging: {
+              matchedDocs,
+              skippedLimit,
+              nextCursor: cursor ? encodeURIComponent(cursor) : null
+            }
+          }),
+        2000
+      );
+    });
   } catch (err) {
     console.log(err.message, " err ");
     throw err;
@@ -259,32 +269,40 @@ export const sendAndUpdateNotification = async ({
   filter = false,
   to,
   eventName,
-  docPopulate = "user document",
+  docPopulate = [
+    {
+      path: "user"
+    },
+    {
+      path: "document",
+      populate: "document user"
+    }
+  ],
   maxFromNotification = 20,
   withFrom = false
 }) => {
-  const from = req.user.id;
-  to =
-    to ||
-    req.params.userId ||
-    (document
-      ? document.user
-        ? document.user.id || document.user
-        : document.id || document
-      : undefined);
-  eventName =
-    eventName ||
-    {
-      follow: filter ? "unfollow" : "follow"
-    }[type] ||
-    type;
-  document = document && (document.id || document);
-  docType = docType || (document && type);
-  withFrom = type === "like";
-  if (!withFrom) to = to === from ? undefined : to;
-
-  let match = { type, document, to, docType };
   try {
+    const from = req.user.id;
+    to =
+      to ||
+      req.params.userId ||
+      (document
+        ? document.user
+          ? document.user.id || document.user
+          : document.id || document
+        : undefined);
+    eventName =
+      eventName ||
+      {
+        follow: filter ? "unfollow" : "follow"
+      }[type] ||
+      type;
+    document = document && (document.id || document);
+    docType = docType || (document && type);
+
+    if (!withFrom) to = to === from ? undefined : to;
+
+    let match = { type, document, to, docType };
     const populate = [
       {
         path: "to users"
@@ -339,8 +357,6 @@ export const sendAndUpdateNotification = async ({
     if (notice) notice = await notice.populate(populate);
 
     const io = req.app.get("socketIo");
-    console.clear();
-    console.log(!!notice?.to, eventName, notice?.marked, filter);
     if (io && notice) {
       if (report) {
         if (filterNotice) io.emit("filter-notifications", [notice.id]);
@@ -351,13 +367,14 @@ export const sendAndUpdateNotification = async ({
             isNew
           });
       }
+      const user = notice.users[0] || {};
       eventName &&
         io.emit(
           eventName,
           {
             follow: {
               to: notice.to,
-              from: notice.users[0] || (await User.findById(from))
+              from: user.id === from ? user : await User.findById(from)
             }
           }[type] ||
             notice.document ||
@@ -377,36 +394,6 @@ export const sendAndUpdateNotification = async ({
 
 export const generateToken = () => {
   return crypto.randomBytes(20).toString("hex");
-};
-
-export const findThreadByRelevance = async ({
-  model = Comment,
-  docId,
-  populate,
-  query: { ro, threadPriorities = "ro,most comment" }
-}) => {
-  let refIndex = -1,
-    doc;
-  threadPriorities = threadPriorities.split(",");
-  do {
-    refIndex++;
-    doc = {
-      ro: await model
-        .findOne({
-          user: ro,
-          document: docId
-        })
-        .sort({ createdAt: -1 })
-        .populate(populate),
-      "most comment": await Comment.findOne({
-        document: docId
-      })
-        .sort({ comments: -1 })
-        .populate(populate)
-    }[threadPriorities[refIndex]];
-    doc = doc === null ? undefined : doc === undefined ? {} : doc;
-  } while (!doc);
-  return doc.id ? doc : null;
 };
 
 export const handleMiscDelete = async (docId, io, withComment = true) => {
@@ -448,4 +435,70 @@ export const getRoomSockets = (io, roomId) => {
     ids.push(id);
   }
   return ids;
+};
+
+export const getThreadsByRelevance = async (docId, query = {}, model) => {
+  let { ro, threadPriorities = "ro,most comment", maxThread = "2" } = query;
+  maxThread = Number(maxThread) || 2;
+  maxThread = maxThread === Infinity ? await model.countDocuments() : maxThread;
+  threadPriorities = threadPriorities.split(",");
+
+  const populate = [
+    {
+      path: "user"
+    },
+    {
+      path: "document",
+      populate: [
+        { path: "user" },
+        {
+          path: "document",
+          populate: "user"
+        }
+      ]
+    }
+  ];
+
+  const threads = [];
+
+  let refIndex = 0,
+    priority = 0,
+    thread;
+  while (refIndex < maxThread) {
+    switch (threadPriorities[priority] || threadPriorities[0]) {
+      case "ro":
+        thread = await model
+          .findOne({
+            document: docId,
+            user: ro
+          })
+          .sort({
+            createdAt: -1
+          })
+          .populate(populate);
+        if (thread) threads.push(thread);
+        else priority = 1;
+        break;
+      case "most comment":
+        thread = await model
+          .findOne({
+            document: docId
+          })
+          .sort({
+            comments: -1,
+            createdAt: -1
+          })
+          .populate(populate);
+        if (thread) threads.push(thread);
+        priority = -1;
+        break;
+      default:
+        threadPriorities.push("ro");
+        priority = threadPriorities.length - 1;
+        break;
+    }
+    refIndex++;
+    if (thread) docId = thread.id;
+  }
+  return threads;
 };

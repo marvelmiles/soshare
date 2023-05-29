@@ -34,10 +34,12 @@ const ProfilePage = () => {
   useEffect(() => {
     if (user?.id) {
       socket.on("update-user", u => {
-        if (u.id === user.id) setUser(u);
-        if (isCurrentUser) {
-          dispatch(updateUser(u));
-          dispatch(updatePreviewUser({}));
+        if (u.id === user.id) {
+          setUser(u);
+          if (isCurrentUser) {
+            dispatch(updateUser(u));
+            dispatch(updatePreviewUser({}));
+          }
         }
       });
     }
@@ -94,7 +96,7 @@ const ProfilePage = () => {
               readOnly={!isCurrentUser}
               variant="flex"
               key="followers"
-              user={user}
+              userFollwoing={user.following}
             />
             <FollowMeWidget
               url="following"
@@ -105,7 +107,7 @@ const ProfilePage = () => {
               isCurrentUser={isCurrentUser}
               variant="flex"
               key="following"
-              user={user}
+              userFollwoing={user.following}
             />
             {isCurrentUser ? (
               <FollowMeWidget
@@ -114,7 +116,7 @@ const ProfilePage = () => {
                 variant="flex"
                 key="suggest"
                 title="People to follow"
-                user={user}
+                userFollwoing={user.following}
               />
             ) : null}
           </Stack>

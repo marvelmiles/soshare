@@ -9,8 +9,11 @@ import {
   getDocument
 } from "../utils/req-res-hooks.js";
 import { removeFirstItemFromArray } from "../utils/normalizers.js";
-import { sendAndUpdateNotification, handleMiscDelete } from "../utils/index.js";
-import { mergeThread } from "../utils/serializers.js";
+import {
+  sendAndUpdateNotification,
+  handleMiscDelete,
+  getThreadsByRelevance
+} from "../utils/index.js";
 
 export const addComment = async (req, res, next) => {
   try {
@@ -19,7 +22,6 @@ export const addComment = async (req, res, next) => {
         "Invalid body expect document key value pair of type string"
       );
     let model;
-
     if (
       !req.params.docType ||
       !(model = {
@@ -39,15 +41,7 @@ export const addComment = async (req, res, next) => {
         mimetype: req.file.mimetype
       };
     }
-    const {
-      threads = [],
-      document,
-      docType,
-      comments = [],
-      likes,
-      rootThread,
-      rootType
-    } =
+    const { _id, comments = [], likes, rootThread, rootType } =
       (await model.findOneAndUpdate(
         {
           _id: req.body.document
@@ -61,9 +55,8 @@ export const addComment = async (req, res, next) => {
       )) || {};
     if (!likes) throw createError("Comment not found", 404);
     if (req.params.docType === "comment") {
-      req.body.threads = [req.body.document, ...threads];
-      req.body.rootThread = rootThread || document;
-      req.body.rootType = rootType || docType;
+      req.body.rootThread = rootThread || _id;
+      req.body.rootType = rootType || model.modelName;
     }
     let comment = await new Comment(req.body).save();
     const docPopulate = [
@@ -77,45 +70,13 @@ export const addComment = async (req, res, next) => {
             path: "user"
           },
           {
-            path: "threads",
-            populate: [
-              { path: "user" },
-              {
-                path: "document",
-                populate: [
-                  {
-                    path: "user"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        path: "threads",
-        populate: [
-          { path: "user" },
-          {
             path: "document",
-            populate: [
-              {
-                path: "user"
-              }
-            ]
+            populate: "user"
           }
         ]
       }
     ];
-    comment = await comment.populate([
-      {
-        path: "user"
-      },
-      {
-        path: "document",
-        populate: docPopulate
-      }
-    ]);
+    comment = await comment.populate(docPopulate);
     res.json(comment);
     await sendAndUpdateNotification({
       req,
@@ -138,66 +99,35 @@ export const getComment = async (req, res, next) => {
 
 export const getComments = async (req, res, next) => {
   req.query.shuffle = req.query.shuffle || "false";
+  const docPopulate = [
+    {
+      path: "user"
+    },
+    {
+      path: "document",
+      populate: [
+        {
+          path: "user"
+        },
+        {
+          path: "document",
+          populate: "user"
+        }
+      ]
+    }
+  ];
   getFeedMedias({
     model: Comment,
     req,
     res,
     next,
-    populate: [
-      {
-        path: "user"
-      },
-      {
-        path: "document",
-        populate: [
-          {
-            path: "user"
-          },
-          {
-            path: "threads",
-            populate: [
-              { path: "user" },
-              {
-                path: "document",
-                populate: [
-                  {
-                    path: "user"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        path: "threads",
-        populate: [
-          { path: "user" },
-          {
-            path: "document",
-            populate: [
-              {
-                path: "user"
-              }
-            ]
-          }
-        ]
-      }
-    ]
+    populate: docPopulate
   });
 };
 
 export const deleteComment = async (req, res, next) => {
   try {
-    let comment = await Comment.findById(req.params.id);
-    const isOwner = comment.user === req.user.id;
-    if (!isOwner) {
-      if (req.query.ro) {
-        if (req.query.ro !== req.user.id)
-          throw createError("Delete operation denied", 401);
-      } else throw createError("Delete operation denied", 401);
-    }
-    const populate = [
+    const docPopulate = [
       {
         path: "user"
       },
@@ -208,75 +138,65 @@ export const deleteComment = async (req, res, next) => {
             path: "user"
           },
           {
-            path: "threads",
-            populate: [
-              { path: "user" },
-              {
-                path: "document",
-                populate: [
-                  {
-                    path: "user"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      {
-        path: "threads",
-        populate: [
-          { path: "user" },
-          {
             path: "document",
-            populate: [
-              {
-                path: "user"
-              }
-            ]
+            populate: "user"
           }
         ]
       }
     ];
+    let comment = await Comment.findById(req.params.id).populate(docPopulate);
 
-    comment = await Comment.findByIdAndDelete({ _id: req.params.id });
+    if (!comment) return res.json("Comment deleted successfully");
+
+    const isOwner = comment.user.id === req.user.id;
+    if (!isOwner) {
+      if (!req.query.ro || req.query.ro !== req.user.id)
+        throw createError("Delete operation denied", 401);
+    }
+
+    await Comment.deleteOne({ _id: req.params.id });
+
     res.json(
       isOwner
         ? "You permanently deleted your comment"
         : "Comment deleted successfully"
     );
+
     const model = {
       post: Post,
       comment: Comment
     }[comment.docType];
-    await model.updateOne(
-      {
-        _id: comment.document.id
-      },
-      {
-        comments: removeFirstItemFromArray(
-          req.user.id,
-          (await model.findOne({
-            _id: comment.document.id
-          }))?.comments
-        )
-      }
-    );
-    comment = await comment.populate(populate);
+
+    if (comment.document) {
+      const comments = removeFirstItemFromArray(
+        req.user.id,
+        comment.document.comments
+      );
+      comment.document.comments = comments;
+      await model.updateOne(
+        {
+          _id: comment.document.id
+        },
+        {
+          comments
+        }
+      );
+    }
     const io = req.app.get("socketIo");
     if (io) {
-      io && io.emit(`filter-comment`, doc);
+      io.emit(`filter-comment`, comment);
+
       if (
+        comment.rootThread &&
         req.query.withThread === "true" &&
         (req.query.ro || req.query.threadPriorities)
       ) {
-        const doc = await mergeThread(
-          Comment,
-          comment.document.id,
+        const threads = await getThreadsByRelevance(
+          comment.rootThread,
           req.query,
-          populate
+          model
         );
-        if (doc) io.emit("comment", doc, true);
+        if (threads.length) io.emit("comment", threads, true);
       }
     }
     handleMiscDelete(comment.id, io);

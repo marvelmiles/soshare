@@ -53,7 +53,7 @@ export const follow = async (req, res, next) => {
   try {
     if (req.user.id === req.params.userId)
       throw createError("You can't follow yourself");
-    await User.updateOne(
+    const user = await User.findByIdAndUpdate(
       {
         _id: req.user.id
       },
@@ -61,7 +61,8 @@ export const follow = async (req, res, next) => {
         $addToSet: {
           following: req.params.userId
         }
-      }
+      },
+      { new: true }
     );
     await User.updateOne(
       {
@@ -73,6 +74,8 @@ export const follow = async (req, res, next) => {
         }
       }
     );
+    const io = req.app.get("socketIo");
+    io && io.emit("update-user", user);
     res.json("Successfully followed user");
     sendAndUpdateNotification({
       req,
@@ -88,13 +91,14 @@ export const unfollow = async (req, res, next) => {
   try {
     if (req.params.userId === req.user.id)
       throw createError("You can't unfollow yourself");
-    await User.updateOne(
+    const user = await User.findByIdAndUpdate(
       { _id: req.user.id },
       {
         $pull: {
           following: new Types.ObjectId(req.params.userId)
         }
-      }
+      },
+      { new: true }
     );
 
     await User.updateOne(
@@ -105,6 +109,8 @@ export const unfollow = async (req, res, next) => {
         }
       }
     );
+    const io = req.app.get("socketIo");
+    io && io.emit("update-user", user);
     res.json("Successfully unfollowed user");
     sendAndUpdateNotification({
       req,

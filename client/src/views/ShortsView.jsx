@@ -34,6 +34,7 @@ const ShortsView = ({
 
   const _handleAction = useCallback(
     (reason, short, uid, cacheData = true) => {
+      console.log("dddddddddddddd");
       const { setData, data } = infiniteScrollRef.current;
       let entries = miniShort || reason !== "new" ? null : 1;
       switch (reason) {
@@ -96,48 +97,48 @@ const ShortsView = ({
       _handleAction("filter", id);
     });
   }, [socket, currentUser, _handleAction]);
-  useEffect(() => {
-    let taskId, timeId;
-    let date = new Date();
-    let sec = date.getSeconds();
-    timeId = setTimeout(() => {
-      return;
-      const filterOlders = () => {
-        infiniteScrollRef.current.setData(prev => {
-          return {
-            ...prev,
-            data: prev.data.filter(({ createdAt }) => {
-              const start = new Date();
-              start.setDate(start.getDate() - 1);
-              const date = new Date(createdAt);
-              return date.getTime() >= start.getTime();
-            })
-          };
-        });
-      };
-      filterOlders();
-      taskId = setInterval(filterOlders, 60 * 1000);
-    }, (60 - sec) * 1000);
-    if (composeDoc) {
-      switch (composeDoc.reason) {
-        case "blacklisted-user":
-          _handleAction(composeDoc.action, composeDoc.id, composeDoc.user.id);
-          break;
-        default:
-          if (composeDoc.docType === "short" && composeDoc.document)
-            _handleAction("update", composeDoc.document);
-          break;
-      }
-    }
+  // useEffect(() => {
+  //   let taskId, timeId;
+  //   let date = new Date();
+  //   let sec = date.getSeconds();
+  //   timeId = setTimeout(() => {
+  //     return;
+  //     const filterOlders = () => {
+  //       infiniteScrollRef.current.setData(prev => {
+  //         return {
+  //           ...prev,
+  //           data: prev.data.filter(({ createdAt }) => {
+  //             const start = new Date();
+  //             start.setDate(start.getDate() - 1);
+  //             const date = new Date(createdAt);
+  //             return date.getTime() >= start.getTime();
+  //           })
+  //         };
+  //       });
+  //     };
+  //     filterOlders();
+  //     taskId = setInterval(filterOlders, 60 * 1000);
+  //   }, (60 - sec) * 1000);
+  //   if (composeDoc) {
+  //     switch (composeDoc.reason) {
+  //       case "blacklisted-user":
+  //         _handleAction(composeDoc.action, composeDoc.id, composeDoc.user.id);
+  //         break;
+  //       default:
+  //         if (composeDoc.docType === "short" && composeDoc.document)
+  //           _handleAction("update", composeDoc.document);
+  //         break;
+  //     }
+  //   }
 
-    return () => {
-      if (timeId) {
-        clearTimeout(timeId);
-        taskId && clearInterval(taskId);
-      }
-      if (composeDoc?.docType === "short") setComposeDoc(undefined);
-    };
-  }, [composeDoc, setComposeDoc, _handleAction]);
+  //   return () => {
+  //     if (timeId) {
+  //       clearTimeout(timeId);
+  //       taskId && clearInterval(taskId);
+  //     }
+  //     // if (composeDoc?.docType === "short") setComposeDoc(undefined);
+  //   };
+  // }, [composeDoc, setComposeDoc, _handleAction]);
 
   return (
     <InfiniteScroll
@@ -158,7 +159,6 @@ const ShortsView = ({
             composeDoc.reason === "fetch" &&
             composeDoc.id
       }
-      handleAction={_handleAction}
       name="shorts"
       scrollNodeRef={scrollNodeRef}
       key={"infinite-shorts-" + miniShort}

@@ -89,11 +89,7 @@ const schema = new mongoose.Schema(
       ref: "user",
       default: []
     },
-    thread: Object,
-    threadDepth: {
-      type: Number,
-      default: 0
-    }
+    thread: Object
   },
   {
     collection: "comment",

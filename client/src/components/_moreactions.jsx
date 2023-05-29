@@ -19,9 +19,8 @@ import useFollowDispatch from "hooks/useFollowDispatch";
 import EditIcon from "@mui/icons-material/Edit";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
-
 const MoreActions = ({
-  document,
+  post,
   handleAction,
   Icon = MoreHorizIcon,
   title,
@@ -36,49 +35,73 @@ const MoreActions = ({
   const { isLoggedIn, isOwner, settings } = useSelector(state => {
     const currentUser = state.user.currentUser || {};
     return {
-      isOwner: currentUser.id === document.user?.id,
+      isOwner: currentUser.id === post.user?.id,
       isLoggedIn: !!currentUser.id,
       ...currentUser
     };
   });
-  const { setSnackBar, setComposeDoc } = useContext();
-
   const { handleDelete } = useDeleteDispatch({
     url: urls.delPath,
     handleAction
   });
-  const { toggleFollow, isFollowing } = useFollowDispatch(document.user);
+  const { toggleFollow, isFollowing } = useFollowDispatch(post.user);
+  useEffect(() => {
+    console.log(" composing...");
+  }, [post]);
+  
+    const _handleAction = useCallback(
+    async (reason, res) => {
+      // console.log(reason, " closing,,,");
+      if (reason === "mounted") {
+        if (res.open && res === "delete-dialog")
+          handleAction("update", { id: post.id, pause: true });
+        return;
+      }
+      const closeDialog = () => {
+        handleAction("update", { id: post.id, pause: false });
+        setOpenDeleteDialog(false);
+      };
+      closeDialog();
+      switch (reason) {
+        case "delete":
+          handleDelete(undefined, [post], { label: docType });
+          break;
+      }
+    },
+    [post, docType, handleAction, handleDelete]
+  );
 
-  const closePopover = useCallback(e => {
+  const closePopover = e => {
     if (e) {
       e.stopPropagation();
     }
     setAnchorEl(null);
-  }, []);
-
-  const handleDontRecommend = useCallback(async () => {
+  };
+  const { setSnackBar, setComposeDoc } = useContext();
+ 
+  const handleDontRecommend = async () => {
     if (isLoggedIn) {
       try {
         setComposeDoc({
-          ...document,
+          ...post,
           docType,
           reason: "blacklisted-user",
           action: "filter"
         });
-        await http.put(`/users/recommendation/blacklist/${document.user.id}`);
+        await http.put(`/users/recommendation/blacklist/${post.user.id}`);
         setSnackBar({
-          message: `You blacklisted @${document.user.username}`,
+          message: `You blacklisted @${post.user.username}`,
           severity: "success"
         });
         setComposeDoc({
-          ...document,
+          ...post,
           docType,
           reason: "blacklisted-user",
           action: "clear-cache"
         });
       } catch (msg) {
         setComposeDoc({
-          ...document,
+          ...post,
           docType,
           reason: "blacklisted-user",
           action: "new"
@@ -86,40 +109,7 @@ const MoreActions = ({
         setSnackBar(msg);
       }
     } else setSnackBar();
-  }, [docType, document, isLoggedIn, setComposeDoc, setSnackBar]);
-
-  const _handleAction = useCallback(
-    async (reason, res) => {
-      if (reason === "mounted") {
-        if (res.open && res === "delete-dialog")
-          handleAction("update", {
-            id: document.id,
-            rootThread: document.rootThread,
-            pause: true
-          });
-        return;
-      }
-      const closeDialog = () => {
-        handleAction("update", {
-          id: document.id,
-          rootThread: document.rootThread,
-          pause: false
-        });
-        setOpenDeleteDialog(false);
-      };
-      closeDialog();
-      switch (reason) {
-        case "delete":
-          handleDelete(undefined, [document], { label: docType });
-          break;
-      }
-    },
-    [document, docType, handleAction, handleDelete]
-  );
-
-  useEffect(() => {
-    // console.log(" composing...");
-  }, [document]);
+  };
 
   return (
     <>
@@ -151,14 +141,14 @@ const MoreActions = ({
           {
             icon: isFollowing ? PersonRemoveIcon : PersonAddAlt1Icon,
             text: `${isFollowing ? "Unfollow" : "Follow"} ${
-              document.user.username
+              post.user.username
             }`,
             onClick: toggleFollow,
             nullify: isOwner
           },
           {
             icon: DoDisturbAltOutlinedIcon,
-            text: `Don't recommend @${document.user.username}`,
+            text: `Don't recommend @${post.user.username}`,
             onClick: handleDontRecommend,
             nullify: isOwner
           },
@@ -166,13 +156,14 @@ const MoreActions = ({
             icon: EditIcon,
             nullify: nullifyEdit || !isOwner,
             text: `Edit ${title}`,
-            url: `/${docType}s/${document.id}?edit=true`
+            url: `/${docType}s/${post.id}?edit=true`
           },
           {
             icon: DeleteIcon,
-            nullify: isLoggedIn ? !(isRO || isOwner) : true,
+            nullify: !(isRO || isOwner),
             text: `Delete ${title}`,
             onClick: () => {
+              console.log(" to dele ", settings);
               if (!isLoggedIn) return setSnackBar();
               if (settings.hideDelWarning) _handleAction("delete");
               else setOpenDeleteDialog(true);
@@ -211,7 +202,7 @@ const MoreActions = ({
         )}
       </Popover>
       <DeleteDialog
-        key={urls.delPath + document.id}
+        key={urls.delPath + post.id}
         open={openDeleteDialog}
         openFor="delete"
         handleAction={_handleAction}

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useSelector } from "react-redux";
 import PropTypes from "prop-types";
 import {
@@ -40,13 +40,21 @@ const PostWidget = React.forwardRef(
     const [showAll, setShowAll] = useState(false);
     const id = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
+
+    const stateRef = useRef({
+      moreUrls: {
+        delPath: {
+          url: `/${docType}s`,
+          searchParams
+        }
+      }
+    });
+
     const { handleLikeToggle } = useLikeDispatch({
       handleAction,
       docType,
-      id: post.id,
-      likes: post.likes
+      document: post
     });
-
     const { setSnackBar } = useContext();
     const likeCount = Object.keys(post.likes || {}).length;
     const isOwner = post.user.id === id;
@@ -288,16 +296,11 @@ const PostWidget = React.forwardRef(
                 </Stack>
                 <MoreActions
                   handleAction={handleAction}
-                  composeDoc={post}
+                  document={post}
                   isOwner={isOwner}
                   isRO={isRO}
                   title={docType}
-                  urls={{
-                    delPath: {
-                      url: `/${docType}s`,
-                      searchParams
-                    }
-                  }}
+                  urls={stateRef.current.moreUrls}
                   index={index}
                   docType={docType}
                 />

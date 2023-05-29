@@ -63,7 +63,6 @@ app.get("/", function(req, res) {
 });
 
 app.use((err, req, res, next) => {
-  console.log(err.message, " power ");
   if (res.headersSent) {
     console.warn(
       "[SERVER_ERROR]: ",
