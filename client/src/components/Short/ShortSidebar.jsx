@@ -12,7 +12,8 @@ const ShortSidebar = ({ id, user, handleAction, loading, animation }) => {
       user
     },
     moreUrls: {
-      delPath: `/shorts`
+      delPath: `/shorts`,
+      idOnly: true
     }
   });
   return (
@@ -42,6 +43,7 @@ const ShortSidebar = ({ id, user, handleAction, loading, animation }) => {
           />
         ) : (
           <MoreActions
+            docType="short"
             handleAction={handleAction}
             document={stateRef.current.document}
             Icon={MoreVertIcon}

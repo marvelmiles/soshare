@@ -10,40 +10,57 @@ import { createError } from "./error.js";
 import User from "../models/User.js";
 import { deleteFile } from "./file-handlers.js";
 import { isObjectId } from "./validators.js";
+import { Types } from "mongoose";
 export const getFeedMedias = async ({
   req,
   res,
   next,
   model,
   match,
-  withFallbackVisibility,
   dataKey,
   populate,
+  verify,
+  refPath,
   ...rest
 }) => {
   try {
     req.query.randomize = req.query.randomize || "true";
-    req.query.randomize = "false";
+
     if (req.cookies?.access_token) verifyToken(req);
+
     if (!match && req.params.documentId) {
       match = {
         document: req.params.documentId
       };
     }
+    dataKey && refPath === undefined && (refPath = "_id");
+    verify && console.log(req.params.id, req.user?.id);
+    match = await createVisibilityQuery({
+      refPath,
+      query: match,
+      userId: req.params.id,
+      searchUser: req.user ? req.user.id : "",
+      verify
+    });
+
+    // const result = {
+    //   data: [],
+    //   paging: {
+    //     nextCursor: null
+    //   }
+    // };
+
     const result = await getAll({
       model,
       populate,
       dataKey,
-      match: await createVisibilityQuery({
-        query: match,
-        userId: req.user?.id,
-        withFallbackVisibility:
-          withFallbackVisibility || model.modelName !== "user"
-      }),
+      match,
       query: req.query,
       userId: req.user?.id,
+      verify,
       ...rest
     });
+
     if (req.query.withThread === "true") {
       if (req.query.ro || req.query.threadPriorities) {
         for (let i = 0; i < result.data.length; i++) {
@@ -55,6 +72,7 @@ export const getFeedMedias = async ({
         }
       }
     }
+
     res.json(result);
   } catch (err) {
     console.log(err.message, " feed medias ");
@@ -88,12 +106,7 @@ export const likeMedia = async (model, req, res, next) => {
       type: "like",
       docType: model.modelName,
       document: media,
-      eventName: `update-${model.modelName}`,
-      reportIds: {
-        like: media.likes,
-        comment: media.comments,
-        user: [media.user]
-      }
+      eventName: `update-${model.modelName}`
     });
   } catch (err) {
     next(err);
@@ -120,12 +133,7 @@ export const dislikeMedia = async (model, req, res, next) => {
       type: "like",
       docType: model.modelName,
       document: media,
-      eventName: `update-${model.modelName}`,
-      docPopulate: [
-        {
-          path: "user document"
-        }
-      ]
+      eventName: `update-${model.modelName}`
     });
   } catch (err) {
     next(err);
@@ -141,58 +149,71 @@ export const getDocument = async ({
     {
       path: "user"
     }
-  ],
-  withFallbackVisibility
+  ]
 }) => {
   try {
     if (!isObjectId(req.params.id))
       throw createError(`${model.modelName} not found`, 404);
     if (req.cookies.access_token) verifyToken(req);
     let list = [];
-    if (req.usr) {
+    if (req.user) {
       list = (await User.findById(req.user.id)).recommendationBlacklist;
     }
     const query = await createVisibilityQuery({
-      withFallbackVisibility:
-        withFallbackVisibility || model.modelName !== "user",
       userId: req.user?.id,
       searchUser: req.params.id,
       query: {
         _id: req.params.id
       },
+      allowDefaultCase: true,
       withBlacklist: false
     });
 
-    const doc = await model.findOne(query);
+    let doc = await model.findOne(query);
+
     if (!doc) throw createError(`${model.modelName} not found`, 404);
     if (list.includes(doc.user)) throw createError(`owner blacklisted`, 400);
-    res.json(await doc.populate(populate));
+    doc = await doc.populate(populate);
+
+    res.json(doc);
   } catch (err) {
     next(err);
   }
 };
 
-export const deleteDocument = async ({ req, res, next, model }) => {
+export const deleteDocument = async ({
+  req,
+  res,
+  next,
+  model,
+  withCount = true
+}) => {
   try {
     const doc = await model.findById(req.params.id);
-    if (!doc) throw createError(`${model.modelName} not found`);
+    if (!doc) return res.json(`Successfully deleted ${model.modelName}`);
     if (doc.user !== req.user.id)
       throw createError("Delete operation denied", 401);
-    await model.deleteOne({
-      _id: req.params.id
-    });
+    // await model.deleteOne({
+    //   _id: req.params.id
+    // });
     res.json(`Successfully deleted ${model.modelName}`);
+
+    const user = await User.findByIdAndUpdate(
+      {
+        _id: doc.user
+      },
+      withCount
+        ? {
+            $inc: { [`${model.modelName}Count`]: -1 }
+          }
+        : {},
+      { new: true }
+    );
     const io = req.app.get("socketIo");
-    if (doc.user && model.modelName !== "comment") {
-      const user = await User.findByIdAndUpdate(doc.user, {
-        $inc: {
-          [`${model.modelName}Count`]: -1
-        }
-      });
-      if (io) {
-        io.emit(`filter-${model.modelName}`, doc.id);
-        io.emit("update-user", user);
-      }
+    if (io) {
+      doc.user = user;
+      io.emit(`filter-${model.modelName}`, doc);
+      doc.user && io.emit("update-user", user);
     }
     handleMiscDelete(doc.id, io, model.modelName !== "short");
     if (doc.medias) {
@@ -201,6 +222,7 @@ export const deleteDocument = async ({ req, res, next, model }) => {
       }
     } else if (doc.url) deleteFile(doc.url);
   } catch (err) {
+    console.log(err.message, " err ");
     next(err);
   }
 };

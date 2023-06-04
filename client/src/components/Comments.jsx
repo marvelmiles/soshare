@@ -27,45 +27,44 @@ const Comments = ({
   sx,
   maxSizeElement,
   maxSize,
-  rootUid,
+  rootUid = "",
   maxThread = 100,
-  searchParams = rootUid
-    ? `ro=${rootUid}&maxThread=${maxThread || ""}&withThread=true`
-    : "",
+  searchParams = `ro=${rootUid}&maxThread=${maxThread || ""}&withThread=true`,
   scrollNodeRef = null,
   infiniteProps
 }) => {
   const currentUser = useSelector(state => state.user.currentUser || {});
-  const { composeDoc, socket, setSnackBar } = useContext();
+  const { socket } = useContext();
   const stateRef = useRef({
     cachedComments: {},
     url: `/comments/feed/${documentId}`,
     registeredIds: {},
-    pending: {}
+    pending: {},
+    notiferDelay: -1
   });
   const infiniteScrollRef = useRef();
   const appendComment = useCallback(
-    (commentOrIndex, replace) => {
+    commentOrIndex => {
       const data = infiniteScrollRef.current?.data;
       const stateCtx = stateRef.current;
-
+      let docId;
       if (
         (data &&
           !(
             commentOrIndex.id ||
             (commentOrIndex = stateCtx.cachedComments[commentOrIndex])
           )) ||
+        !(docId = commentOrIndex.document.id) ||
         stateCtx.registeredIds[commentOrIndex.id] >= -1 ||
         !checkVisibility(commentOrIndex, currentUser)
       )
         return;
 
-      const docId = commentOrIndex.document.id;
+      // dummy assignment only helps to prevent duplicate
+      stateCtx.registeredIds[commentOrIndex.id] = -1;
 
-      if (!docId)
-        return setSnackBar(
-          "Failed to share comment. Something went wrong during upload!"
-        );
+      stateRef.current.notifierDelay =
+        commentOrIndex.user.id === currentUser?.id ? -1 : undefined;
 
       if (docId === documentId) {
         stateCtx.registeredIds[commentOrIndex.id] = data.data.length;
@@ -73,40 +72,41 @@ const Comments = ({
           ...data,
           data: [commentOrIndex, ...data.data]
         });
-        handleAction && handleAction("update", commentOrIndex.document);
+        handleAction &&
+          handleAction("update", {
+            document: commentOrIndex.document
+          });
       } else {
-        // dummy assignment only helps to prevent duplicate
-        stateCtx.registeredIds[commentOrIndex.id] = -1;
-
         const rIndex = stateCtx.registeredIds[commentOrIndex.rootThread];
-        let rootComment = data.data[rIndex];
-        if (docId === rootComment.id) {
-          delete stateCtx.registeredIds[(rootComment.threads[0]?.id)];
-          rootComment = commentOrIndex.document;
-          stateCtx.registeredIds[commentOrIndex.id] = 0;
-          rootComment.threads[0] = commentOrIndex;
-        } else {
-          const dIndex = stateCtx.registeredIds[docId];
-          rootComment.threads[dIndex] = commentOrIndex.document;
-          if (rootComment.threads.length < maxThread) {
-            rootComment.threads
-              .slice(dIndex + 1)
-              .forEach(({ id }) => delete stateCtx.registeredIds[id]);
-            rootComment.threads = rootComment.threads.slice(0, dIndex + 1);
-            stateCtx.registeredIds[commentOrIndex.id] =
-              rootComment.threads.length;
-            rootComment.threads.push(commentOrIndex);
-            stateRef.current.maxThread = dIndex + 1;
+        if (commentOrIndex.rootThread && rIndex > -1) {
+          let rootComment = data.data[rIndex];
+          if (docId === rootComment.id) {
+            delete stateCtx.registeredIds[(rootComment.threads[0]?.id)];
+            rootComment = commentOrIndex.document;
+            stateCtx.registeredIds[commentOrIndex.id] = 0;
+            rootComment.threads[0] = commentOrIndex;
+          } else {
+            const dIndex = stateCtx.registeredIds[docId];
+            rootComment.threads[dIndex] = commentOrIndex.document;
+            if (rootComment.threads.length < maxThread) {
+              rootComment.threads
+                .slice(dIndex + 1)
+                .forEach(({ id }) => delete stateCtx.registeredIds[id]);
+              rootComment.threads = rootComment.threads.slice(0, dIndex + 1);
+              stateCtx.registeredIds[commentOrIndex.id] =
+                rootComment.threads.length;
+              rootComment.threads.push(commentOrIndex);
+              stateRef.current.maxThread = dIndex + 1;
+            }
           }
-        }
-
-        data.data[rIndex] = rootComment;
-        infiniteScrollRef.current.setData({
-          ...data
-        });
+          data.data[rIndex] = rootComment;
+          infiniteScrollRef.current.setData({
+            ...data
+          });
+        } else stateCtx.registeredIds[commentOrIndex.id] = undefined;
       }
     },
-    [currentUser, documentId, handleAction, maxThread, setSnackBar]
+    [currentUser, documentId, handleAction, maxThread]
   );
 
   const removeComment = useCallback(
@@ -136,8 +136,8 @@ const Comments = ({
           data.data[index].threads.forEach(
             ({ id }) => delete stateCtx.registeredIds[id]
           );
-          data.data.splice(index, 1);
-          handleAction && handleAction("update", document);
+          data.data.slice().splice(index, 1);
+          handleAction && handleAction("update", { document });
         } else {
           const rIndex = stateCtx.registeredIds[rootThread];
           let rootComment = data.data[rIndex];
@@ -153,7 +153,7 @@ const Comments = ({
             }
             rootComment.threads[dIndex] = document;
 
-            rootComment.threads.splice(index, 1);
+            rootComment.threads.slice().splice(index, 1);
           }
           data.data[rIndex] = rootComment;
         }
@@ -240,19 +240,33 @@ const Comments = ({
     [removeComment]
   );
   useEffect(() => {
-    socket.on("comment", (comment, replace) => {
+    const handleFilter = comment => {
+      removeComment(comment, false);
+    };
+
+    const handleUpdate = comment => {
+      _handleAction("update", {
+        document: comment
+      });
+    };
+
+    const handleAppend = (comment, replace) => {
       if (Array.isArray(comment)) {
         for (const _comment of comment) {
           appendComment(_comment, replace);
         }
       } else appendComment(comment, replace);
-    });
-    socket.on("update-comment", comment => {
-      _handleAction("update", comment);
-    });
-    socket.on("filter-comment", comment => {
-      removeComment(comment, false);
-    });
+    };
+
+    socket.on("comment", handleAppend);
+    socket.on("update-comment", handleUpdate);
+    socket.on("filter-comment", handleFilter);
+
+    return () => {
+      socket.removeEventListener("filter-comment", handleFilter);
+      socket.removeEventListener("comment", handleAppend);
+      socket.removeEventListener("update-comment", handleUpdate);
+    };
   }, [appendComment, socket, removeComment, currentUser.id, _handleAction]);
 
   // if (infiniteScrollRef.current?.data.data.length && stateCtx) {
@@ -324,6 +338,7 @@ const Comments = ({
       ) : null}
       {autoFetchReplies === true ? (
         <InfiniteScroll
+          key={documentId + "comments"}
           className="comments"
           ref={infiniteScrollRef}
           searchParams={searchParams}
@@ -339,9 +354,10 @@ const Comments = ({
           maxSizeElement={maxSizeElement}
           maxSize={maxSize}
           scrollNodeRef={scrollNodeRef}
-          notifierDelay={
-            composeDoc?.user?.id === currentUser.id ? -1 : undefined
-          }
+          notifierDelay={stateRef.current.notifierDelay}
+          notifierProps={{
+            position: "fixed"
+          }}
         >
           {({ data: { data, paging }, setObservedNode }) => {
             return (
@@ -363,12 +379,7 @@ const Comments = ({
                         <PostWidget
                           showThread={!!comment.thread}
                           docType="comment"
-                          post={
-                            comment.id === composeDoc?.id &&
-                            composeDoc?.createdAt
-                              ? composeDoc
-                              : comment
-                          }
+                          post={comment}
                           handleAction={_handleAction}
                           caption={getThreadOwners(comment)}
                           isRO={isRO}

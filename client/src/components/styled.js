@@ -102,6 +102,7 @@ export const StyledTypography = styled(Typography, {
     return styles;
   }
 );
+
 export const WidgetContainer = styled(Box, {
   shouldForwardProp: prop => {
     switch (prop) {

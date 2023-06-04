@@ -26,7 +26,8 @@ import ResetPwd from "pages/ResetPwd";
 import http, {
   handleCancelRequest,
   handleRefreshToken,
-  getHttpErrMsg
+  getHttpErrMsg,
+  createRelativeURL
 } from "api/http";
 import Auth404 from "pages/404/Auth404";
 import Page404 from "pages/404/Page404";
@@ -48,25 +49,21 @@ const App = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    socket.connect({
-      withCredentials: !!cid
-    });
+    socket.connect();
 
-    if (cid) {
-      socket.on("register-user", () =>
-        socket.emit("register-user", cid, () => setReadyState("ready"))
-      );
-    } else setReadyState("ready");
+    socket.on("register-user", () =>
+      socket.emit("register-user", cid, () => setReadyState("ready"))
+    );
 
-    // socket.on("comment", comment => setComposeDoc(comment));
-    // socket.on("filter-comment", comment => setComposeDoc(comment));
+    socket.on("bare-connection", () => setReadyState("ready"));
+
     let handlingErr;
     socket.on("connect_error", error => {
+      console.log(" err ");
       if (handlingErr) return;
       handlingErr = true;
       switch (error.message) {
         case "Token expired or isn't valid":
-          console.log("ffff");
           handleRefreshToken()
             .then(() => socket.connect())
             .catch(() => setReadyState("403"))
@@ -98,7 +95,9 @@ const App = () => {
                 cid &&
                 window.location.pathname.toLowerCase() !== "/auth/signin"
               )
-                navigate("?view=session-timeout");
+                navigate(
+                  createRelativeURL("view", "view=session-timeout", false)
+                );
               break;
             default:
               break;

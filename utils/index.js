@@ -6,6 +6,8 @@ import { isObject } from "./validators.js";
 import Comment from "../models/Comment.js";
 import { shuffleArray } from "../utils/normalizers.js";
 import User from "../models/User.js";
+import Short from "../models/Short.js";
+import Post from "../models/Post.js";
 
 export const setTokens = async (res, id, rememberMe, accessOnly) => {
   rememberMe = rememberMe === "true";
@@ -69,7 +71,7 @@ export const getAll = async ({
   dataKey,
   populate,
   sort = {},
-  t
+  verify
 }) => {
   try {
     let {
@@ -83,14 +85,13 @@ export const getAll = async ({
     } = query;
 
     limit = (Number(limit) || 20) + 1;
+
     asc = asc === "true";
     withEq = withEq === "true";
     withMatchedDocs = withMatchedDocs === "true";
     randomize = randomize === "true";
-    exclude = (exclude ? exclude.split(",") : []).map(
-      id => new Types.ObjectId(id)
-    );
 
+    exclude = exclude ? exclude.split(",") : [];
     if (match._id?.$nin) {
       exclude = exclude.concat(match._id.$nin);
       delete match._id?.$nin;
@@ -136,14 +137,11 @@ export const getAll = async ({
         $nin: exclude
       };
     } else {
+      const value = match._id;
       match._id = {
-        ...(match._id
-          ? {
-              $eq: new Types.ObjectId(match._id)
-            }
-          : {}),
         $nin: exclude
       };
+      value && (match._id.$eq = value);
     }
 
     (withMatchedDocs || randomize) &&
@@ -151,8 +149,11 @@ export const getAll = async ({
         ? ((await model.findOne(match)) || {})[dataKey]?.length || 0
         : await model.countDocuments(match));
 
+    const $addFields = { _id: { $toString: "$_id" }, id: "$_id" };
+
     const pipelines = dataKey
       ? [
+          { $addFields },
           { $match: match },
           { $project: { [dataKey]: 1 } },
           { $unwind: `$${dataKey}` }, // flatten dataKey as current data
@@ -174,6 +175,7 @@ export const getAll = async ({
           }
         ]
       : [
+          { $addFields },
           {
             $match: match
           },
@@ -182,65 +184,52 @@ export const getAll = async ({
             $limit: limit
           },
           {
-            $addFields: {
-              id: "$_id"
-            }
-          },
-          {
             $unset: ["_id", "password"]
           }
         ];
     if (randomize)
-      pipelines.splice(dataKey ? 4 : 2, 0, { $sample: { size: limit } });
+      pipelines.splice(dataKey ? 5 : 3, 0, { $sample: { size: limit } });
 
     if (cursor) {
       const cursorIdRules = {
-        [asc
-          ? withEq
-            ? "$gte"
-            : "$gt"
-          : withEq
-          ? "$lte"
-          : "$lt"]: new Types.ObjectId(cursor)
+        [asc ? (withEq ? "$gte" : "$gt") : withEq ? "$lte" : "$lt"]: cursor
       };
       if (dataKey) {
         pipelines.splice(
-          randomize ? 5 : 4,
+          randomize ? 6 : 5,
           0,
           {
             $match: {
               [dataKey]: {
-                ...pipelines[4].$match[dataKey],
+                ...pipelines[5].$match[dataKey],
                 ...cursorIdRules
               }
             }
           },
           { $limit: limit }
         );
-      } else
-        pipelines.splice(0, 0, {
+      } else {
+        pipelines.splice(1, 0, {
           $match: {
-            ...pipelines[0].$match,
+            ...pipelines[1].$match,
             _id: {
-              ...pipelines[0].$match._id,
+              ...pipelines[1].$match._id,
               ...cursorIdRules
             }
           }
         });
+      }
     }
-    // if (t) {
-    //   console.clear();
-    //   console.log(match);
-    // }
     result = await model.populate(await model.aggregate(pipelines), populate);
 
     if (dataKey && result[0]) result = result[0][dataKey];
-
+    // verify && console.log(match);
     cursor = null;
     if (result.length === limit) {
       cursor = result[limit - 1].id;
       result.pop();
     }
+    // console.log(pipelines[0].$match);
     return new Promise(r => {
       setTimeout(
         () =>
@@ -256,7 +245,7 @@ export const getAll = async ({
       );
     });
   } catch (err) {
-    console.log(err.message, " err ");
+    console.log(err.message, " get  all ");
     throw err;
   }
 };
@@ -281,6 +270,7 @@ export const sendAndUpdateNotification = async ({
   maxFromNotification = 20,
   withFrom = false
 }) => {
+  let match;
   try {
     const from = req.user.id;
     to =
@@ -297,12 +287,30 @@ export const sendAndUpdateNotification = async ({
         follow: filter ? "unfollow" : "follow"
       }[type] ||
       type;
+
+    const io = req.app.get("socketIo");
+
+    if (!withFrom && to === from) {
+      if (!document.document.id && document.populate)
+        document = await document.populate(docPopulate);
+
+      eventName &&
+        document?.id &&
+        io.emit(
+          eventName,
+          {
+            follow: {
+              from: await User.findById(from)
+            }
+          }[type] || document
+        );
+      return;
+    }
+
     document = document && (document.id || document);
     docType = docType || (document && type);
 
-    if (!withFrom) to = to === from ? undefined : to;
-
-    let match = { type, document, to, docType };
+    match = { type, document, to, docType };
     const populate = [
       {
         path: "to users"
@@ -356,7 +364,6 @@ export const sendAndUpdateNotification = async ({
 
     if (notice) notice = await notice.populate(populate);
 
-    const io = req.app.get("socketIo");
     if (io && notice) {
       if (report) {
         if (filterNotice) io.emit("filter-notifications", [notice.id]);
@@ -382,7 +389,7 @@ export const sendAndUpdateNotification = async ({
         );
     }
   } catch (err) {
-    match.users = [from];
+    match && (match.users = [from]);
     console.error(
       `[Error Sending Notification]: Match data: ${
         err.message

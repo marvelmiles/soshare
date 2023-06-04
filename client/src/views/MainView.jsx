@@ -47,18 +47,14 @@ const MainView = ({
           ...responsiveStyle
         }}
       >
-        {/* {isLg
+        {isLg
           ? {
               shorts: (
-                <ShortsView
-                  key="mainview-shorts"
-                  miniShort={true}
-                  type="trending"
-                />
+                <ShortsView key="mainview-shorts" miniShort type="trending" />
               )
             }[sideView]
-          : null} */}
-        {cid ? <UserWidget /> : null}
+          : null}
+        {cid ? <UserWidget key="main-view-user-widget" /> : null}
       </Box>
 
       <Box
@@ -75,12 +71,7 @@ const MainView = ({
           mx: "auto",
           border: "1px solid transparent",
           borderLeftColor: borderline && "divider",
-          borderRightColor: borderline && "divider",
-          "& .data-scrollable-container": borderline
-            ? {
-                p: 0
-              }
-            : {}
+          borderRightColor: borderline && "divider"
         }}
         className="main-content-container"
       >

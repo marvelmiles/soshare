@@ -65,7 +65,7 @@ app.get("/", function(req, res) {
 app.use((err, req, res, next) => {
   if (res.headersSent) {
     console.warn(
-      "[SERVER_ERROR]: ",
+      "[SERVER_ERROR]: HEADER_SENT :",
       req.headers.origin,
       req.originalUrl,
       " at ",

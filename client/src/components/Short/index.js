@@ -19,11 +19,12 @@ const Short = React.forwardRef(
       },
       miniShort,
       handleAction,
-      loop
+      loop,
+      ...rest
     },
     ref
   ) => {
-    const { setComposeDoc, composeDoc } = useContext();
+    const { setComposeDoc } = useContext();
     const cid = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
     const stateRef = useRef({
@@ -47,11 +48,12 @@ const Short = React.forwardRef(
         console.log(" clicked... ", short.id);
         miniShort &&
           setComposeDoc({
-            id: short.id,
             docType: "short",
-            reason: "fetch"
+            reason: "fetch",
+            document: {
+              id: short.id
+            }
           });
-
         window.location.pathname.toLowerCase() !== "/shorts" &&
           navigate(`/shorts`);
       },
@@ -78,12 +80,17 @@ const Short = React.forwardRef(
                 xs: "100%",
                 md: "110px"
               }
-            : "100%",
-          height: miniShort ? "200px" : "80vh",
-          mb: 1,
+            : {
+                xs: "100%",
+                s500: "400px"
+              },
+          height: miniShort ? "200px" : "calc(100vh - 100px)",
+          mb: miniShort ? 1 : 0,
           border: "1px solid currentColor",
-          borderColor: "divider"
+          borderColor: "divider",
+          mx: miniShort ? "" : "auto"
         }}
+        {...rest}
       >
         <VideoPlayer
           id={short.id}

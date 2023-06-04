@@ -3,17 +3,19 @@ import Layout from "components/Layout";
 import UserWidget from "components/UserWidget";
 import FollowMeWidget from "components/FollowMeWidget";
 import UserProfileForm from "components/UserProfileForm";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { useContext } from "context/store";
 import http from "api/http";
 import { useSelector } from "react-redux";
 import Loading from "components/Loading";
 import { Stack } from "@mui/material";
 import User404 from "./404/User404";
+
 import { updateUser, updatePreviewUser } from "context/slices/userSlice";
 import { useDispatch } from "react-redux";
 const ProfilePage = () => {
   let { userId } = useParams();
+  const [searchParams] = useSearchParams();
   const { socket } = useContext();
   const [user, setUser] = useState();
   const dispatch = useDispatch();
@@ -21,6 +23,8 @@ const ProfilePage = () => {
     return (state.user.currentUser || {}).id;
   });
   const isCurrentUser = cid === userId;
+  const withCid = (searchParams.get("wc") || "").toLowerCase() === "true";
+
   useEffect(() => {
     (async () => {
       try {
@@ -32,17 +36,15 @@ const ProfilePage = () => {
   }, [userId, cid]);
 
   useEffect(() => {
-    if (user?.id) {
-      socket.on("update-user", u => {
-        if (u.id === user.id) {
-          setUser(u);
-          if (isCurrentUser) {
-            dispatch(updateUser(u));
-            dispatch(updatePreviewUser({}));
-          }
-        }
-      });
-    }
+    const handleUpdate = u => {
+      if (u.id === user?.id) setUser(u);
+    };
+
+    socket.on("update-user", handleUpdate);
+
+    return () => {
+      socket.removeEventListener("update-user", handleUpdate);
+    };
   }, [isCurrentUser, socket, user?.id, dispatch]);
 
   const width = {
@@ -51,7 +53,7 @@ const ProfilePage = () => {
   return (
     <>
       <Layout
-        uid={userId}
+        uid={withCid ? cid : userId}
         isCurrentUser={isCurrentUser}
         routePage="profilePage"
         key={userId}
@@ -69,8 +71,13 @@ const ProfilePage = () => {
               mx: "auto",
               pt: 2,
               width: "100%",
-              "& > *": {
+              "& > *,& > .data-scrollable,& > .widget-container": {
+                flex: "none",
                 minWidth: {
+                  xs: "100%",
+                  md: "48%"
+                },
+                width: {
                   xs: "100%",
                   md: "48%"
                 }
@@ -78,6 +85,7 @@ const ProfilePage = () => {
             }}
           >
             <UserWidget
+              key="profile-page-user-widget"
               width={width}
               hideUserSettingsIcon
               user={user}
@@ -85,10 +93,16 @@ const ProfilePage = () => {
             />
 
             {isCurrentUser ? (
-              <UserProfileForm placeholders={user} width={width} hidePwd />
+              <UserProfileForm
+                key="profile-page-user-form"
+                placeholders={user}
+                width={width}
+                hidePwd
+              />
             ) : null}
             <FollowMeWidget
               url="followers"
+              priority="toggle"
               title={isCurrentUser ? "Your Followers" : "Followers"}
               secondaryTitle="followers"
               width={width}
@@ -112,7 +126,6 @@ const ProfilePage = () => {
             {isCurrentUser ? (
               <FollowMeWidget
                 width={width}
-                priority="follow"
                 variant="flex"
                 key="suggest"
                 title="People to follow"

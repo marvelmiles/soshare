@@ -2,140 +2,80 @@ import { Types } from "mongoose";
 import { createError } from "./error.js";
 import User from "../models/User.js";
 
-export const _populateThreadsByRelevance = async (doc, query = {}, model) => {
-  let { ro, threadPriorities = "ro,most comment", maxThread } = query;
-  maxThread = maxThread ? Number(maxThread) || undefined : ro ? 1 : undefined;
-  threadPriorities = threadPriorities.split(",");
-
-  let refIndex = 0;
-
-  const populate = [
-    {
-      path: "user"
-    },
-    {
-      path: "document",
-      populate: [
-        {
-          path: "user"
-        },
-        {
-          path: "threads",
-          populate: [
-            { path: "user" },
-            {
-              path: "document",
-              populate: [
-                {
-                  path: "user"
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      path: "threads",
-      populate: [
-        { path: "user" },
-        {
-          path: "document",
-          populate: [
-            {
-              path: "user"
-            }
-          ]
-        }
-      ]
-    }
-  ];
-
-  while (refIndex < threadPriorities.length) {
-    switch (threadPriorities[refIndex]) {
-      case "ro":
-        const prop = populate[populate.length - 1] || {};
-        prop.match = {
-          user: ro
-        };
-        populate[populate.length - 1] = prop;
-        console.log(doc.threads);
-        if (doc.populate) doc = await doc.populate(populate);
-        else doc = await model.populate(doc, populate);
-        doc.threads = doc.threads.slice(0, maxThread);
-        return doc;
-      case "most comment":
-        if (doc.populate) doc = await doc.populate(populate);
-        else doc = await model.populate(doc, populate);
-
-        doc.threads = doc.threads
-          .sort((a, b) => {
-            return b.comments.length - a.comments.length;
-          })
-          .slice(0, maxThread);
-        return doc;
-      default:
-        break;
-    }
-    refIndex++;
+export const serializePostBody = req => {
+  if (!(req.files.length || req.body.text))
+    throw createError("Invalid body expect a file list or text key value");
+  if (req.files.length)
+    req.body.medias = req.files.map(f => ({
+      id: new Types.ObjectId().toString(),
+      url: f.publicUrl,
+      mimetype: f.mimetype
+    }));
+  else req.body.medias = [];
+  if (req.body.text?.length > 390) {
+    req.body.moreText = req.body.text.slice(391, 700);
+    req.body.text = req.body.text.slice(0, 391);
   }
-  return doc;
 };
 
 export const createVisibilityQuery = async ({
   userId,
   searchUser,
-  searchRef,
   query = {},
-  followers = [],
-  following = [],
-  recommendationBlacklist = [],
-  withSearchUser,
   withBlacklist = true,
-  withFallbackVisibility = true
+  allowDefaultCase = false,
+  fallbackVisibility = "everyone",
+  isVisiting,
+  refPath = "user",
+  verify
 }) => {
-  if (userId || followers.length || following.length) {
-    const user = userId
-      ? await User.findById(userId)
-      : { followers, following, recommendationBlacklist };
+  if (!userId && searchUser) {
+    userId = searchUser;
+    searchUser = undefined;
+  }
+
+  if (userId) {
+    const user = await User.findById(userId);
+
     if (!user) throw createError("User doesn't exist", 404);
-    const bool = searchUser === userId;
-    (withSearchUser || bool) && (query.user = userId);
-    if (!bool) {
-      const isUserProp = { $eq: ["$user", userId] };
+
+    const isUser = searchUser === userId;
+
+    isVisiting = isVisiting === undefined ? userId && searchUser : isVisiting;
+
+    (isVisiting || isUser) && (query[refPath] = userId);
+
+    if (!isUser) {
+      const _ref = `$${refPath}`;
       query.$expr = {
         $cond: {
           if: {
-            $in: ["$user", withBlacklist ? user.recommendationBlacklist : []]
+            $or: [
+              {
+                $in: [_ref, withBlacklist ? user.recommendationBlacklist : []]
+              }
+            ]
           },
           then: false,
           else: {
             $cond: {
-              if: { $eq: ["$visibility", "everyone"] },
+              if: { $eq: [{ $ifNull: ["$visibility", null] }, null] },
               then: true,
               else: {
-                $cond: {
-                  if: { $eq: ["$visibility", "private"] },
-                  then: isUserProp,
-                  else: {
-                    $cond: {
-                      if: { $eq: ["$visibility", "followers only"] },
-                      then: withSearchUser
-                        ? user.followers.includes(searchUser) || isUserProp
-                        : {
-                            $or: [
-                              isUserProp,
-                              {
-                                $in: [
-                                  "$user",
-                                  user.following.map(
-                                    id => new Types.ObjectId(id)
-                                  )
-                                ]
-                              }
-                            ]
-                          },
-                      else: withFallbackVisibility ? false : true
+                if: { $eq: ["$visibility", "everyone"] },
+                then: true,
+                else: {
+                  $cond: {
+                    if: { $eq: ["$visibility", "private"] },
+                    then: { $eq: [_ref, userId] },
+                    else: {
+                      $cond: {
+                        if: { $eq: ["$visibility", "followers only"] },
+                        then: searchUser
+                          ? user.followers.includes(searchUser)
+                          : { $in: [_ref, user.following] },
+                        else: allowDefaultCase
+                      }
                     }
                   }
                 }
@@ -145,17 +85,7 @@ export const createVisibilityQuery = async ({
         }
       };
     }
-  } else if (withFallbackVisibility) query.visibility = "everyone";
-
-  if (searchRef) {
-    if (!query.$or) query.$or = [];
-    query.$or.push({
-      _id: searchRef
-    });
-    query.$or.push({
-      visibility: "everyone"
-    });
-  }
+  } else query.visibility = fallbackVisibility;
 
   return query;
 };

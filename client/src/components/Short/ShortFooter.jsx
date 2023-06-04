@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import Stack from "@mui/material/Stack";
 import { StyledTypography } from "../styled";
@@ -27,29 +27,43 @@ const ShortFooter = ({
   animation
 }) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const { id: cid } = useSelector(state => state.user.currentUser || {});
+  const {
+    id: cid,
+    settings: { hideDelDialog }
+  } = useSelector(state => state.user.currentUser || { settings: {} });
   const { toggleFollow, isProcessingFollow, isFollowing } = useFollowDispatch(
     user
   );
+
   const { handleDelete } = useDeleteDispatch({
     handleAction
   });
   const isOwner = user.id === cid;
-  const _handleAction = async reason => {
-    if (reason === "mounted") return;
-    const closeDialog = () => {
-      handleAction("update", { id, pause: false });
-      setOpenDeleteDialog(false);
-    };
-    closeDialog();
-    switch (reason) {
-      case "delete":
-        handleDelete(`/shorts`, [id]);
-        break;
-      default:
-        break;
-    }
-  };
+  const _handleAction = useCallback(
+    (reason, options) => {
+      if (reason === "mounted") return;
+      const closeDialog = () => {
+        const taskId = setTimeout(() => {
+          handleAction("update", { document: { id, pause: false } });
+          clearTimeout(taskId);
+        }, 0);
+        setOpenDeleteDialog(false);
+      };
+      switch (reason) {
+        case "delete":
+          handleDelete(`/shorts`, [id], { label: "short" });
+          closeDialog();
+          break;
+        case "close":
+          closeDialog();
+          break;
+        default:
+          handleAction && handleAction(reason, options);
+          break;
+      }
+    },
+    [handleAction, handleDelete, id]
+  );
   return (
     <>
       <Stack
@@ -138,17 +152,17 @@ const ShortFooter = ({
                   <Button
                     variant="contained"
                     onClick={() => {
-                      handleAction("update", { id, pause: true });
-                      setOpenDeleteDialog(true);
+                      handleAction("update", { document: { id, pause: true } });
+
+                      hideDelDialog
+                        ? _handleAction("delete")
+                        : setOpenDeleteDialog(true);
                     }}
                   >
                     Delete
                   </Button>
                 ) : (
-                  <Button
-                    variant="contained"
-                    onClick={isProcessingFollow ? undefined : toggleFollow}
-                  >
+                  <Button variant="contained" onClick={toggleFollow}>
                     {isProcessingFollow ? (
                       <CircularProgress />
                     ) : isFollowing ? (
@@ -169,6 +183,7 @@ const ShortFooter = ({
           </Stack>
         </div>
       </Stack>
+
       <DeleteDialog
         open={openDeleteDialog}
         openFor="delete"

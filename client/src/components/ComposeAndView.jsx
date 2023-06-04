@@ -46,7 +46,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
     ...openFor
   };
   const { state } = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const stateRef = useRef({
     commentHolder: {}
   });
@@ -59,14 +59,21 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
   const navigate = useNavigate();
 
   const closeDialog = useCallback(
-    e => {
+    (e, dialogType) => {
       e && e.stopPropagation();
-      if (view === "session-timeout") return;
       if (stateRef.current.path) handleCancelRequest(stateRef.current.path);
       setContext({});
-      navigate(-1);
+      dialogType = e ? e.currentTarget.dataset.dialogType : dialogType;
+
+      if (dialogType) searchParams.delete(dialogType);
+      else {
+        searchParams.delete("view");
+        searchParams.delete("compose");
+      }
+      searchParams.delete("wc");
+      setSearchParams(searchParams);
     },
-    [navigate, view]
+    [searchParams, setSearchParams]
   );
 
   const _handleAction = useCallback(
@@ -76,7 +83,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
         res.reason = reason;
         if (!res.docType && state) res.docType = state.docType;
         setComposeDoc(res);
-        closeDialog();
+        closeDialog(undefined, "compose");
       };
       switch (reason) {
         case "error":
@@ -105,9 +112,6 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
   );
   const renderDialog = key => {
     if (!key) return;
-    DialogContent.defaultProps = {
-      ref: scrollNodeRef
-    };
     const goBackElem = (
       <IconButton
         title="Go back"
@@ -165,7 +169,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                 <CloseIcon />
               </IconButton>
             </DialogTitle>
-            <DialogContent>
+            <DialogContent ref={scrollNodeRef}>
               {{
                 "create-short": (
                   <InputBox
@@ -225,7 +229,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
               </Stack>
               <Typography color="primary.main">{34} views</Typography>
             </DialogTitle>
-            <DialogContent sx={{ p: 0 }}>
+            <DialogContent sx={{ p: 0 }} ref={scrollNodeRef}>
               <PostWidget post={state.composeDoc} enableSnippet />
               <InputBox
                 resetData
@@ -259,6 +263,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
               sx={{
                 p: 0
               }}
+              ref={scrollNodeRef}
             >
               {
                 {
@@ -292,7 +297,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
       case "user-followers":
         return (
           <>
-            <DialogContent>
+            <DialogContent ref={scrollNodeRef}>
               <FollowMeWidget
                 infiniteScrollProps={{
                   scrollNodeRef,
@@ -320,6 +325,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                 p: 0,
                 pb: 3
               }}
+              ref={scrollNodeRef}
             >
               <Comments
                 documentId={cid}
@@ -353,7 +359,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                 </Button>
               )}
             </DialogTitle>
-            <DialogContent>
+            <DialogContent ref={scrollNodeRef}>
               <UserBlacklistView
                 whitelistAll={context.action === "whitelist-all"}
                 key="view-blacklist"
@@ -396,17 +402,20 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
       maxWidth: view === "user-blacklist" ? "700px" : undefined
     }
   };
-
+  const isSession = view === "session-timeout";
   return (
     <>
       <Dialog
         data-dialog-type="view"
         PaperProps={paperStyles}
         open={openFor[view]}
-        onClose={closeDialog}
+        onClose={isSession ? undefined : closeDialog}
+        sx={{
+          zIndex: isSession ? "tooltip" : "modal"
+        }}
       >
         {renderDialog(view)}
-        {view && view !== "session-timeout" ? (
+        {view && !isSession ? (
           <DialogActions
             sx={{
               borderTop: "1px solid #333",

@@ -62,10 +62,11 @@ const InputBox = ({
   maxUpload = "500mb",
   maxDuration = "12h",
   withPlaceholders,
-  fileId
+  fileId,
+  docType = "post"
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const { setSnackBar } = useContext();
+  const { setSnackBar, setComposeDoc } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const [moreActionPopover, setMoreActionPopover] = useState({});
   const {
@@ -205,6 +206,7 @@ const InputBox = ({
           break;
         case "delete":
           handleDelete(urls.delPath, [placeholders.id]);
+          break;
         case "checked":
           dispatch(
             updateUser({
@@ -234,6 +236,7 @@ const InputBox = ({
     [deleteMedia, dialog, dispatch, handleDelete, urls, placeholders]
   );
   const handleDeleteMediaFromDB = e => {
+    e && e.stopPropagation();
     if (currentUser.settings.hideDelDialog) _handleAction("delete");
     else showDelDialog("delete", false, e);
   };
@@ -251,7 +254,9 @@ const InputBox = ({
             placeholders &&
             _formData.append("excludeMedias", stateRef.excludeMedias);
           handleAction && handleAction("temp-data", formData, url);
-
+          const file = _formData.get(`${mediaRefName}[0]`);
+          const f = _formData.getAll(`${mediaRefName}`);
+          console.log(!!file, f.length, _formData);
           let res = await http[method ? method : placeholders ? "put" : "post"](
             url,
             _formData
@@ -276,8 +281,14 @@ const InputBox = ({
             };
           }
           reset(withPlaceholders ? placeholders : resetData ? undefined : res);
-          console.log(!!handleAction, !!placeholders);
-          handleAction && handleAction(placeholders ? "update" : "new", res);
+          if (handleAction)
+            handleAction(placeholders ? "update" : "new", { document: res });
+          else
+            setComposeDoc({
+              docType,
+              document: res,
+              reason: placeholders ? "update" : "new"
+            });
         } else errors[mediaRefName] && setSnackBar(errors[mediaRefName]);
       } catch (msg) {
         msg = message
@@ -316,7 +327,9 @@ const InputBox = ({
       setSnackBar,
       stateRef.excludeMedias,
       url,
-      withPlaceholders
+      withPlaceholders,
+      setComposeDoc,
+      docType
     ]
   );
   const showMoreTools = ({ currentTarget }) =>
@@ -609,7 +622,12 @@ const InputBox = ({
                 </>
               ) : null}
             </Stack>
-            <Stack alignItems="flex-start" flexWrap="wrap" gap="8px">
+            <Stack
+              alignItems="flex-start"
+              flexWrap="wrap"
+              gap="8px"
+              justifyContent="center"
+            >
               <IconButton
                 sx={{
                   display: isSm ? "none" : "inline-flex",
@@ -654,6 +672,7 @@ const InputBox = ({
         </form>
       </WidgetContainer>
       <DeleteDialog {...dialog} handleAction={_handleAction} />
+
       <Popover {...moreActionPopover} onClose={closeMoreActionPopover}>
         <List>
           {[

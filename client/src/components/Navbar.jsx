@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Stack,
   Typography,
@@ -11,7 +11,13 @@ import {
   Popover
 } from "@mui/material";
 import { useSelector } from "react-redux";
-import { useNavigate, Link, useLocation } from "react-router-dom";
+import {
+  useNavigate,
+  Link,
+  useLocation,
+  useSearchParams,
+  useParams
+} from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
 import { useDispatch } from "react-redux";
@@ -70,6 +76,8 @@ const Navbar = ({ routePage = "homePage" }) => {
   const [unseens, setUnseens] = useState({
     notifications: 0
   });
+  const { userId } = useParams();
+  const [searchParams] = useSearchParams();
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const navigate = useNavigate();
   const noHistory = useLocation().key === "default";
@@ -92,7 +100,6 @@ const Navbar = ({ routePage = "homePage" }) => {
   useEffect(() => {
     if (currentUser.id) {
       socket.on("notification", (n, { filter, isNew }) => {
-        return;
         if (isNew && !filter && n.to.id === currentUser.id) {
           let notified = false;
           setUnseens(unseens => {
@@ -152,11 +159,15 @@ const Navbar = ({ routePage = "homePage" }) => {
     }, 5000);
   };
 
-  const handleSubmit = e => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (query) navigate(`/search?q=${query}`);
-  };
+  const handleSubmit = useCallback(
+    e => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (query)
+        navigate(`/search?q=${query}&tab=${searchParams.get("tab") || ""}`);
+    },
+    [searchParams, navigate, query]
+  );
 
   const markNotification = async (
     index,
@@ -236,6 +247,11 @@ const Navbar = ({ routePage = "homePage" }) => {
     createRelativeURL()
   )}`;
 
+  const createProfileParam = (value, key = "view") =>
+    `/u/${userId || currentUser.id}?${key}=${value}${
+      userId === currentUser.id ? "" : `&wc=true`
+    }`;
+
   const selectElem = currentUser.id ? (
     <FormControl
       variant="outlined"
@@ -283,22 +299,28 @@ const Navbar = ({ routePage = "homePage" }) => {
         {{
           profilePage: [
             {
-              to: `/u/${currentUser.id}?compose=create-post`,
+              to: `/u/${currentUser.id}`,
+              label: "Profile",
+              icon: PersonIcon,
+              nullify: currentUser.id === userId
+            },
+            {
+              to: createProfileParam("create-post", "compose"),
               label: "Create Post",
               icon: AddIcon
             },
             {
-              to: `/u/${currentUser.id}?compose=create-short`,
+              to: createProfileParam("create-short", "compose"),
               label: "Create Short",
               icon: AddToQueueIcon
             },
             {
-              to: `/u/${currentUser.id}?view=user-posts`,
+              to: createProfileParam("user-posts"),
               label: "My Posts",
               icon: ListAltIcon
             },
             {
-              to: `/u/${currentUser.id}?view=user-shorts`,
+              to: createProfileParam("user-shorts"),
               label: "My Shorts",
               icon: VideoLibraryIcon
             }

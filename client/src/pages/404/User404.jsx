@@ -9,7 +9,7 @@ const User404 = ({ contentOnly }) => {
       label={
         <span>
           Looks like you are searching for a non existing user.{" "}
-          <StyledLink to="/search?q=all&tab=users">Check here!</StyledLink>
+          <StyledLink to="/search?tab=users">Check here!</StyledLink>
         </span>
       }
     />

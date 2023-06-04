@@ -53,7 +53,6 @@ const Post = () => {
     (reason, res) => {
       switch (reason) {
         case "filter":
-          stateRef.current.info = "not found";
           navigate(-1);
           break;
         case "filter-comment":
@@ -83,16 +82,24 @@ const Post = () => {
   }, [fetchDocument]);
 
   useEffect(() => {
-    socket.on(`update-${docType}`, document => {
-      post?.id === document.id && _handleAction("update", document);
-    });
-    socket.on(`filter-${docType}`, document => {
+    const handleFilter = document => {
       if (post?.id === document.id) _handleAction("filter", document);
-    });
+    };
+
+    const handleUpdate = document => {
+      post?.id === document.id && _handleAction("update", document);
+    };
+    socket.on(`update-${docType}`, handleUpdate);
+    socket.on(`filter-${docType}`, handleFilter);
+
+    return () => {
+      socket.removeEventListener(`filter-${docType}`, handleFilter);
+      socket.removeEventListener(`update-${docType}`, handleUpdate);
+    };
   }, [socket, docType, _handleAction, post?.id]);
 
   if (!docType) stateRef.current.info = "500";
-  if (isEditMode && post && post.user.id !== cid) return <Navigate to={-1} />;
+  // if (isEditMode && post && post.user.id !== cid) return <Navigate to={-1} />;
   if (isShort && !isEditMode) return <Navigate to={`/shorts?ref=${id}`} />;
 
   return (
@@ -171,7 +178,7 @@ const Post = () => {
             user={post.user}
             handleAction={_handleAction}
             isRO={post.user?.id === cid || post.rootThread?.user?.id === cid}
-            rootUid={cid}
+            rootUid={post.user.id}
             key={post.id}
             sx={{ minHeight: 0, height: "auto" }}
           />

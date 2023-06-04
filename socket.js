@@ -12,14 +12,17 @@ import Short from "./models/Short.js";
 
 export default (app, port = process.env.PORT || 8800) => {
   (async () => {
-    // await Post.updateMany(
-    //   {},
-    //   {
+    // const posts = await Short.find({
+    //   // user: "647bfecf807e097cf56a64a1"
+    // });
+    // for (let i = 0; i < posts.length / 2; i++) {
+    //   const post = posts[Math.floor(Math.random() * posts.length)];
+    //   await post.updateOne({
+    //     user: "6436e0e74bdec4961bc0680b",
     //     comments: [],
     //     likes: {}
-    //   }
-    // );
-
+    //   });
+    // }
     // await Short.updateMany(
     //   {},
     //   {
@@ -27,27 +30,40 @@ export default (app, port = process.env.PORT || 8800) => {
     //     likes: {}
     //   }
     // );
-
     // await Comment.deleteMany({});
-
+    // const shorts = await Short.find({});
+    // for (const short of shorts) {
+    //   await short.updateOne({
+    //     user: new Types.ObjectId(short.user)
+    //   });
+    // }
+    // const posts = await Post.find({
+    //   user: {
+    //     $eq: new Types.ObjectId("6436e0e74bdec4961bc0680b")
+    //   }
+    // });
+    // console.log(posts.length);
+    // for (const post of posts) {
+    //   // console.log(post.id, post);
+    //   await post.updateOne({
+    //     user: "6436e0e74bdec4961bc0680b"
+    //   });
+    // }
+    // S;
     // Find all users
-    const users = await User.find();
-    // Iterate over each user
-    for (const user of users) {
-      // Convert following array elements to ObjectId
-      user.following = user.following.map(id => new Types.ObjectId(id));
-
-      // Convert followers array elements to ObjectId
-      user.followers = user.followers.map(id => new Types.ObjectId(id));
-
-      // Save the updated user document
-      await User.updateOne(
-        {
-          _id: user.id
-        },
-        user
-      );
-    }
+    // const users = await User.find();
+    // // Iterate over each user
+    // for (const user of users) {
+    //   // Save the updated user document
+    //   await User.updateOne(
+    //     {
+    //       _id: user.id
+    //     },
+    //     {
+    //       $unset: { postCount: 1, shortCount: 1 } // Updated field names: postCount and shortCount
+    //     }
+    //   );
+    // }
   })();
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
@@ -62,7 +78,7 @@ export default (app, port = process.env.PORT || 8800) => {
 
   io.use((socket, next) => {
     const cookies = cookie.parse(socket.request.headers.cookie || "");
-
+    // console.log(cookies)
     try {
       if (cookies) {
         verifyToken({
@@ -73,8 +89,10 @@ export default (app, port = process.env.PORT || 8800) => {
       next();
     } catch (err) {
       if (socket.handshake.userId) socket.disconnect();
+      const withCredentials = !!socket.request;
+      // console.log(!!cookies.access_token);
       next(
-        cookies.access_token || cookies.refresh_token
+        cookies.access_token
           ? createError(
               cookies ? `Token expired or isn't valid` : err.message,
               err.status || 401
@@ -91,9 +109,9 @@ export default (app, port = process.env.PORT || 8800) => {
           socket.handshake.userId = id;
           socket.join(id);
           typeof cb === "function" && cb();
-        }
+        } else socket.emit("bare-connection");
       });
-    }
+    } else socket.emit("bare-connection");
     socket.on("disconnect", () => {
       console.clear();
       socket.leave(socket.handshake.userId);

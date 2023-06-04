@@ -1,9 +1,16 @@
 import { createSlice } from "@reduxjs/toolkit";
 import http from "api/http";
 
+export const defaultUser = {
+  following: [],
+  followers: [],
+  recommendationBlacklist: [],
+  socials: {}
+};
+
 const initialState = {
-  previewUser: null,
-  currentUser: null
+  previewUser: undefined,
+  currentUser: undefined
 };
 
 const userSlice = createSlice({
@@ -32,6 +39,8 @@ const userSlice = createSlice({
       state.currentUser = payload;
     },
     updatePreviewUser(state, { payload }) {
+      if (payload.nullify) return (state.previewUser = undefined);
+
       delete payload.avatar;
       payload.socials &&
         (payload.socials = {
@@ -54,6 +63,12 @@ const userSlice = createSlice({
           ...state.currentUser.settings,
           ...payload.settings
         };
+      }
+      if (payload._blacklistCount) {
+        payload.blacklistCount = state.currentUser.blacklistCount
+          ? state.currentUser.blacklistCount - payload._blacklistCount
+          : 0;
+        delete payload._blacklistCount;
       }
       state.currentUser = {
         ...state.currentUser,

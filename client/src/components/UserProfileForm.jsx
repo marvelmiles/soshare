@@ -79,6 +79,7 @@ const UserProfileForm = ({
       }
     } else if (stateChanged) {
       url = formData.avatar ? URL.createObjectURL(formData.avatar) : "";
+
       dispatch(
         updatePreviewUser({
           ...formData,

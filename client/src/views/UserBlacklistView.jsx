@@ -40,6 +40,7 @@ const UserBlacklistView = ({
               return true;
             })
           });
+
           break;
         case "clear-cache":
           res.forEach(id => delete stateRef.current.cachedData[id]);

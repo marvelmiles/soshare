@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+
 export const isEmail = str => {
   return /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/i.test(
     str
@@ -69,7 +70,9 @@ export const splitNumberAndText = input => {
 };
 
 export const isFileList = obj => {
-  return obj && obj.toString() === "[object FileList]";
+  return (
+    obj && (obj.toString() === "[object FileList]" || obj[0] instanceof File)
+  );
 };
 
 const useForm = (config = {}) => {
@@ -92,6 +95,7 @@ const useForm = (config = {}) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState(withPlaceholders && placeholders);
   const [errors, setErrors] = useState({});
+
   const deletePathFromObject = (obj, key, dataName, dataType) => {
     switch (dataType) {
       case "object":
@@ -105,6 +109,7 @@ const useForm = (config = {}) => {
         break;
     }
   };
+
   const handleSubmit = useCallback(
     e => {
       if (e && (e.currentTarget || e.target)) {
@@ -166,7 +171,10 @@ const useForm = (config = {}) => {
                   (isFilelist = isFileList(keyValue))
                 ) {
                   for (let prop in keyValue) {
-                    if (isFilelist ? Number(prop) : true) {
+                    if (isFilelist) {
+                      if (Number(prop) > -1)
+                        form.append(`${key}`, keyValue[prop]);
+                    } else {
                       if (!form.get(`${key}[${prop}]`))
                         form.append(`${key}[${prop}]`, keyValue[prop]);
                     }
@@ -331,44 +339,45 @@ const useForm = (config = {}) => {
                       if (
                         file.type.indexOf("video") >= 0 ||
                         file.type.indexOf("audio") >= 0
-                      )
+                      ) {
                         // invalidate key until loaded and validated
                         lastErr = true;
-                      const url = URL.createObjectURL(file);
-                      const audio = new Audio(url);
-                      const metadataListener = () => {
-                        if (audio.duration > digit) {
-                          addError(`max duration exceeded`, errKey, index);
-                          if (strictStateCheck) setStateChanged(false);
-                        } else
-                          setErrors(errors => {
-                            detStateChange(errors, 1);
-                            return errors;
-                          });
+                        const url = URL.createObjectURL(file);
+                        const audio = new Audio(url);
+                        const metadataListener = () => {
+                          if (audio.duration > digit) {
+                            addError(`max duration exceeded`, errKey, index);
+                            if (strictStateCheck) setStateChanged(false);
+                          } else
+                            setErrors(errors => {
+                              detStateChange(errors, 1);
+                              return errors;
+                            });
 
-                        URL.revokeObjectURL(url);
-                        audio.removeEventListener(
+                          URL.revokeObjectURL(url);
+                          audio.removeEventListener(
+                            "loadedmetadata",
+                            metadataListener,
+                            false
+                          );
+                        };
+
+                        const errorListener = ({ target: { error } }) => {
+                          addError(error, errKey);
+                          URL.revokeObjectURL(url);
+                          audio.removeEventListener(
+                            "error",
+                            errorListener,
+                            false
+                          );
+                        };
+                        audio.addEventListener(
                           "loadedmetadata",
                           metadataListener,
                           false
                         );
-                      };
-
-                      const errorListener = ({ target: { error } }) => {
-                        addError(error, errKey);
-                        URL.revokeObjectURL(url);
-                        audio.removeEventListener(
-                          "error",
-                          errorListener,
-                          false
-                        );
-                      };
-                      audio.addEventListener(
-                        "loadedmetadata",
-                        metadataListener,
-                        false
-                      );
-                      audio.addEventListener("error", errorListener, false);
+                        audio.addEventListener("error", errorListener, false);
+                      }
                     };
                     if (node.multiple) {
                       for (let key in keyValue) {

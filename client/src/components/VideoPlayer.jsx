@@ -55,17 +55,18 @@ const VideoPlayer = ({
   const blend = useTheme().palette.common.blend;
   const handlePlay = useCallback(
     (prop = {}) => {
+      if (!videoRef.current) return;
       let { enableIndicator, emitFn, delay } = {
         enableIndicator: false,
         emitFn: false,
         delay: 0,
         ...prop
       };
-      if (!videoRef.current) return;
       if (videoRef.current.paused) {
         videoRef.current.muted = true;
         videoRef.current.pause();
         setTimeout(() => {
+          if (!videoRef.current) return;
           videoRef.current.play().then(() => {
             if (emitFn === false && !stateRef.current.hasPlayed) emitFn = true;
             stateRef.current.hasPlayed = true;

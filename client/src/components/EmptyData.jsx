@@ -59,8 +59,14 @@ const EmptyData = ({
         </div>
       ) : onClick ? (
         <div>
-          <Typography variant="h5">Something went wrong. Try again</Typography>
-          <Button variant="contained" sx={{ mt: 1 }} onClick={onClick}>
+          <Typography variant="h5" color="primary.main">
+            Something went wrong. Try again
+          </Typography>
+          <Button
+            variant="contained"
+            sx={{ mt: 1, color: "primary.main" }}
+            onClick={onClick}
+          >
             Reload
           </Button>
         </div>

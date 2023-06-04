@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState, useRef } from "react";
 import PropTypes from "prop-types";
 import { WidgetContainer } from "./styled";
 import { Box, Stack, Avatar, Divider, IconButton } from "@mui/material";
@@ -12,30 +12,71 @@ import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import { useSelector } from "react-redux";
 import { useSearchParams } from "react-router-dom";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
+import { useContext } from "context/store";
+import { useDispatch } from "react-redux";
+import { updateUser, updatePreviewUser } from "context/slices/userSlice";
 
-const UserWidget = ({ width, user = {} }) => {
+const UserWidget = ({ width, user }) => {
+  const { socket } = useContext();
   const [searchParams] = useSearchParams();
-  const previewUser = useSelector(({ user: { previewUser, currentUser } }) => {
-    const isCurrentUser =
-      user.id && currentUser ? user.id === currentUser.id : true;
-    return isCurrentUser
-      ? {
-          ...currentUser,
-          ...user,
-          ...previewUser,
-          isCurrentUser
-        }
-      : {
-          following: [],
-          followers: [],
-          recommendationBlacklist: [],
-          socials: {},
-          ...user,
-          isCurrentUser
-        };
+  const { previewUser, currentUser } = useSelector(({ user }) => user);
+
+  const [cUser, setCUser] = useState(
+    user ||
+      currentUser || {
+        following: [],
+        followers: [],
+        recommendationBlacklist: [],
+        socials: {}
+      }
+  );
+  const dispatch = useDispatch();
+  const stateRef = useRef({
+    isCurrentUser: user?.id ? user.id === currentUser?.id : true,
+    withSocket: !user,
+    cid: cUser.id
   });
 
-  const userLink = `/u/${previewUser.id}`;
+  useEffect(() => {
+    const ctx = stateRef.current;
+    const handleUserUpdate = u => {
+      if (u.id === stateRef.current.cid) {
+        dispatch(updateUser(u));
+        dispatch(updatePreviewUser({ nullify: true }));
+      }
+    };
+    ctx.withSocket &&
+      ctx.isCurrentUser &&
+      socket.on("update-user", handleUserUpdate);
+    return () => {
+      socket.removeEventListener("update-user", handleUserUpdate);
+    };
+  }, [socket, dispatch]);
+
+  useEffect(() => {
+    stateRef.current.isCurrentUser &&
+      setCUser(u => ({
+        ...u,
+        ...currentUser
+      }));
+  }, [currentUser]);
+
+  useEffect(() => {
+    stateRef.current.isCurrentUser &&
+      setCUser(u => ({
+        ...u,
+        ...previewUser
+      }));
+  }, [previewUser]);
+
+  useEffect(() => {
+    setCUser(u => ({
+      ...u,
+      ...user
+    }));
+  }, [user]);
+
+  const userLink = `/u/${cUser.id}`;
 
   const styles = {
     textValue: {
@@ -88,8 +129,8 @@ const UserWidget = ({ width, user = {} }) => {
           justifyContent="normal"
         >
           <Avatar
-            src={previewUser.photoUrl}
-            alt={`${previewUser.username} avatar`}
+            src={cUser.photoUrl}
+            alt={`${cUser.username} avatar`}
             variant="sm"
           />
           <Box
@@ -108,7 +149,7 @@ const UserWidget = ({ width, user = {} }) => {
                 wordBreak: "break-word"
               }}
             >
-              {previewUser.displayName}
+              {cUser.displayName}
             </StyledTypography>
             <Typography
               color="inherit"
@@ -119,26 +160,26 @@ const UserWidget = ({ width, user = {} }) => {
                 wordBreak: "break-word"
               }}
             >
-              @{previewUser.username}
+              @{cUser.username}
             </Typography>
             <div style={{ whiteSpace: "wrap" }}>
               <StyledLink
                 sx={{ color: "inherit" }}
                 to={renderSV("user-following")}
               >
-                {previewUser.following.length} following
+                {cUser.following.length} following
               </StyledLink>
               <span style={{ marginInline: "2px" }}>|</span>
               <StyledLink
                 sx={{ color: "inherit" }}
                 to={renderSV("user-followers")}
               >
-                {previewUser.followers.length} followers
+                {cUser.followers.length} followers
               </StyledLink>
 
               <span style={{ marginInline: "2px" }}>|</span>
               <StyledLink sx={{ color: "inherit" }} to={renderSV("user-posts")}>
-                {previewUser.postsCount} posts
+                {cUser.postCount} posts
               </StyledLink>
 
               <span style={{ marginInline: "2px" }}>|</span>
@@ -146,27 +187,29 @@ const UserWidget = ({ width, user = {} }) => {
                 sx={{ color: "inherit" }}
                 to={renderSV("user-shorts")}
               >
-                {previewUser.shortsCount} shorts
+                {cUser.shortCount} shorts
               </StyledLink>
-              {previewUser.isCurrentUser ? (
+              {stateRef.current.isCurrentUser ? (
                 <>
                   <span style={{ marginInline: "2px" }}>|</span>
                   <StyledLink
                     sx={{ color: "inherit" }}
                     to={renderSV("user-blacklist")}
                   >
-                    {previewUser.recommendationBlacklist.length} blacklist
+                    {cUser.blacklistCount} blacklist
                   </StyledLink>
                 </>
               ) : null}
             </div>
           </Box>
         </Stack>
-        <IconButton component={StyledLink} to={userLink}>
-          <ManageAccountsOutlined />
-        </IconButton>
+        {stateRef.current.isCurrentUser ? (
+          <IconButton component={StyledLink} to={userLink}>
+            <ManageAccountsOutlined />
+          </IconButton>
+        ) : null}
       </Stack>
-      {previewUser.bio ? (
+      {cUser.bio ? (
         <Typography
           variant="caption"
           component="p"
@@ -174,23 +217,23 @@ const UserWidget = ({ width, user = {} }) => {
           fontWeight="500"
           sx={{ mt: "1rem", pl: "0px" }}
         >
-          {previewUser.bio}
+          {cUser.bio}
         </Typography>
       ) : null}
-      {previewUser.occupation || previewUser.location ? (
+      {cUser.occupation || cUser.location ? (
         <>
           <Divider sx={styles.divider} />
           <Box>
-            {previewUser.location ? (
+            {cUser.location ? (
               <Stack sx={styles.textValue}>
                 <LocationOnOutlinedIcon />
-                <Typography>{previewUser.location}</Typography>
+                <Typography>{cUser.location}</Typography>
               </Stack>
             ) : null}
-            {previewUser.occupation ? (
+            {cUser.occupation ? (
               <Stack sx={styles.textValue}>
                 <WorkOutlinedIcon />
-                <Typography>{previewUser.occupation}</Typography>
+                <Typography>{cUser.occupation}</Typography>
               </Stack>
             ) : null}
           </Box>
@@ -215,13 +258,13 @@ const UserWidget = ({ width, user = {} }) => {
                 color: "text.secondary"
               }}
             >
-              {previewUser.email}
+              {cUser.email}
             </Typography>
             <Typography>Mail Service</Typography>
           </div>
         </Stack>
-        {Object.keys(previewUser.socials).map((l, i) => {
-          const url = previewUser.socials[l];
+        {Object.keys(cUser.socials).map((l, i) => {
+          const url = cUser.socials[l];
           return (
             <Stack sx={styles.textValue} key={i}>
               {

@@ -118,6 +118,9 @@ const Person = React.forwardRef(
                       color="common.dark"
                       textEllipsis
                       sx={{ minWidth: 0, flex: 1 }}
+                      component={StyledLink}
+                      color="inherit"
+                      to={`/u/${user.id}`}
                     >
                       @{user.username}
                     </StyledTypography>

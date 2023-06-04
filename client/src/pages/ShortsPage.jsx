@@ -5,7 +5,7 @@ import ShortsView from "views/ShortsView";
 
 const ShortsPage = props => {
   return (
-    <MainView sideView={undefined}>
+    <MainView sideView="">
       <ShortsView
         loop
         key="shorts-page"

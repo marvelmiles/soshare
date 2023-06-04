@@ -40,18 +40,23 @@ const InfiniteScroll = React.forwardRef(
       withCredentials = true,
       maxSize,
       maxSizeElement,
-      limit = 1,
+      limit = 20,
       scrollNodeRef,
       withError = true,
       searchId,
       randomize,
       nodeKey,
       validatePublicDatum,
-      withIntersection = false,
       NotifierComponent = DataNotifier,
-      exclude,
-      className,
-      withShowRetry
+      exclude = [],
+      className = "",
+      withShowRetry,
+      verify,
+      notifierProps,
+      centerOnEmpty = true,
+      contentSx,
+      withOverflowShowEndOnly = true,
+      withOverflowShowNotifierOnly = true
     },
     ref
   ) => {
@@ -77,6 +82,7 @@ const InfiniteScroll = React.forwardRef(
             threshold: 0.3,
             nodeKey
           },
+      exclude,
       infinitePaging: {},
       prevNotice: [],
       retryCount: 0,
@@ -84,25 +90,26 @@ const InfiniteScroll = React.forwardRef(
     });
     const { intersectionKey } = useViewIntersection(
       observedNode,
-      stateRef.current.intersection || intersectionProp
+      stateRef.current.intersection || intersectionProp,
+      verify
     );
-
     const reachedMax = useMemo(() => data.data.length === maxSize, [
       data.data.length,
       maxSize
     ]);
 
     const determineFlowing = useCallback(() => {
-      setShowEnd(() => {
-        return isOverflowing(
-          scrollNodeRef === null
-            ? document.documentElement
-            : scrollNodeRef
-            ? scrollNodeRef.current
-            : containerRef.current
-        );
-      });
-    }, [scrollNodeRef]);
+      withOverflowShowEndOnly &&
+        setShowEnd(() => {
+          return isOverflowing(
+            scrollNodeRef === null
+              ? document.documentElement
+              : scrollNodeRef
+              ? scrollNodeRef.current
+              : containerRef.current
+          );
+        });
+    }, [scrollNodeRef, withOverflowShowEndOnly]);
 
     const closeNotifier = useCallback((resetDelay = 500, e) => {
       e && e.stopPropagation();
@@ -119,6 +126,7 @@ const InfiniteScroll = React.forwardRef(
     const fetchData = useCallback(
       retry => {
         setData(data => {
+          if (readyState !== "ready") return data;
           const dataChanged = intersectionKey !== data.paging?.nextCursor;
           const infinitePaging = stateRef.current.infinitePaging;
           const shouldSearch =
@@ -128,13 +136,14 @@ const InfiniteScroll = React.forwardRef(
             (!stateRef.current.isFetching &&
               !stateRef.current.preventFetch &&
               !reachedMax &&
-              (withIntersection || shouldSearch
+              (shouldSearch
                 ? true
                 : infinitePaging.matchedDocs
                 ? data.data.length < infinitePaging.matchedDocs &&
                   intersectionKey
                 : data.paging?.nextCursor === undefined ||
                   (intersectionKey && data.paging.nextCursor !== null)));
+
           if (retry) stateRef.current.retryCount++;
           if (shouldFetch) {
             setLoading(true);
@@ -142,7 +151,9 @@ const InfiniteScroll = React.forwardRef(
             let withEq = true;
             let _randomize =
               randomize === undefined ? !intersectionKey : !!randomize;
-            let _limit = limit;
+            let _limit = limit,
+              defaultCursor = "",
+              withMatchedDocs = "";
 
             if (shouldSearch) {
               stateRef.current.searchId = searchId;
@@ -150,9 +161,11 @@ const InfiniteScroll = React.forwardRef(
                 d => d.id === searchId || d === searchId
               );
               if (index === -1) {
-                _randomize = true;
+                withMatchedDocs = true;
+                _randomize = false;
                 withEq = true;
                 data.data = [];
+                defaultCursor = searchId;
                 delete data.paging;
               } else {
                 data.data = data.data
@@ -187,26 +200,18 @@ const InfiniteScroll = React.forwardRef(
                   data.paging.nextCursor = data.data[data.data.length - 1].id;
                   withFetch = intersectionKey;
                 }
-
-                handleAction &&
-                  handleAction("data", {
-                    currentData: data,
-                    shallowUpdate: true,
-                    dataSize: data.data.length
-                  });
+                stateRef.current.shallowUpdate = true;
               }
             }
+
             if (withFetch) {
               (async () => {
                 try {
                   stateRef.current.isFetching = true;
-
                   const _url =
                     url +
                     `?limit=${_limit || ""}&cursor=${data.paging?.nextCursor ||
-                      ""}&withEq=${withEq}&randomize=${_randomize}&exclude=${(
-                      exclude || []
-                    )
+                      defaultCursor}&withEq=${withEq}&randomize=${false}&withMatchedDocs=${withMatchedDocs}&exclude=${stateRef.current.exclude
                       .concat(data.data || [])
                       .map(d => d.id || d._id || d)
                       .join(",")}&${
@@ -216,56 +221,41 @@ const InfiniteScroll = React.forwardRef(
                         ? `select=${dataKey}`
                         : ""
                     }`;
-
                   let _data = await http.get(_url, {
                     withCredentials,
                     ...httpConfig
                   });
+
+                  dataKey && (_data = _data[dataKey]);
+
                   stateRef.current.dataChanged =
                     !data.paging?.nextCursor ||
                     data.paging.nextCursor !== _data.paging.nextCursor ||
                     data.data.length !== _data.data.length;
 
-                  stateRef.current.isNewData = stateRef.current.dataChanged;
-
                   if (isObject(_data)) {
-                    if (_data.paging) {
+                    if (
+                      _data.paging.nextCursor !== undefined &&
+                      Array.isArray(_data.data)
+                    ) {
                       if (_data.paging.matchedDocs) {
                         infinitePaging.withMatchedCursor =
                           _data.paging.nextCursor;
                         infinitePaging.matchedDocs = _data.paging.matchedDocs;
                       }
-                    } else {
-                      stateRef.current.retryCount++;
-                      setShowRetry(true);
-                    }
-
-                    handleAction &&
-                      handleAction("data", {
-                        currentData: _data,
-                        shallowUpdate: false,
-                        dataSize: _data.data.length
-                      });
-                    // console.log(
-                    //   data.data.map(c => {
-                    //     if (c.threads)
-                    //       console.log(
-                    //         c.threads.map(c => c.id || c),
-                    //         " threads"
-                    //       );
-                    //     return c.id || c;
-                    //   })
-                    // );
-                    setData(data => ({
-                      ..._data,
-                      data: data.data.concat(addToSet(_data.data))
-                    }));
-                  } else {
-                    stateRef.current.retryCount++;
-                    setShowRetry(true);
+                    } else return;
+                    setData(data => {
+                      const currentData = {
+                        ..._data,
+                        data: data.data.concat(addToSet(_data.data))
+                      };
+                      stateRef.current.shallowUpdate = false;
+                      // console.log(currentData.data);
+                      return currentData;
+                    });
                   }
                 } catch (msg) {
-                  console.log(msg, " msg ");
+                  console.log(msg, verify, " msg ");
                   if (
                     stateRef.current.retryCount < stateRef.current.maxRetry &&
                     (withShowRetry !== undefined
@@ -298,6 +288,7 @@ const InfiniteScroll = React.forwardRef(
         });
       },
       [
+        readyState,
         url,
         withCredentials,
         httpConfig,
@@ -305,16 +296,14 @@ const InfiniteScroll = React.forwardRef(
         limit,
         searchParams,
         intersectionKey,
-        withIntersection,
         searchId,
         validatePublicDatum,
         setSnackBar,
-        handleAction,
         reachedMax,
         randomize,
-        exclude,
         withError,
-        withShowRetry
+        withShowRetry,
+        verify
       ]
     );
 
@@ -326,20 +315,34 @@ const InfiniteScroll = React.forwardRef(
         data,
         loading,
         reachedMax,
+        setLoading,
         willRefetch: !!(data.data.length && data.paging?.nextCursor),
         dataChanged: stateRef.current.dataChanged,
-        isNewData: stateRef.current.isNewData,
         infinitePaging: stateRef.current.infinitePaging,
-        setLoading,
+        shallowUpdate: stateRef.current.shallowUpdate,
         setObservedNode: (nodeOrFunc, strictMode = true, context = {}) => {
           if (strictMode ? nodeOrFunc && stateRef.current.dataChanged : true) {
             stateRef.current.withShowRetry = context.withShowRetry;
-            stateRef.current.intersection = context.intersectionProps;
+            if (context.intersectionProps)
+              stateRef.current.intersection = {
+                ...stateRef.current.intersection,
+                ...context.intersectionProps
+              };
             setObservedNode(nodeOrFunc);
             determineFlowing();
           }
         },
-        setData: (prop, numberOfEntries, preventFetch) => {
+        setData: (prop, options = {}) => {
+          let {
+            numberOfEntries,
+            preventFetch,
+            preventLoading,
+            withStateDeterminant = true,
+            exclude
+          } = options;
+
+          const isBool = exclude && withStateDeterminant;
+          stateRef.current.isBool = isBool;
           const handleNotice = _data => {
             numberOfEntries =
               numberOfEntries === undefined
@@ -376,11 +379,25 @@ const InfiniteScroll = React.forwardRef(
                 open: false
               }));
           };
-          const setState = dataSize => {
-            if (dataSize < data.data.length)
-              stateRef.current.preventLoading = true;
-            else stateRef.current.preventLoading = false;
+          const setState = (_data, prevData = data) => {
+            const dataSize = _data.data.length;
+            if (withStateDeterminant && dataSize < data.data.length) {
+              const size = stateRef.current.infinitePaging?.matchedDocs;
+              size &&
+                (stateRef.current.infinitePaging.matchedDocs = dataSize
+                  ? size - (data.data.length - dataSize)
+                  : 0);
+            }
+
             stateRef.current.preventFetch = preventFetch;
+            stateRef.current.preventLoading = preventLoading;
+            stateRef.current.dataChanged = dataSize !== data.data.length;
+
+            if (exclude)
+              stateRef.current.exclude = stateRef.current.exclude.concat(
+                exclude
+              );
+            stateRef.current.shallowUpdate = true;
           };
           if (typeof prop === "function") {
             setData(prev => {
@@ -390,7 +407,7 @@ const InfiniteScroll = React.forwardRef(
                 setShowEnd(false);
                 setObservedNode(null);
               }
-              setState(data.data.length);
+              setState(data, prev);
               return data;
             });
           } else {
@@ -399,16 +416,8 @@ const InfiniteScroll = React.forwardRef(
               setShowEnd(false);
               setObservedNode(null);
             }
-            setState(prop.data.length);
+            setState(prop);
             setData(prop);
-          }
-        },
-        setObservedNode: (nodeOrFunc, withDataChanged = true) => {
-          if (
-            withDataChanged ? nodeOrFunc && stateRef.current.dataChanged : true
-          ) {
-            setObservedNode(nodeOrFunc);
-            determineFlowing();
           }
         }
       }),
@@ -447,6 +456,16 @@ const InfiniteScroll = React.forwardRef(
       }
     }, [propMemo, ref]);
 
+    useEffect(() => {
+      handleAction &&
+        stateRef.current.dataChanged &&
+        handleAction("data", {
+          currentData: data,
+          dataSize: data.data.length,
+          shallowUpdate: stateRef.current.shallowUpdate
+        });
+    }, [handleAction, data]);
+
     const handleRefetch = e => {
       e.stopPropagation();
       fetchData(true);
@@ -466,101 +485,102 @@ const InfiniteScroll = React.forwardRef(
           </Typography>
         )
       : null;
-    const fullHeight = nullifyChildren || !data.data.length;
+    const fullHeight =
+      nullifyChildren || (data.data.length ? false : centerOnEmpty);
+
     return (
       <Box
         key={url}
         className={`data-scrollable ${className}`}
+        ref={containerRef}
+        component={Component}
+        {...componentProps}
         sx={{
-          position: "relative",
-          overflow: "hidden",
+          // border: "1px solid green",
           height: "inherit",
           minHeight: "inherit",
-          display: "flex",
-          flexDirection: "column",
+          position: "relative",
+          overflow: "hidden",
+          flex: 1,
+          "&,.data-scrollable-content": {
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: fullHeight ? "center" : "normal",
+            flexDirection: "column"
+          },
           ...sx
         }}
       >
-        {data.data.length}
-        <Box
-          ref={containerRef}
-          component={Component}
-          {...componentProps}
-          sx={{
-            display: "flex",
-            minHeight: "inherit",
-            height: "inherit",
-            flex: "inherit",
-            flexDirection: "column"
+        {/* {data.data.length} */}
+        {notifierDelay > -1 &&
+        (withOverflowShowNotifierOnly ? showEnd : true) ? (
+          <NotifierComponent
+            containerRef={
+              scrollNodeRef === undefined ? containerRef : scrollNodeRef
+            }
+            {...notifierProps}
+            open={notifier.open}
+            data={notifier.data}
+            message={notifier.message}
+            closeNotifier={closeNotifier}
+          />
+        ) : null}
+
+        <div
+          className="data-scrollable-content"
+          style={{
+            flex: "none",
+            // border: "1px solid yellow",
+            ...contentSx
           }}
-          className="data-scrollable-container"
         >
-          {notifierDelay > -1 ? (
-            <NotifierComponent
-              containerRef={
-                scrollNodeRef === undefined ? containerRef : scrollNodeRef
+          {stateRef.current.retryCount === stateRef.current.maxRetry ? (
+            <EmptyData nullifyBrand withReload onClick={handleRefetch} />
+          ) : showRetry && !data.data.length ? (
+            <EmptyData
+              sx={{
+                p: 3
+              }}
+              onClick={handleRefetch}
+            />
+          ) : nullifyChildren ? null : (
+            children({
+              ...propMemo
+              // data: {
+              //   ...data,
+              //   data: (() => {
+              //     const arr = [];
+              //     for (let i = 0; i < 40; i++) {
+              //       arr.push(data.data[i] || data.data[0]);
+              //     }
+              //     return arr;
+              //   })()
+              // }
+            })
+          )}
+        </div>
+        <div>
+          {loading && !stateRef.current.preventLoading ? (
+            <Loading
+              className={
+                data.data.length ? "custom-more-loading" : "custom-loading"
               }
-              open={notifier.open}
-              data={notifier.data}
-              message={notifier.message}
-              closeNotifier={closeNotifier}
+            />
+          ) : showRetry && data.data.length ? (
+            <EmptyData
+              sx={{
+                height: "120px",
+                minHeight: "120px"
+              }}
+              onClick={handleRefetch}
             />
           ) : null}
-          <Box
-            className="data-scrollable-content-container"
-            sx={{
-              "&,.data-scrollable-content": {
-                display: "flex",
-                flexDirection: "column",
-                justifyContent: fullHeight ? "center" : "normal",
-                flex: 1
-                // border: "1px solid red"
-              }
-            }}
-          >
-            <Box
-              className="data-scrollable-content"
-              style={{
-                flex: "none"
-              }}
-            >
-              {stateRef.current.retryCount === stateRef.current.maxRetry ? (
-                <EmptyData nullifyBrand withReload onClick={handleRefetch} />
-              ) : showRetry && !data.data.length ? (
-                <EmptyData
-                  sx={{
-                    p: 3
-                  }}
-                  onClick={handleRefetch}
-                />
-              ) : nullifyChildren ? null : (
-                children({
-                  ...propMemo
-                  // data: {
-                  //   data: [data.data[0]],
-                  //   paging: { nextCursor: null }
-                  // }
-                })
-              )}
-            </Box>
-            {loading && !stateRef.current.preventLoading ? (
-              <Loading
-                className={
-                  data.data.length ? "custom-more-loading" : "custom-loading"
-                }
-              />
-            ) : showRetry && data.data.length ? (
-              <EmptyData
-                sx={{
-                  height: "120px",
-                  minHeight: "120px"
-                }}
-                onClick={handleRefetch}
-              />
-            ) : null}
-          </Box>
-          {reachedMax ? maxSizeElement : isEnd && showEnd ? endElement : null}
-        </Box>
+          {reachedMax
+            ? maxSizeElement
+            : isEnd && (withOverflowShowEndOnly ? showEnd : true)
+            ? endElement
+            : null}
+        </div>
       </Box>
     );
   }

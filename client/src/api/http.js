@@ -10,14 +10,18 @@ let requestQueue = [];
 
 const cancelRequests = [];
 
-export const createRelativeURL = (keyToRemove, searchParams = "") => {
+export const createRelativeURL = (
+  keyToRemove,
+  searchParams = "",
+  withPath = true
+) => {
   const params = new URLSearchParams(window.location.search);
   keyToRemove && params.delete(keyToRemove);
+  const search = params.toString();
   return (
-    window.location.pathname +
-    "?" +
-    params.toString() +
-    (searchParams ? "&" + searchParams : "") +
+    (withPath ? window.location.pathname : "") +
+    ("?" + search) +
+    (searchParams ? (search.length ? "&" : "") + searchParams : "") +
     window.location.hash
   );
 };
@@ -70,7 +74,7 @@ export const handleCancelRequest = (
 
 export const refetchHasVisitor = (err, originalRequest, method = "get") => {
   if (
-    originalRequest.withCredentials &&
+    !originalRequest._refetchedHasVisitor &&
     originalRequest.method === method &&
     originalRequest.url !== "/auth/refresh-token"
   ) {
@@ -93,18 +97,13 @@ export const handleRefreshToken = (
     .then(res => {
       requestConfig && (requestConfig._refreshed = true);
       processQueue(null);
-      return requestConfig
-        ? http
-            .request(requestConfig)
-            .then(d => Promise.resolve(d))
-            .catch(err => refetchHasVisitor(err, requestConfig))
-        : Promise.resolve(res);
+      return requestConfig ? http.request(requestConfig) : Promise.resolve(res);
     })
     .catch(err => {
       err = getHttpErrMsg(err);
-      processQueue(refetchHasVisitior ? "visitor" : err);
+      processQueue(err);
       return refetchHasVisitior && requestConfig
-        ? refetchHasVisitor("visitor", requestConfig)
+        ? refetchHasVisitor(err, requestConfig)
         : Promise.reject(err);
     })
     .finally(() => {
@@ -133,8 +132,8 @@ http.interceptors.response.use(
       return Promise.reject(getHttpErrMsg(err));
     const originalRequest = err.config;
 
-    if (!originalRequest._refreshed || !originalRequest._refetchedHasVisitor) {
-      if (err.response?.status === 401 && !originalRequest._noRefresh) {
+    if (!originalRequest._refreshed) {
+      if (err.response?.status === 401) {
         if (isRefreshing) {
           return new Promise(function(resolve, reject) {
             requestQueue.push({ resolve, reject, url: originalRequest.url });

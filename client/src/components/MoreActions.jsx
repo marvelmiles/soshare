@@ -21,11 +21,13 @@ import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 
 const MoreActions = ({
-  document,
+  document = {
+    user: {}
+  },
   handleAction,
   Icon = MoreHorizIcon,
   title,
-  urls,
+  urls = {},
   isRO,
   btnSx,
   docType,
@@ -33,12 +35,16 @@ const MoreActions = ({
 }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const { isLoggedIn, isOwner, settings } = useSelector(state => {
+  const {
+    isLoggedIn,
+    isOwner,
+    settings: { hideDelDialog }
+  } = useSelector(state => {
     const currentUser = state.user.currentUser || {};
     return {
       isOwner: currentUser.id === document.user?.id,
       isLoggedIn: !!currentUser.id,
-      ...currentUser
+      settings: currentUser.settings || {}
     };
   });
   const { setSnackBar, setComposeDoc } = useContext();
@@ -59,11 +65,12 @@ const MoreActions = ({
   const handleDontRecommend = useCallback(async () => {
     if (isLoggedIn) {
       try {
+        console.log("black lsting ");
         setComposeDoc({
-          ...document,
           docType,
-          reason: "blacklisted-user",
-          action: "filter"
+          document: document.id,
+          uid: document.user.id,
+          reason: "filter"
         });
         await http.put(`/users/recommendation/blacklist/${document.user.id}`);
         setSnackBar({
@@ -71,17 +78,17 @@ const MoreActions = ({
           severity: "success"
         });
         setComposeDoc({
-          ...document,
           docType,
-          reason: "blacklisted-user",
-          action: "clear-cache"
+          document: document.id,
+          uid: document.user.id,
+          reason: "clear-cache"
         });
       } catch (msg) {
         setComposeDoc({
-          ...document,
           docType,
-          reason: "blacklisted-user",
-          action: "new"
+          document,
+          uid: document.user.id,
+          reason: "new"
         });
         setSnackBar(msg);
       }
@@ -89,37 +96,45 @@ const MoreActions = ({
   }, [docType, document, isLoggedIn, setComposeDoc, setSnackBar]);
 
   const _handleAction = useCallback(
-    async (reason, res) => {
-      if (reason === "mounted") {
-        if (res.open && res === "delete-dialog")
-          handleAction("update", {
-            id: document.id,
-            rootThread: document.rootThread,
-            pause: true
-          });
-        return;
-      }
+    reason => {
       const closeDialog = () => {
-        handleAction("update", {
-          id: document.id,
-          rootThread: document.rootThread,
-          pause: false
-        });
+        const taskId = setTimeout(() => {
+          handleAction("update", {
+            document: {
+              id: document.id,
+              rootThread: document.rootThread,
+              pause: false
+            }
+          });
+          clearTimeout(taskId);
+        }, 0);
         setOpenDeleteDialog(false);
       };
       closeDialog();
+
       switch (reason) {
         case "delete":
-          handleDelete(undefined, [document], { label: docType });
+          handleDelete(
+            undefined,
+            [
+              urls.delPath.idOnly || urls.idOnly || true
+                ? document.id
+                : document
+            ],
+            { label: docType }
+          );
           break;
       }
     },
-    [document, docType, handleAction, handleDelete]
+    [
+      document,
+      docType,
+      handleAction,
+      handleDelete,
+      urls.delPath.idOnly,
+      urls.idOnly
+    ]
   );
-
-  useEffect(() => {
-    // console.log(" composing...");
-  }, [document]);
 
   return (
     <>
@@ -174,7 +189,14 @@ const MoreActions = ({
             text: `Delete ${title}`,
             onClick: () => {
               if (!isLoggedIn) return setSnackBar();
-              if (settings.hideDelWarning) _handleAction("delete");
+              handleAction("update", {
+                document: {
+                  id: document.id,
+                  rootThread: document.rootThread,
+                  pause: true
+                }
+              });
+              if (hideDelDialog) _handleAction("delete");
               else setOpenDeleteDialog(true);
             }
           }
@@ -210,12 +232,12 @@ const MoreActions = ({
           )
         )}
       </Popover>
+
       <DeleteDialog
-        key={urls.delPath + document.id}
         open={openDeleteDialog}
         openFor="delete"
+        title="short"
         handleAction={_handleAction}
-        title={title}
       />
     </>
   );

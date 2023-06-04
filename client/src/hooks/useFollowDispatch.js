@@ -5,27 +5,34 @@ import { useSelector, useDispatch } from "react-redux";
 import { updateUser, updatePreviewUser } from "context/slices/userSlice";
 
 export default (user, priority = "toggle", following) => {
-  const ffl = useSelector(state => state.currentUser?.following);
-  const _following = useMemo(() => following || ffl, [following, ffl]);
+  const ffl = useSelector(
+    ({ user: { currentUser } }) => currentUser?.following
+  );
+  const { _following, isFollowing } = useMemo(() => {
+    const _following = following || ffl;
+    return {
+      _following,
+      isFollowing: user
+        ? _following
+          ? {
+              toggle: _following.includes(user.id),
+              follow: false,
+              unfollow: true
+            }[priority]
+          : false
+        : false
+    };
+  }, [following, ffl, priority, user]);
   const dispatch = useDispatch();
   const { setSnackBar } = useContext();
   const [activeFollowId, setActiveFollowId] = useState("");
-  const [isFollowing, setIsFollowing] = useState(
-    user
-      ? _following
-        ? {
-            toggle: _following.includes(user.id),
-            follow: false,
-            unfollow: true
-          }[priority]
-        : false
-      : false
-  );
+
   const stateRef = useRef({});
 
   const toggleFollow = useCallback(
     async (e, _user, _isFollowing) => {
       if (e) e.stopPropagation();
+
       if (_following) {
         _user = _user || user;
         _isFollowing =
@@ -36,13 +43,6 @@ export default (user, priority = "toggle", following) => {
         const prop = {};
         const updateFollowMe = (isFollowing, filter) => {
           setActiveFollowId(_user.id);
-          setIsFollowing(
-            {
-              toggle: !isFollowing,
-              follow: false,
-              unfollow: true
-            }[priority]
-          );
           dispatch(
             updatePreviewUser({
               followUser: {
@@ -56,6 +56,7 @@ export default (user, priority = "toggle", following) => {
           prop.following = isFollowing
             ? _following.filter(id => id !== _user.id)
             : [_user.id, ..._following];
+
           dispatch(updateUser(prop));
           setActiveFollowId("");
         };
@@ -65,6 +66,7 @@ export default (user, priority = "toggle", following) => {
             `/users/${_user.id}/${_isFollowing ? "unfollow" : "follow"}`
           );
         } catch (message) {
+          console.log("message ", message);
           setSnackBar(message);
           updateFollowMe(!_isFollowing, true);
         } finally {
@@ -80,6 +82,8 @@ export default (user, priority = "toggle", following) => {
     isFollowing,
     isLoggedIn: !!_following,
     following: _following,
-    isProcessingFollow: activeFollowId === user?.id
+    isProcessingFollow: user
+      ? activeFollowId === user.id
+      : stateRef.current.isProc
   };
 };

@@ -20,6 +20,7 @@ export default ({ handleAction, document = {}, docType }) => {
           if (likedDoc) delete likes[cid];
           else likes[cid] = true;
           handleAction && handleAction("update", { id, likes, rootThread });
+
           await http.patch(
             `/${docType}s/${id}/${likedDoc ? "dislike" : "like"}`
           );

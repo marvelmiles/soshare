@@ -16,13 +16,9 @@ export default (config = {}) => {
       opt.label = `${opt.label || "selection"}${ids.length > 1 ? "s" : ""}`;
       for (let _id of ids) {
         setActiveDelItem(opt.activeItem || _id.id || _id);
-        if (!_id.document.id) {
-          console.log(_id, " use deleete ");
-        }
-        handleAction && handleAction("filter", _id);
+        handleAction && handleAction("filter", { document: _id });
       }
       handleAction("close");
-      console.log(" deleting.. ");
       for (let _id of ids) {
         const id = _id.id || _id;
         try {
@@ -32,12 +28,13 @@ export default (config = {}) => {
             : _url + `/${id}`;
 
           const t = await http.delete(_url, opt._httpConfig || httpConfig);
-          handleAction && handleAction("clear-cache", id, i);
+
+          handleAction && handleAction("clear-cache", { document: _id });
         } catch (message) {
           if (message === CANCELED_REQUEST_MSG) continue;
           else {
             errCount++;
-            handleAction && handleAction("new", id, "delete");
+            handleAction && handleAction("new", { document: _id });
           }
         } finally {
           i++;

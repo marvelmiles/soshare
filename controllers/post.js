@@ -10,22 +10,7 @@ import {
 } from "../utils/req-res-hooks.js";
 import { Types } from "mongoose";
 import { deleteFile } from "../utils/file-handlers.js";
-
-const serializePostBody = req => {
-  if (!(req.files.length || req.body.text))
-    throw createError("Invalid body expect a file list or text key value");
-  if (req.files.length)
-    req.body.medias = req.files.map(f => ({
-      id: new Types.ObjectId().toString(),
-      url: f.publicUrl,
-      mimetype: f.mimetype
-    }));
-  else req.body.medias = [];
-  if (req.body.text?.length > 390) {
-    req.body.moreText = req.body.text.slice(391, 700);
-    req.body.text = req.body.text.slice(0, 391);
-  }
-};
+import { serializePostBody } from "../utils/serializers.js";
 
 export const createPost = async (req, res, next) => {
   try {
@@ -33,21 +18,20 @@ export const createPost = async (req, res, next) => {
     req.body.user = req.user.id;
     serializePostBody(req);
     let post = await new Post(req.body).save();
-    await User.updateOne(
-      {
-        _id: post.user
-      },
+    const user = await User.findByIdAndUpdate(
+      post.user,
       {
         $inc: {
-          postsCount: 1
+          postCount: 1
         }
-      }
+      },
+      { new: true }
     );
-    post = await post.populate("user");
+    post.user = user;
     res.json(post);
     const io = req.app.get("socketIo");
-    if (io && post.visibility !== "private") {
-      io.emit("post", post);
+    if (io) {
+      post.visibility !== "private" && io.emit("post", post);
       io.emit("update-user", post.user);
     }
   } catch (err) {
@@ -60,7 +44,8 @@ export const getFeedPosts = async (req, res, next) => {
     model: Post,
     req,
     res,
-    next
+    next,
+    verify: true
   });
 };
 
