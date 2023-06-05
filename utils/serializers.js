@@ -2,8 +2,8 @@ import { Types } from "mongoose";
 import { createError } from "./error.js";
 import User from "../models/User.js";
 
-export const serializePostBody = req => {
-  if (!(req.files.length || req.body.text))
+export const serializePostBody = (req, withErr = true) => {
+  if (withErr && !(req.files.length || req.body.text))
     throw createError("Invalid body expect a file list or text key value");
   if (req.files.length)
     req.body.medias = req.files.map(f => ({

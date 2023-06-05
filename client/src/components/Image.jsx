@@ -6,12 +6,13 @@ const Image = ({ sx, nativeFile, src, ...props }) => {
   const [url, setUrl] = useState(null);
   useEffect(() => {
     let url;
-    if (src) {
-      setUrl(src);
-    } else if (nativeFile) {
+
+    if (src) setUrl(src);
+    else if (nativeFile) {
       url = URL.createObjectURL(nativeFile);
       setUrl(url);
     }
+
     return () => url && URL.revokeObjectURL(url);
   }, [nativeFile, src]);
   return url ? (

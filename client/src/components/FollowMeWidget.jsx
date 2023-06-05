@@ -96,6 +96,8 @@ const FollowMeWidget = ({
   // }, [previewUser?.followUser, _handlerAction, priority, userId]);
 
   useEffect(() => {
+    const isSuggest = priority === "follow";
+
     const toggleFollowing = toFollow => ({ to, from }) => {
       const isFrm = from.id === userId;
       const isTo = to.id === userId;
@@ -119,7 +121,7 @@ const FollowMeWidget = ({
     };
 
     const suggestFollowers = data => {
-      if (priority === "follow" && !stateRef.current[priority]) {
+      if (!stateRef.current[priority]) {
         stateRef.current[priority] = true;
         infiniteScrollRef.current.setData({
           ...data,
@@ -134,10 +136,13 @@ const FollowMeWidget = ({
 
     socket.on("unfollow", handleUnfollow);
     socket.on("follow", handleFollow);
-    socket.on("suggest-followers", suggestFollowers);
+    isSuggest && socket.on("suggest-followers", suggestFollowers);
 
     return () => {
-      socket.removeEventListener("suggest-followers", suggestFollowers);
+      if (isSuggest) {
+        socket.emit("disconnect-suggest-followers-task");
+        socket.removeEventListener("suggest-followers", suggestFollowers);
+      }
       socket.removeEventListener("follow", handleFollow);
       socket.removeEventListener("unfollow", handleUnfollow);
     };

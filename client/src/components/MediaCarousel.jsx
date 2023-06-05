@@ -74,6 +74,7 @@ const MediaCarousel = forwardRef(
     );
     if (!medias.length) return null;
     height = medias ? height : "0px";
+
     return (
       <Box
         onClick={e => e.preventDefault()}

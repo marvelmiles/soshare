@@ -50,7 +50,7 @@ const Post = () => {
   const stateRef = useRef({});
 
   const _handleAction = useCallback(
-    (reason, res) => {
+    (reason, { document, value, ...rest }) => {
       switch (reason) {
         case "filter":
           navigate(-1);
@@ -60,15 +60,16 @@ const Post = () => {
             if (post.comments.length <= post.comments.length - 1) return;
             return {
               ...post,
-              comments: removeFirstItemFromArray(res, post.comments)
+              comments: removeFirstItemFromArray(value, post.comments)
             };
           });
           break;
         case "update":
-          setPost(post => ({
-            ...post,
-            ...res
-          }));
+          // console.log(document, rest);
+          // setPost(post => ({
+          //   ...post,
+          //   ...document
+          // }));
           break;
         default:
           break;
@@ -87,7 +88,8 @@ const Post = () => {
     };
 
     const handleUpdate = document => {
-      post?.id === document.id && _handleAction("update", document);
+      return;
+      post?.id === document.id && _handleAction("update", { document });
     };
     socket.on(`update-${docType}`, handleUpdate);
     socket.on(`filter-${docType}`, handleFilter);
@@ -122,6 +124,7 @@ const Post = () => {
         <>
           {isEditMode ? (
             <InputBox
+              resetData={false}
               showDeleteBtn
               placeholder={isShort ? "Short description" : undefined}
               handleAction={_handleAction}

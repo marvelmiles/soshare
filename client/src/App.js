@@ -51,14 +51,13 @@ const App = () => {
   useEffect(() => {
     socket.connect();
 
-    socket.on("register-user", () =>
-      socket.emit("register-user", cid, () => setReadyState("ready"))
-    );
+    const handleRegUser = () =>
+      socket.emit("register-user", cid, () => setReadyState("ready"));
 
-    socket.on("bare-connection", () => setReadyState("ready"));
+    const handleBareConnect = () => setReadyState("ready");
 
     let handlingErr;
-    socket.on("connect_error", error => {
+    const handleSocketErr = error => {
       console.log(" err ");
       if (handlingErr) return;
       handlingErr = true;
@@ -77,9 +76,20 @@ const App = () => {
         default:
           break;
       }
-    });
+    };
+
+    socket.on("register-user", handleRegUser);
+    socket.on("bare-connection", handleBareConnect);
+    socket.on("connect_error", handleSocketErr);
+
     return () => {
-      socket.connected && socket.disconnect();
+      socket.disconnect();
+
+      socket
+        .removeEventListener("register-user", handleRegUser)
+        .removeEventListener("bare-connection", handleBareConnect)
+        .removeEventListener("connect_error", handleSocketErr);
+
       handleCancelRequest();
     };
   }, [cid]);

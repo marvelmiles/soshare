@@ -18,6 +18,7 @@ export default (config = {}) => {
         setActiveDelItem(opt.activeItem || _id.id || _id);
         handleAction && handleAction("filter", { document: _id });
       }
+      setActiveDelItem("");
       handleAction("close");
       for (let _id of ids) {
         const id = _id.id || _id;
@@ -38,7 +39,6 @@ export default (config = {}) => {
           }
         } finally {
           i++;
-          if (i === ids.length) setActiveDelItem("");
         }
       }
       if (errCount)
@@ -55,6 +55,7 @@ export default (config = {}) => {
   );
   return {
     handleDelete,
-    activeDelItem
+    activeDelItem,
+    isProcessingDelete: !!activeDelItem
   };
 };

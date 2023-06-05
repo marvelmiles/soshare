@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 
 export const isEmail = str => {
   return /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/i.test(
@@ -51,13 +51,17 @@ export const toSeconds = (duration, shallow = true) => {
   }
 };
 
-export const mergeFileList = (a, b) => {
+export const mergeFileList = (a = "", b = "") => {
   const dt = new DataTransfer();
-  const { files } = a;
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    dt.items.add(file);
+  for (let i = 0; i < a.length; i++) {
+    dt.items.add(a[i]);
   }
+  if (b.length) {
+    for (let i = 0; i < b.length; i++) {
+      dt.items.add(b[i]);
+    }
+  } else if (b) dt.items.add(b);
+
   return dt.files;
 };
 
@@ -69,9 +73,10 @@ export const splitNumberAndText = input => {
   return { number, text };
 };
 
-export const isFileList = obj => {
+export const isFileList = (obj, strict) => {
   return (
-    obj && (obj.toString() === "[object FileList]" || obj[0] instanceof File)
+    obj &&
+    (obj.toString() === "[object FileList]" || (strict ? false : obj.length))
   );
 };
 
@@ -85,7 +90,6 @@ const useForm = (config = {}) => {
     mergeFile = false,
     keepNonStrongPwdStatus,
     dataSize,
-    withPlaceholders = true,
     strictStateCheck = true,
     maxUpload,
     maxDuration,
@@ -93,10 +97,13 @@ const useForm = (config = {}) => {
   } = config;
   const [stateChanged, setStateChanged] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState(withPlaceholders && placeholders);
+  const [formData, setFormData] = useState(placeholders);
   const [errors, setErrors] = useState({});
+  const stateRef = useRef({
+    inputs: {}
+  });
 
-  const deletePathFromObject = (obj, key, dataName, dataType) => {
+  const deletePathFromObject = (obj, key, dataName, dataType, delInput) => {
     switch (dataType) {
       case "object":
         if (obj[key]) {
@@ -108,17 +115,26 @@ const useForm = (config = {}) => {
         delete obj[key];
         break;
     }
+    delInput && delete stateRef.current.inputs[key];
   };
 
   const handleSubmit = useCallback(
-    e => {
+    (e, excludeSet) => {
       if (e && (e.currentTarget || e.target)) {
         e.preventDefault();
         e.stopPropagation();
       }
+
       if (stateChanged || required) {
+        const inputsOnly = true;
+        if (excludeSet)
+          for (const key of excludeSet) {
+            delete (inputsOnly ? stateRef.current.inputs : formData)[key];
+          }
+
         let form = returnFormObject ? new FormData() : undefined;
-        if (formData) {
+
+        if (inputsOnly ? Object.keys(stateRef.current.inputs) : formData) {
           const validate = (key, formName, dataType) => {
             let _required;
             if (exclude) {
@@ -165,14 +181,18 @@ const useForm = (config = {}) => {
               deletePathFromObject(errors, key, formName, dataType);
             if (keyValue) {
               if (form) {
+                console.log(keyValue, dataType, isFileList(keyValue));
+
                 let isFilelist;
                 if (
                   dataType === "object" ||
-                  (isFilelist = isFileList(keyValue))
+                  (isFilelist =
+                    stateRef.current[key + "-as-array"] ||
+                    isFileList(keyValue, true))
                 ) {
                   for (let prop in keyValue) {
                     if (isFilelist) {
-                      if (Number(prop) > -1)
+                      if (Number(prop) > -1 && keyValue[prop] instanceof File)
                         form.append(`${key}`, keyValue[prop]);
                     } else {
                       if (!form.get(`${key}[${prop}]`))
@@ -181,13 +201,16 @@ const useForm = (config = {}) => {
                   }
                 } else form.set(key, keyValue);
               }
-            } else deletePathFromObject(formData, key, formName, dataType);
+            } else
+              deletePathFromObject(formData, key, formName, dataType, true);
           };
 
-          for (let key in {
-            ...formData,
-            ...required
-          }) {
+          for (let key in inputsOnly
+            ? stateRef.current.inputs
+            : {
+                ...formData,
+                ...required
+              }) {
             const dataType = config.dataType?.[key];
             switch (dataType) {
               case "object":
@@ -397,14 +420,15 @@ const useForm = (config = {}) => {
               };
               if (maxDuration) validateFileMax(maxDuration, "duration");
               if (maxUpload) validateFileMax(maxUpload, "upload");
-              if (node.multiple) {
-                if (mergeFile && keyValue) {
+              if (node.multiple && keyValue) {
+                if (mergeFile) {
                   if (returnFilesArray) {
-                    const isList = keyValue.length;
-                    if (isList) keyValue = Array.from(value);
-                    else keyValue = Array.from(value).concat(keyValue);
-                  } else mergeFileList(value, keyValue);
-                } else if (returnFilesArray) keyValue = Array.from(value);
+                    stateRef.current[key + "-as-array"] = true;
+                    keyValue = Array.from(formData[key] || "").concat(
+                      keyValue.length ? Array.from(keyValue) : keyValue
+                    );
+                  } else mergeFileList(formData[key], keyValue);
+                } else if (returnFilesArray) keyValue = Array.from(keyValue);
               }
             } else {
               keyValue = formData[key];
@@ -535,7 +559,7 @@ const useForm = (config = {}) => {
             addError(typeof _required === "string" ? _required : "required");
             detStateChange();
           } else if (formData) {
-            deletePathFromObject(formData, key, dataName, dataType);
+            deletePathFromObject(formData, key, dataName, dataType, true);
             setErrors(errors => {
               deletePathFromObject(errors, key, dataName, dataType);
               detStateChange(errors, " y ");
@@ -545,6 +569,8 @@ const useForm = (config = {}) => {
             });
           }
         }
+
+        stateRef.current.inputs[key] = 1;
         return formData;
       });
     },

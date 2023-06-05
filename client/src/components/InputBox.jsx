@@ -61,7 +61,7 @@ const InputBox = ({
   urls = {},
   maxUpload = "500mb",
   maxDuration = "12h",
-  withPlaceholders,
+  withPlaceholders = true,
   fileId,
   docType = "post"
 }) => {
@@ -100,9 +100,9 @@ const InputBox = ({
   const stateRef = useRef({
     currentSlide: 0,
     visibility: formData.visibility || "everyone",
-    excludeMedias: [],
+    filteredMedias: "",
     key: fileId || `input-box-file-dialog-${new Date().getTime()}`
-  }).current;
+  });
   const dispatch = useDispatch();
   const actionBtnSx = {
     alignItems: "center",
@@ -113,13 +113,51 @@ const InputBox = ({
     }
   };
 
-  const deleteMedia = useCallback(() => {
-    if (formData[mediaRefName]) {
-      if (multiple) {
-        if (dialog.multiple) {
-          formData[mediaRefName].forEach(m => {
-            placeholders && stateRef.excludeMedias.push(m.id);
-          });
+  const deleteMedia = useCallback(
+    _multiple => {
+      if (formData[mediaRefName]) {
+        console.log("deleting media ", multiple, dialog.multiple, _multiple);
+        const stateCtx = stateRef.current;
+
+        if (multiple) {
+          if (dialog.multiple || _multiple) {
+            formData[mediaRefName].forEach(m => {
+              if (placeholders) {
+                stateCtx.filteredMedias += `${
+                  stateCtx.filteredMedias.length ? "," : ""
+                }${m.id}`;
+              }
+            });
+            formData[mediaRefName] = [];
+            setErrors(errors => {
+              delete errors[mediaRefName + "-duration"];
+              delete errors[mediaRefName + "-upload"];
+              return {
+                ...errors
+              };
+            });
+          } else {
+            if (placeholders)
+              stateCtx.filteredMedias += `${
+                stateCtx.filteredMedias.length ? "," : ""
+              }${formData[mediaRefName][currentSlide].id}`;
+            delete formData[mediaRefName].splice(currentSlide, 1);
+            setErrors(errors => {
+              if (errors[mediaRefName + "-duration"])
+                delete errors[mediaRefName + "-duration"][currentSlide];
+              if (errors[mediaRefName + "-upload"])
+                delete errors[mediaRefName + "-upload"][currentSlide];
+              return {
+                ...errors
+              };
+            });
+            const slide = currentSlide ? currentSlide - 1 : 0;
+            setCurrentSlide(slide);
+            mediaCarouselRef.current.goToSlide(slide);
+          }
+          if (!formData[mediaRefName].length) delete formData[mediaRefName];
+        } else {
+          delete formData[mediaRefName];
           setErrors(errors => {
             delete errors[mediaRefName + "-duration"];
             delete errors[mediaRefName + "-upload"];
@@ -127,64 +165,34 @@ const InputBox = ({
               ...errors
             };
           });
-          formData[mediaRefName] = [];
-        } else {
-          if (placeholders)
-            stateRef.excludeMedias.push(
-              formData[mediaRefName][currentSlide].id
-            );
-          delete formData[mediaRefName].splice(currentSlide, 1);
-          setErrors(errors => {
-            if (errors[mediaRefName + "-duration"])
-              delete errors[mediaRefName + "-duration"][currentSlide];
-            if (errors[mediaRefName + "-upload"])
-              delete errors[mediaRefName + "-upload"][currentSlide];
-            return {
-              ...errors
-            };
-          });
-          setCurrentSlide(currentSlide => {
-            if (currentSlide) {
-              currentSlide = currentSlide - 1;
-              mediaCarouselRef.current.goToSlide(currentSlide);
-            }
-          });
         }
-        if (!formData[mediaRefName].length) delete formData[mediaRefName];
+        if (!formData[mediaRefName]) fileRef.current.value = "";
+        reset(
+          { ...formData },
+          {
+            stateChanged: !!formData.text,
+            resetErrors: !formData[mediaRefName] && !formData.text
+          }
+        );
+        setDialog(dialog => ({
+          ...dialog,
+          open: false
+        }));
       } else {
-        delete formData[mediaRefName];
-        setErrors(errors => {
-          delete errors[mediaRefName + "-duration"];
-          delete errors[mediaRefName + "-upload"];
-          return {
-            ...errors
-          };
-        });
+        console.log(" no medid ");
       }
-      if (!formData[mediaRefName]) fileRef.current.value = "";
-      reset(
-        { ...formData },
-        {
-          stateChanged: !!formData.text,
-          resetErrors: !formData[mediaRefName] && !formData.text
-        }
-      );
-      setDialog(dialog => ({
-        ...dialog,
-        open: false
-      }));
-    }
-  }, [
-    formData,
-    mediaRefName,
-    placeholders,
-    stateRef,
-    reset,
-    dialog?.multiple,
-    currentSlide,
-    multiple,
-    setErrors
-  ]);
+    },
+    [
+      formData,
+      mediaRefName,
+      placeholders,
+      reset,
+      dialog?.multiple,
+      currentSlide,
+      multiple,
+      setErrors
+    ]
+  );
 
   const showDelDialog = (openFor = "delete", multiple, e) => {
     if (e) e.stopPropagation();
@@ -196,7 +204,9 @@ const InputBox = ({
     });
   };
 
-  const { handleDelete, activeDelItem } = useDeleteDispatch({ handleAction });
+  const { handleDelete, isProcessingDelete } = useDeleteDispatch({
+    handleAction
+  });
 
   const _handleAction = useCallback(
     async (reason, data) => {
@@ -248,19 +258,24 @@ const InputBox = ({
           e.preventDefault();
         }
         if (!currentUser.id) return setSnackBar();
+
+        const stateCtx = stateRef.current;
         const _formData = handleSubmit();
         if (_formData) {
-          multiple &&
-            placeholders &&
-            _formData.append("excludeMedias", stateRef.excludeMedias);
-          handleAction && handleAction("temp-data", formData, url);
+          let _url =
+            url +
+            `?filteredMedias=${
+              multiple && placeholders ? stateCtx.filteredMedias : ""
+            }`;
+          handleAction && handleAction("temp-data", formData, _url);
           const file = _formData.get(`${mediaRefName}[0]`);
           const f = _formData.getAll(`${mediaRefName}`);
-          console.log(!!file, f.length, _formData);
+
           let res = await http[method ? method : placeholders ? "put" : "post"](
-            url,
+            _url,
             _formData
           );
+          console.log(res);
           setSnackBar({
             message:
               message && message.success
@@ -270,6 +285,7 @@ const InputBox = ({
                 : `Your ${mediaRefName} has been uploaded!`,
             severity: "success"
           });
+
           if (placeholders && !res[mediaRefName] && res.url) {
             res = {
               ...res,
@@ -280,7 +296,15 @@ const InputBox = ({
               }
             };
           }
-          reset(withPlaceholders ? placeholders : resetData ? undefined : res);
+
+          reset(
+            withPlaceholders
+              ? { ...placeholders, ...res }
+              : resetData
+              ? undefined
+              : res
+          );
+
           if (handleAction)
             handleAction(placeholders ? "update" : "new", { document: res });
           else
@@ -298,8 +322,7 @@ const InputBox = ({
           let err;
           err = `Failed to upload`;
           for (let i = 0; i < msg.length; i++) {
-            const index = msg[i].errIndex;
-            err += ` ${formData[mediaRefName][index].name}${
+            err += ` ${msg[i].file.originalname}${
               i === msg.length - 1 ? "." : ","
             }`;
           }
@@ -325,7 +348,6 @@ const InputBox = ({
       reset,
       resetData,
       setSnackBar,
-      stateRef.excludeMedias,
       url,
       withPlaceholders,
       setComposeDoc,
@@ -389,11 +411,19 @@ const InputBox = ({
       else setSnackBar(`Maximum duration or upload size exceeded!`);
     }
   }, [errors, mediaRefName, setSnackBar]);
-  const disabled = isSubmitting || activeDelItem === placeholders?.id;
+
+  const disabled = isSubmitting || isProcessingDelete;
+
+  const handleDeleteAll = e => {
+    e.stopPropagation();
+    if (currentUser.settings.hideDelMediasDialog) deleteMedia(true);
+    else showDelDialog("delete-temp", true);
+  };
+
   return (
     <>
       <WidgetContainer
-        key={stateRef.key}
+        key={stateRef.current.key}
         sx={{
           px: 0,
           ...sx,
@@ -518,7 +548,7 @@ const InputBox = ({
                     data-max={max}
                   />
                   <Typography style={{ float: "right" }}>
-                    {formData.text?.length || 0} / {max}
+                    {(formData.text || "").length || 0} / {max}
                   </Typography>
                 </div>
               )}
@@ -526,6 +556,11 @@ const InputBox = ({
           </Stack>
           {hideTextArea ? null : <Divider sx={{ my: 1 }} />}
           <MediaCarousel
+            medias={
+              multiple
+                ? formData[mediaRefName]
+                : formData[mediaRefName] && [formData[mediaRefName]]
+            }
             showIndicator={multiple && showIndicator}
             ref={mediaCarouselRef}
             beforeChange={setCurrentSlide}
@@ -540,12 +575,7 @@ const InputBox = ({
                       color: "common.light",
                       background: blend
                     }}
-                    onClick={e => {
-                      e.stopPropagation();
-                      if (currentUser.settings.hideDelMediasDialog)
-                        deleteMedia();
-                      else showDelDialog("delete-temp", true);
-                    }}
+                    onClick={handleDeleteAll}
                   >
                     <CloseIcon />
                   </IconButton>
@@ -571,18 +601,13 @@ const InputBox = ({
                 undefined
               )
             }
-            medias={
-              multiple
-                ? formData[mediaRefName]
-                : formData[mediaRefName] && [formData[mediaRefName]]
-            }
           />
           <Stack mt={1} px={2}>
             <input
               multiple={multiple}
               name={mediaRefName}
               ref={fileRef}
-              id={stateRef.key}
+              id={stateRef.current.key}
               type="file"
               accept={
                 {
@@ -603,7 +628,7 @@ const InputBox = ({
                     s280: "inline-flex"
                   }
                 }}
-                htmlFor={stateRef.key}
+                htmlFor={stateRef.current.key}
               >
                 <ImageOutlinedIcon />
                 <Typography>Media</Typography>
@@ -679,7 +704,7 @@ const InputBox = ({
             {
               icon: ImageOutlinedIcon,
               title: "Media",
-              htmlFor: stateRef.key,
+              htmlFor: stateRef.current.key,
               component: "label",
               display: {
                 xs: "flex",

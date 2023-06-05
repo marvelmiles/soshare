@@ -102,29 +102,43 @@ export default (app, port = process.env.PORT || 8800) => {
     }
   });
   io.on("connection", socket => {
-    if (socket.handshake.withCookies) {
-      !socket.handshake.userId && io.emit("register-user");
-      socket.on("register-user", (id, cb) => {
-        if (id) {
-          socket.handshake.userId = id;
-          socket.join(id);
-          typeof cb === "function" && cb();
-        } else socket.emit("bare-connection");
-      });
-    } else socket.emit("bare-connection");
-    socket.on("disconnect", () => {
-      console.clear();
-      socket.leave(socket.handshake.userId);
+    const handleRegUser = (id, cb) => {
+      if (id) {
+        socket.handshake.userId = id;
+        socket.join(id);
+        typeof cb === "function" && cb();
+      } else socket.emit("bare-connection");
+    };
 
+    const stopSuggestFollowersTask = () => {
       if (socket.handshake.suggestFollowersTime)
         clearTimeout(socket.handshake.suggestFollowersTime);
 
       if (socket.handshake.suggestFollowersInterval)
         clearInterval(socket.handshake.suggestFollowersInterval);
-      delete socket.handshake.withCookies;
-      delete socket.handshake.userId;
+
       delete socket.handshake.suggestFollowersTime;
       delete socket.handshake.suggestFollowersInterval;
+    };
+
+    if (socket.handshake.withCookies) {
+      !socket.handshake.userId && io.emit("register-user");
+      socket.on("register-user", handleRegUser);
+    } else socket.emit("bare-connection");
+
+    socket.on("disconnect-suggest-followers-task", stopSuggestFollowersTask);
+
+    socket.on("disconnect", () => {
+      console.clear();
+
+      socket.removeAllListeners();
+
+      socket.leave(socket.handshake.userId);
+
+      stopSuggestFollowersTask();
+
+      delete socket.handshake.withCookies;
+      delete socket.handshake.userId;
     });
   });
   httpServer.listen(port, () => console.log(`App listening on port ${port}`));

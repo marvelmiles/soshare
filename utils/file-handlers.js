@@ -50,8 +50,10 @@ export const uploadFile = (config = {}) => {
         else if (req.files) {
           const errs = [];
           for (let i = 0; i < req.files.length; i++) {
+            let file;
             try {
-              req.files[i] = await uploadToFirebase(req.files[i], config);
+              file = req.files[i];
+              req.files[i] = await uploadToFirebase(file, config);
             } catch (err) {
               if (req.query.sequentialEffect === "true") throw err;
               else {
@@ -60,7 +62,12 @@ export const uploadFile = (config = {}) => {
                   status: err.status,
                   name: err.name,
                   code: err.code,
-                  errIndex: i
+                  errIndex: i,
+                  file: {
+                    ...file,
+                    buffer: undefined,
+                    stream: undefined
+                  }
                 });
               }
             }

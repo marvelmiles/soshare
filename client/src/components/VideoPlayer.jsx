@@ -110,11 +110,9 @@ const VideoPlayer = ({
 
   useEffect(() => {
     let url;
-    if (stateRef.current.reloadTimer)
-      clearTimeout(stateRef.current.reloadTimer);
-    if (src) {
-      setVideoUrl(mp4 || src);
-    } else if (nativeFile) {
+
+    if (src) setVideoUrl(mp4 || src);
+    else if (nativeFile) {
       url = URL.createObjectURL(nativeFile);
       setVideoUrl(url);
     }

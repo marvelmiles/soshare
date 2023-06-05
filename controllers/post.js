@@ -63,22 +63,30 @@ export const getPost = async (req, res, next) => {
 
 export const updatePost = async (req, res, next) => {
   try {
-    serializePostBody(req);
+    console.log(req.body, " update post ");
+    serializePostBody(req, false);
     let medias = (await Post.findOne({
       _id: req.params.id
     })).medias;
-    if (req.body.excludeMedias) {
-      for (const id of req.body.excludeMedias.split(",")) {
+    const filteredMedias = [];
+    if (req.query.filteredMedias) {
+      for (const id of req.query.filteredMedias.split(",")) {
         medias = medias.filter(m => {
           if (id === m.id) {
-            deleteFile(m.url);
+            filteredMedias.push(m.url);
             return false;
           }
           return true;
         });
       }
     }
-    req.body.medias = req.body.medias.concat(medias);
+
+    req.body.medias = Array.isArray(req.body.medias)
+      ? req.body.medias.concat(medias)
+      : medias;
+    console.log(req.body.medias.length);
+    delete req.body.medias;
+
     const post = await Post.findOneAndUpdate(
       {
         _id: req.params.id
@@ -89,6 +97,9 @@ export const updatePost = async (req, res, next) => {
     const io = req.app.get("socketIo");
     if (io && post.visibility !== "private") io.emit("update-post", post);
     res.json(post);
+    for (const url of filteredMedias) {
+      deleteFile(url);
+    }
   } catch (err) {
     next(err);
   }
