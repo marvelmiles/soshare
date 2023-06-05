@@ -78,7 +78,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
 
   const _handleAction = useCallback(
     (reason, res, info) => {
-      const addComment = () => {
+      const appendDoc = () => {
         stateRef.current.path = undefined;
         res.reason = reason;
         if (!res.docType && state) res.docType = state.docType;
@@ -93,10 +93,10 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           stateRef.current.path = info;
           return;
         case "new":
-          addComment();
+          appendDoc();
           break;
         case "update":
-          if (compose === "comment") addComment();
+          if (compose === "comment") appendDoc();
           break;
         case "context":
           setContext(context => ({
@@ -232,7 +232,9 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
             <DialogContent sx={{ p: 0 }} ref={scrollNodeRef}>
               <PostWidget post={state.composeDoc} enableSnippet />
               <InputBox
-                resetData
+                withPlaceholders={false}
+                submitInputsOnly={false}
+                resetData={false}
                 method="post"
                 accept=".jpg,.jpeg,.png,.gif"
                 url={`/comments/new/${state.docType || "post"}?ro=${

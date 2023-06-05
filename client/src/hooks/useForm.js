@@ -93,7 +93,8 @@ const useForm = (config = {}) => {
     strictStateCheck = true,
     maxUpload,
     maxDuration,
-    withRequired = true
+    withRequired = true,
+    inputsOnly = true
   } = config;
   const [stateChanged, setStateChanged] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -126,7 +127,6 @@ const useForm = (config = {}) => {
       }
 
       if (stateChanged || required) {
-        const inputsOnly = true;
         if (excludeSet)
           for (const key of excludeSet) {
             delete (inputsOnly ? stateRef.current.inputs : formData)[key];
@@ -181,7 +181,7 @@ const useForm = (config = {}) => {
               deletePathFromObject(errors, key, formName, dataType);
             if (keyValue) {
               if (form) {
-                console.log(keyValue, dataType, isFileList(keyValue));
+                // console.log(keyValue, dataType, isFileList(keyValue));
 
                 let isFilelist;
                 if (
@@ -253,7 +253,8 @@ const useForm = (config = {}) => {
       exclude,
       returnFormObject,
       config.dataType,
-      keepNonStrongPwdStatus
+      keepNonStrongPwdStatus,
+      inputsOnly
     ]
   );
 

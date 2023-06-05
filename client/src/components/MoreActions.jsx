@@ -98,16 +98,13 @@ const MoreActions = ({
   const _handleAction = useCallback(
     reason => {
       const closeDialog = () => {
-        const taskId = setTimeout(() => {
-          handleAction("update", {
-            document: {
-              id: document.id,
-              rootThread: document.rootThread,
-              pause: false
-            }
-          });
-          clearTimeout(taskId);
-        }, 0);
+        handleAction("update", {
+          document: {
+            id: document.id,
+            rootThread: document.rootThread,
+            pause: false
+          }
+        });
         setOpenDeleteDialog(false);
       };
       closeDialog();
@@ -116,11 +113,7 @@ const MoreActions = ({
         case "delete":
           handleDelete(
             undefined,
-            [
-              urls.delPath.idOnly || urls.idOnly || true
-                ? document.id
-                : document
-            ],
+            [urls.delPath.idOnly || urls.idOnly ? document.id : document],
             { label: docType }
           );
           break;

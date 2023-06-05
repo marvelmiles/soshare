@@ -250,7 +250,22 @@ const InfiniteScroll = React.forwardRef(
                         data: data.data.concat(addToSet(_data.data))
                       };
                       stateRef.current.shallowUpdate = false;
-                      // console.log(currentData.data);
+                      // const _d = (() => {
+                      //   const y = [];
+                      //   for (let i = 0; i < 50; i++) {
+                      //     const v = currentData.data[0];
+                      //     const f = {
+                      //       ...v
+                      //     };
+                      //     f.threads = [v, v, v, v, v, v, v];
+                      //     y.push(f);
+                      //   }
+
+                      //   return y;
+                      // })();
+                      // _d[25].id = "12345";
+
+                      // console.log(_d);
                       return currentData;
                     });
                   }

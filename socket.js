@@ -23,6 +23,13 @@ export default (app, port = process.env.PORT || 8800) => {
     //     likes: {}
     //   });
     // }
+    // await Post.updateMany(
+    //   {},
+    //   {
+    //     comments: [],
+    //     likes: {}
+    //   }
+    // );
     // await Short.updateMany(
     //   {},
     //   {
@@ -30,7 +37,7 @@ export default (app, port = process.env.PORT || 8800) => {
     //     likes: {}
     //   }
     // );
-    // await Comment.deleteMany({});
+
     // const shorts = await Short.find({});
     // for (const short of shorts) {
     //   await short.updateOne({

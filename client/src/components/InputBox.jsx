@@ -63,6 +63,7 @@ const InputBox = ({
   maxDuration = "12h",
   withPlaceholders = true,
   fileId,
+  submitInputsOnly,
   docType = "post"
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -87,6 +88,7 @@ const InputBox = ({
   } = useForm({
     placeholders,
     required,
+    inputsOnly: submitInputsOnly,
     returnFormObject: true,
     returnFilesArray: true,
     mergeFile: multiple,
@@ -261,6 +263,7 @@ const InputBox = ({
 
         const stateCtx = stateRef.current;
         const _formData = handleSubmit();
+        console.log(formData);
         if (_formData) {
           let _url =
             url +
@@ -270,12 +273,12 @@ const InputBox = ({
           handleAction && handleAction("temp-data", formData, _url);
           const file = _formData.get(`${mediaRefName}[0]`);
           const f = _formData.getAll(`${mediaRefName}`);
-
+          console.log(formData, " form ");
           let res = await http[method ? method : placeholders ? "put" : "post"](
             _url,
             _formData
           );
-          console.log(res);
+          // console.log(res);
           setSnackBar({
             message:
               message && message.success
@@ -298,11 +301,11 @@ const InputBox = ({
           }
 
           reset(
-            withPlaceholders
+            withPlaceholders && placeholders
               ? { ...placeholders, ...res }
               : resetData
               ? undefined
-              : res
+              : placeholders
           );
 
           if (handleAction)

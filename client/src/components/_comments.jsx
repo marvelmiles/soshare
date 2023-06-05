@@ -27,157 +27,132 @@ const Comments = ({
   sx,
   maxSizeElement,
   maxSize,
-  rootUid,
+  rootUid = "",
   maxThread = 100,
-  searchParams = rootUid
-    ? `ro=${rootUid}&maxThread=${maxThread || ""}&withThread=true`
-    : "",
+  searchParams = `ro=${rootUid}&maxThread=${maxThread || ""}&withThread=true`,
   scrollNodeRef = null,
   infiniteProps
 }) => {
   const currentUser = useSelector(state => state.user.currentUser || {});
-  const { composeDoc, socket } = useContext();
-  const [withShowRetry, setWithShowRetry] = useState(true);
+  const { socket } = useContext();
   const stateRef = useRef({
     cachedComments: {},
     url: `/comments/feed/${documentId}`,
     registeredIds: {},
-    pending: {}
+    pending: {},
+    notiferDelay: -1
   });
   const infiniteScrollRef = useRef();
   const appendComment = useCallback(
-    (commentOrIndex, replace) => {
+    commentOrIndex => {
       const data = infiniteScrollRef.current?.data;
       const stateCtx = stateRef.current;
-      delete stateCtx.pending[commentOrIndex.rootThread];
-
+      let docId;
       if (
         (data &&
           !(
             commentOrIndex.id ||
             (commentOrIndex = stateCtx.cachedComments[commentOrIndex])
           )) ||
-        !commentOrIndex.document?.id ||
-        stateCtx.registeredIds[commentOrIndex.id] !== undefined ||
+        !(docId = commentOrIndex.document.id) ||
+        stateCtx.registeredIds[commentOrIndex.id] >= -1 ||
         !checkVisibility(commentOrIndex, currentUser)
       )
         return;
 
-      console.log("appending commenf");
-      if (commentOrIndex.rootThread) {
-        // dummy assignment only helps to prevent duplicate
-        stateCtx.registeredIds[commentOrIndex.id] = -1;
+      // dummy assignment only helps to prevent duplicate
+      stateCtx.registeredIds[commentOrIndex.id] = -1;
 
+      stateRef.current.notifierDelay =
+        commentOrIndex.user.id === currentUser?.id ? -1 : undefined;
+
+      if (docId === documentId) {
+        stateCtx.registeredIds[commentOrIndex.id] = data.data.length;
+        infiniteScrollRef.current.setData({
+          ...data,
+          data: [commentOrIndex, ...data.data]
+        });
+        handleAction &&
+          handleAction("update", {
+            document: commentOrIndex.document
+          });
+      } else {
         const rIndex = stateCtx.registeredIds[commentOrIndex.rootThread];
-        let rootComment = data.data[rIndex];
-        console.log(commentOrIndex, rootComment);
-        if (commentOrIndex.document.id === rootComment.id) {
-          if (rootComment.threads.length)
-            delete stateCtx.registeredIds[rootComment.threads[0].id];
-          rootComment = commentOrIndex.document;
-          stateCtx.registeredIds[commentOrIndex.id] = 0;
-          rootComment.threads[0] = commentOrIndex;
-        } else {
-          const dIndex = stateCtx.registeredIds[commentOrIndex.document.id];
-          if (rootComment.threads[dIndex]) {
+        if (commentOrIndex.rootThread && rIndex > -1) {
+          let rootComment = data.data[rIndex];
+          if (docId === rootComment.id) {
+            delete stateCtx.registeredIds[(rootComment.threads[0]?.id)];
+            rootComment = commentOrIndex.document;
+            stateCtx.registeredIds[commentOrIndex.id] = 0;
+            rootComment.threads[0] = commentOrIndex;
+          } else {
+            const dIndex = stateCtx.registeredIds[docId];
             rootComment.threads[dIndex] = commentOrIndex.document;
-              if (rootComment.threads.length < maxThread) {
+            if (rootComment.threads.length < maxThread) {
               rootComment.threads
                 .slice(dIndex + 1)
                 .forEach(({ id }) => delete stateCtx.registeredIds[id]);
-
               rootComment.threads = rootComment.threads.slice(0, dIndex + 1);
               stateCtx.registeredIds[commentOrIndex.id] =
                 rootComment.threads.length;
               rootComment.threads.push(commentOrIndex);
               stateRef.current.maxThread = dIndex + 1;
             }
-          } else console.log(" max reached,,,");
-        }
-        data.data[rIndex] = rootComment;
-        infiniteScrollRef.current.setData({
-          ...data
-        });
-      } else {
-        stateCtx.registeredIds[commentOrIndex.id] = data.data.length;
-        infiniteScrollRef.current.setData({
-          ...data,
-          data: [commentOrIndex, ...data.data]
-        });
-        handleAction && handleAction("update", commentOrIndex.document);
+          }
+          data.data[rIndex] = rootComment;
+          infiniteScrollRef.current.setData({
+            ...data
+          });
+        } else stateCtx.registeredIds[commentOrIndex.id] = undefined;
       }
     },
-    [handleAction, currentUser, maxThread]
+    [currentUser, documentId, handleAction, maxThread]
   );
 
   const removeComment = useCallback(
     (
-      { id, rootThread, document, user: { id: uid } },
-      clearHandled,
+      { id, rootThread, document, docType, user: { id: uid } },
       cacheData = true
     ) => {
-      // using filter hoc just has a fallback in weird cases.
-      //  splice index works
       const stateCtx = stateRef.current;
-      const handledKey = id + "comments";
-      if (stateCtx.registeredIds[handledKey]) {
-        if (clearHandled) delete stateCtx.registeredIds[handledKey];
-        return;
-      } else {
-        stateCtx.registeredIds[handledKey] = true;
-      }
-      console.log("removing once...", id);
+
       const data = infiniteScrollRef.current.data;
       const index = stateCtx.registeredIds[id];
-      let rootComment;
-      if (document.id) {
-        if (document.id === documentId) {
-          if (index > -1) data.data.splice(index, 1);
-          else {
-            data.data = data.data.filter(comment => {
-              if (comment.id === id) {
-                return false;
-              }
-              return true;
-            });
-          }
-          handleAction("filter-comment", uid);
+      const docId = document.id;
+      const handledKey = id + "comments";
+
+      if (docId) {
+        if (cacheData)
+          document.comments = removeFirstItemFromArray(uid, document.comments);
+
+        if (docId === documentId) {
+          data.data[index].threads.forEach(
+            ({ id }) => delete stateCtx.registeredIds[id]
+          );
+          data.data.slice().splice(index, 1);
+          handleAction && handleAction("update", { document });
         } else {
-          let dIndex = stateCtx.registeredIds[document.id];
-          let rIndex = stateCtx.registeredIds[rootThread];
-          rIndex =
-            rIndex > -1
-              ? rIndex
-              : data.data.findIndex(comment => comment.id === rootThread);
-          rootComment = data.data[rIndex];
-          if (index >= -1) {
-            if (index === -1) {
-              rootComment.threads = rootComment.threads.filter(
-                ({ id: _id }, i) => {
-                  if (_id === id) {
-                    if (i) dIndex = i - 1;
-                    return false;
-                  }
-                  return true;
-                }
-              );
-            } else rootComment.threads.splice(index, 1);
-            dIndex =
-              dIndex > -1
-                ? dIndex
-                : rootComment.threads.findIndex(
-                    comment => comment.id === document.id
-                  );
-            document.comments = removeFirstItemFromArray(
-              uid,
-              document.comments
-            )
-            document.id === rootThread
-              ? (data.data[dIndex] = document)
-              : (rootComment.threads[dIndex] = document);
+          const rIndex = stateCtx.registeredIds[rootThread];
+          let rootComment = data.data[rIndex];
+          if (docId === rootThread) rootComment.threads = [];
+          else {
+            const dIndex = stateCtx.registeredIds[docId];
+            if (typeof document.document === "string") {
+              const _dIndex = stateCtx.registeredIds[document.document];
+              document.document =
+                document.docType === "comment"
+                  ? rootComment.threads[_dIndex]
+                  : data.data[_dIndex];
+            }
+            rootComment.threads[dIndex] = document;
+
+            rootComment.threads.slice().splice(index, 1);
           }
+          data.data[rIndex] = rootComment;
         }
       } else {
+        // just incase an anomaly occurs
+        console.log("anomaly comment ");
         const rIndex = stateCtx.registeredIds[rootThread];
         const filterComment = ({ id: _id }) => {
           if (id === _id) {
@@ -186,6 +161,7 @@ const Comments = ({
           }
           return true;
         };
+        let rootComment;
         if (rootThread && (rootComment = data.data[rIndex])) {
           rootComment.threads = rootComment.threads.filter(filterComment);
           data.data[rIndex] = rootComment;
@@ -196,13 +172,11 @@ const Comments = ({
           });
       }
       delete stateCtx.registeredIds[id];
-      console.log(document?.id, " dio[ ");
-      if (document.comments?.length) stateCtx.pending[rootThread] = true;
       infiniteScrollRef.current.setData({
         ...data
       });
     },
-    [handleAction, documentId]
+    [documentId, handleAction]
   );
   const _handleAction = useCallback(
     (reason, res, cacheData = true) => {
@@ -216,23 +190,35 @@ const Comments = ({
           delete stateCtx.registeredIds[res];
           break;
         case "update":
-          return console.log("update...");
           const index = stateCtx.registeredIds[res.id];
           const data = infiniteScrollRef.current.data;
+          res.threads = res.threads || [];
           if (res.rootThread) {
             const rIndex = stateCtx.registeredIds[res.rootThread];
             const rootComment = data.data[rIndex];
+            const comment = rootComment.threads[index];
             rootComment.threads[index] = {
-              ...rootComment.threads[index],
-              ...res
+              ...comment,
+              ...res,
+              threads: [...comment.threads, ...res.threads]
             };
             data.data[rIndex] = rootComment;
           } else {
             if (index > -1) {
-              data.data[index] = { ...data.data[index], ...res };
+              data.data[index] = {
+                ...data.data[index],
+                ...res,
+                threads: [...(data.data[index] || {}).threads, ...res.threads]
+              };
             } else {
               data.data = data.data.map(comment =>
-                comment.id === res.id ? { ...comment, ...res } : comment
+                comment.id === res.id
+                  ? {
+                      ...comment,
+                      ...res,
+                      threads: [...comment.threads, ...res.threads]
+                    }
+                  : comment
               );
             }
           }
@@ -247,19 +233,33 @@ const Comments = ({
     [removeComment]
   );
   useEffect(() => {
-    socket.on("comment", (comment, replace) => {
+    const handleFilter = comment => {
+      removeComment(comment, false);
+    };
+
+    const handleUpdate = comment => {
+      _handleAction("update", {
+        document: comment
+      });
+    };
+
+    const handleAppend = (comment, replace) => {
       if (Array.isArray(comment)) {
         for (const _comment of comment) {
           appendComment(_comment, replace);
         }
       } else appendComment(comment, replace);
-    });
-    socket.on("update-comment", comment => {
-      _handleAction("update", comment);
-    });
-    socket.on("filter-comment", comment => {
-      removeComment(comment, false);
-    });
+    };
+
+    socket.on("comment", handleAppend);
+    socket.on("update-comment", handleUpdate);
+    socket.on("filter-comment", handleFilter);
+
+    return () => {
+      socket.removeEventListener("filter-comment", handleFilter);
+      socket.removeEventListener("comment", handleAppend);
+      socket.removeEventListener("update-comment", handleUpdate);
+    };
   }, [appendComment, socket, removeComment, currentUser.id, _handleAction]);
 
   // if (infiniteScrollRef.current?.data.data.length && stateCtx) {
@@ -326,12 +326,12 @@ const Comments = ({
             borderTopLeftRadius: 0,
             borderTopRightRadius: 0
           }}
-          handleAction={_handleAction}
-          {...infiniteProps}
+          key={documentId + "-comment-input-box"}
         />
       ) : null}
       {autoFetchReplies === true ? (
         <InfiniteScroll
+          key={documentId + "comments"}
           className="comments"
           ref={infiniteScrollRef}
           searchParams={searchParams}
@@ -347,9 +347,10 @@ const Comments = ({
           maxSizeElement={maxSizeElement}
           maxSize={maxSize}
           scrollNodeRef={scrollNodeRef}
-          notifierDelay={
-            composeDoc?.user?.id === currentUser.id ? -1 : undefined
-          }
+          notifierDelay={stateRef.current.notifierDelay}
+          notifierProps={{
+            position: "fixed"
+          }}
         >
           {({ data: { data, paging }, setObservedNode }) => {
             return (
@@ -358,6 +359,7 @@ const Comments = ({
                   data.map((comment, i) => {
                     if (!comment) return null;
                     stateRef.current.registeredIds[comment.id] = i;
+
                     return (
                       <div
                         key={comment.id}
@@ -370,12 +372,7 @@ const Comments = ({
                         <PostWidget
                           showThread={!!comment.thread}
                           docType="comment"
-                          post={
-                            comment.id === composeDoc?.id &&
-                            composeDoc?.createdAt
-                              ? composeDoc
-                              : comment
-                          }
+                          post={comment}
                           handleAction={_handleAction}
                           caption={getThreadOwners(comment)}
                           isRO={isRO}
@@ -388,9 +385,10 @@ const Comments = ({
                             stateRef.current.maxThread
                               ? limit - stateRef.current.maxThread
                               : limit - 1
-                          }`;
+                          }&withThread=true`;
 
                           stateRef.current.registeredIds[_c.id] = i;
+
                           return _c ? (
                             <PostWidget
                               key={_c.id}
@@ -399,7 +397,7 @@ const Comments = ({
                                 _c.comments.length &&
                                 _c.thread
                               }
-                              searchParams={`${params}&withThread=true`}
+                              searchParams={params}
                               post={_c}
                               docType="comment"
                               handleAction={_handleAction}

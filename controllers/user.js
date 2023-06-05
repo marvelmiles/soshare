@@ -142,7 +142,8 @@ export const getUserPosts = async (req, res, next) => {
     res,
     next,
     model: Post,
-    verify: true
+    verify: true,
+    isVisiting: true
   });
 };
 

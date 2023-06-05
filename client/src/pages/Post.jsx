@@ -66,10 +66,10 @@ const Post = () => {
           break;
         case "update":
           // console.log(document, rest);
-          // setPost(post => ({
-          //   ...post,
-          //   ...document
-          // }));
+          setPost(post => ({
+            ...post,
+            ...document
+          }));
           break;
         default:
           break;

@@ -147,3 +147,139 @@ export const isObject = obj =>
 //   }
 //   console.log(map);
 // })();
+
+// (() => {
+//   const map = {
+//     lesser: 0,
+//     even: 0,
+//     higher: 0
+//   };
+//   let _reg = {};
+//   const populate = () => {
+//     data.forEach((doc, i) => {
+//       _reg[doc.id] = i;
+//       if (doc.threads)
+//         doc.threads.forEach((doc, i) => {
+//           _reg[doc.id] = i;
+//         });
+//     });
+//   };
+//   populate();
+
+//   const document = {
+//     id: "4=24",
+//     rootThread: "3=24",
+//     document: { id: "3=24", rootThread: "2=24" }
+//   };
+//   const docId = document.id || document;
+//   const bench = () => {
+//     let start = performance.now();
+//     const registeredIds = _reg;
+//     const rootComment = data[registeredIds[document.rootThread]];
+//     const dIndex = registeredIds[docId];
+//     rootComment.threads[dIndex] = document.document;
+//     if (rootComment.threads.length < 10) {
+//       rootComment.threads
+//         .slice(dIndex + 1)
+//         .forEach(({ id }) => delete _reg[id]);
+//       rootComment.threads = rootComment.threads.slice(0, dIndex + 1);
+//       _reg[docId] = rootComment.threads.length;
+//       rootComment.threads.push(document);
+//     }
+//     let end = performance.now();
+//     let ctime = end - start;
+
+//     start = performance.now();
+//     data.forEach(doc => {
+//       if (doc.id === document.rootThread) {
+//         doc.threads.push(document);
+//       } else if (doc.threads) {
+//         doc.threads.forEach(_d => {
+//           if (_d.id === document.rootThread) {
+//             doc.threads.push(document);
+//           }
+//         });
+//       }
+//     });
+//     end = performance.now();
+//     let ftime = end - start;
+
+//     map[ctime < ftime ? "lesser" : ctime === ftime ? "even" : "higher"]++;
+//   };
+
+//   for (let i = 0; i < 10000; i++) {
+//     bench();
+//   }
+//   console.log(map);
+// })();
+
+// (() => {
+//   const t = [];
+
+//   for (let i = 0; i < 50; i++) {
+//     const doc = {
+//       threads: [
+//         {
+//           id: "2",
+//           rootThread: "1"
+//         },
+//         {
+//           id: "3",
+//           rootThread: "2"
+//         },
+//         {
+//           id: "4",
+//           rootThread: "3"
+//         },
+//         {
+//           id: "5",
+//           rootThread: "4"
+//         },
+//         {
+//           id: "2",
+//           rootThread: "1"
+//         },
+//         {
+//           id: "3",
+//           rootThread: "2"
+//         },
+//         {
+//           id: "4",
+//           rootThread: "3"
+//         },
+//         {
+//           id: "5",
+//           rootThread: "4"
+//         },
+//         {
+//           id: "2",
+//           rootThread: "1"
+//         },
+//         {
+//           id: "3",
+//           rootThread: "2"
+//         },
+//         {
+//           id: "4",
+//           rootThread: "3"
+//         },
+//         {
+//           id: "5",
+//           rootThread: "4"
+//         }
+//       ],
+//       id: "1"
+//     };
+//     doc.id = i;
+//     if (doc.threads) {
+//       doc.threads = doc.threads.map((_d, j) => {
+//         _d.id = j + "=" + i;
+//         _d.rootThread = j === 0 ? i : j - 1 + "=" + i;
+//         return _d;
+//       });
+//     }
+//     t.push({ ...doc });
+//   }
+
+//   console.log(t);
+// })();

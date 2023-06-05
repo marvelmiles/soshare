@@ -13,10 +13,6 @@ import { checkVisibility } from "utils/validators";
 import EmptyData from "components/EmptyData";
 import Loading from "components/Loading";
 
-// decided to use index-based rendering
-// scability and real-time updates
-// splicing since array is mutable from infinite scroll :)
-
 const Comments = ({
   documentId,
   limit,
@@ -48,60 +44,62 @@ const Comments = ({
   });
   const infiniteScrollRef = useRef();
   const appendComment = useCallback(
-    comment => {
+    commentOrIndex => {
       const data = infiniteScrollRef.current?.data;
       const stateCtx = stateRef.current;
       let docId;
       if (
-        !(docId = comment.document.id) ||
-        !checkVisibility(comment, currentUser)
+        (data &&
+          !(
+            commentOrIndex.id ||
+            (commentOrIndex = stateCtx.cachedComments[commentOrIndex])
+          )) ||
+        !(docId = commentOrIndex.document.id) ||
+        stateCtx.registeredIds[commentOrIndex.id] >= -1 ||
+        !checkVisibility(commentOrIndex, currentUser)
       )
         return;
-      console.log(" append ", comment.id);
-      if (stateCtx.registeredIds[comment.id] >= -1) return;
+
       // dummy assignment only helps to prevent duplicate
-      stateCtx.registeredIds[comment.id] = -1;
+      stateCtx.registeredIds[commentOrIndex.id] = -1;
 
       stateRef.current.notifierDelay =
-        comment.user.id === currentUser?.id ? -1 : undefined;
+        commentOrIndex.user.id === currentUser?.id ? -1 : undefined;
 
       if (docId === documentId) {
-        stateCtx.registeredIds[comment.id] = data.data.length;
         infiniteScrollRef.current.setData({
           ...data,
-          data: [comment, ...data.data]
+          data: [commentOrIndex, ...data.data]
         });
         handleAction &&
           handleAction("update", {
-            document: comment.document
+            document: commentOrIndex.document
           });
       } else {
-        const rIndex = stateCtx.registeredIds[comment.rootThread];
-        if (comment.rootThread && rIndex > -1) {
-          let rootComment = data.data[rIndex];
-          if (docId === rootComment.id) {
-            // delete stateCtx.registeredIds[(rootComment.threads[0]?.id)];
-            rootComment = comment.document;
-            stateCtx.registeredIds[comment.id] = 0;
-            rootComment.threads[0] = comment;
-          } else {
-            const dIndex = stateCtx.registeredIds[docId];
-            rootComment.threads[dIndex] = comment.document;
-            if (rootComment.threads.length < maxThread) {
-              // rootComment.threads
-              //   .slice(dIndex + 1)
-              //   .forEach(({ id }) => delete stateCtx.registeredIds[id]);
-              rootComment.threads = rootComment.threads.slice(0, dIndex + 1);
-              stateCtx.registeredIds[comment.id] = rootComment.threads.length;
-              rootComment.threads.push(comment);
-              stateRef.current.maxThread = dIndex + 1;
-            }
-          }
-          data.data[rIndex] = rootComment;
-          infiniteScrollRef.current.setData({
-            ...data
-          });
-        } else stateCtx.registeredIds[comment.id] = undefined;
+        infiniteScrollRef.current.setData({
+          ...data,
+          data: data.data.map(doc => {
+            if (docId === doc.id) {
+              return {
+                ...commentOrIndex.document,
+                threads: [commentOrIndex]
+              };
+            } else if (doc.threads)
+              doc.threads = doc.threads.map(_doc => {
+                if (docId === _doc.id) {
+                  console.log(" inner ");
+                  if (doc.threads.length < maxThread)
+                    doc = {
+                      ...doc,
+                      threads: doc.threads.concat(commentOrIndex)
+                    };
+                  return commentOrIndex.document;
+                }
+                return _doc;
+              });
+            return doc;
+          })
+        });
       }
     },
     [currentUser, documentId, handleAction, maxThread]
@@ -110,51 +108,50 @@ const Comments = ({
   const removeComment = useCallback(
     (
       { id, rootThread, document, docType, user: { id: uid } },
-      cacheData = true
+      cacheData = true,
+      clearHandled
     ) => {
-      if (!cacheData && uid === currentUser.id) return;
-
       const stateCtx = stateRef.current;
 
       const data = infiniteScrollRef.current.data;
       const index = stateCtx.registeredIds[id];
       const docId = document.id;
-
-      console.log(" deleted id ", id);
+      const handledKey = id + "comments";
+      if (stateCtx.registeredIds[handledKey]) {
+        // if (clearHandled) delete stateCtx.registeredIds[handledKey];
+        return;
+      } else {
+        stateCtx.registeredIds[handledKey] = true;
+      }
 
       if (docId) {
-        cacheData &&
-          (document.comments = removeFirstItemFromArray(
-            uid,
-            document.comments
-          ));
+        if (cacheData)
+          document.comments = removeFirstItemFromArray(uid, document.comments);
 
-        if (data.data[index]) {
-          if (docId === documentId) {
-            // data.data[index].threads.forEach(
-            //   ({ id }) => delete stateCtx.registeredIds[id]
-            // );
-            data.data.splice(index, 1);
-            handleAction && handleAction("update", { document });
-          } else {
-            const rIndex = stateCtx.registeredIds[rootThread];
-            let rootComment = data.data[rIndex];
-            if (docId === rootThread) rootComment.threads = [];
-            else {
-              const dIndex = stateCtx.registeredIds[docId];
-              if (typeof document.document === "string") {
-                const _dIndex = stateCtx.registeredIds[document.document];
-                document.document =
-                  document.docType === "comment"
-                    ? rootComment.threads[_dIndex]
-                    : data.data[_dIndex];
-              }
-              rootComment.threads[dIndex] = document;
-
-              rootComment.threads.splice(index, 1);
+        if (docId === documentId) {
+          data.data[index].threads.forEach(
+            ({ id }) => delete stateCtx.registeredIds[id]
+          );
+          data.data.slice().splice(index, 1);
+          handleAction && handleAction("update", { document });
+        } else {
+          const rIndex = stateCtx.registeredIds[rootThread];
+          let rootComment = data.data[rIndex];
+          if (docId === rootThread) rootComment.threads = [];
+          else {
+            const dIndex = stateCtx.registeredIds[docId];
+            if (typeof document.document === "string") {
+              const _dIndex = stateCtx.registeredIds[document.document];
+              document.document =
+                document.docType === "comment"
+                  ? rootComment.threads[_dIndex]
+                  : data.data[_dIndex];
             }
-            data.data[rIndex] = rootComment;
+            rootComment.threads[dIndex] = document;
+
+            rootComment.threads.slice().splice(index, 1);
           }
+          data.data[rIndex] = rootComment;
         }
       } else {
         // just incase an anomaly occurs
@@ -177,56 +174,52 @@ const Comments = ({
             return c;
           });
       }
-      // delete stateCtx.registeredIds[id];
+      delete stateCtx.registeredIds[id];
       infiniteScrollRef.current.setData({
         ...data
       });
     },
-    [documentId, handleAction, currentUser.id]
+    [documentId, handleAction]
   );
   const _handleAction = useCallback(
-    (reason, options = {}) => {
-      const { document, cacheData = true } = options;
+    (reason, res, cacheData = true) => {
       const stateCtx = stateRef.current;
       switch (reason) {
         case "filter":
-          removeComment(document, cacheData);
+          removeComment(res, cacheData);
           break;
         case "clear-cache":
-          delete stateCtx.cachedComments[document];
-          delete stateCtx.registeredIds[document];
+          delete stateCtx.cachedComments[res];
+          delete stateCtx.registeredIds[res];
           break;
         case "update":
-          const index = stateCtx.registeredIds[document.id];
+          const index = stateCtx.registeredIds[res.id];
           const data = infiniteScrollRef.current.data;
-          document.threads = document.threads || [];
-          if (document.rootThread) {
-            const rIndex = stateCtx.registeredIds[document.rootThread];
+          res.threads = res.threads || [];
+          if (res.rootThread) {
+            const rIndex = stateCtx.registeredIds[res.rootThread];
             const rootComment = data.data[rIndex];
             const comment = rootComment.threads[index];
             rootComment.threads[index] = {
               ...comment,
-              ...document,
-              threads: [...comment.threads, ...document.threads]
+              ...res,
+              threads: [...comment.threads, ...res.threads]
             };
             data.data[rIndex] = rootComment;
           } else {
             if (index > -1) {
               data.data[index] = {
                 ...data.data[index],
-                ...document,
-                threads: [
-                  ...(data.data[index] || {}).threads,
-                  ...document.threads
-                ]
+                ...res,
+                threads: [...(data.data[index] || {}).threads, ...res.threads]
               };
             } else {
               data.data = data.data.map(comment =>
-                comment.id === document.id
+                comment.id === res.id
                   ? {
                       ...comment,
-                      ...document,
-                      threads: [...comment.threads, ...document.threads]
+                      ...res,
+                      threads: [...comment.threads, ...res.threads]
                     }
                   : comment
               );
@@ -318,7 +311,6 @@ const Comments = ({
         <InputBox
           withPlaceholders={false}
           submitInputsOnly={false}
-          resetData={false}
           autoFocus={false}
           method="post"
           accept=".jpg,.jpeg,.png,.gif"

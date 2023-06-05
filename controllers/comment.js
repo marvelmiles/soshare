@@ -17,6 +17,7 @@ import {
 
 export const addComment = async (req, res, next) => {
   try {
+    console.log(req.body, " comment ");
     if (!req.body.document)
       throw createError(
         "Invalid body expect document key value pair of type string"
@@ -182,7 +183,7 @@ export const deleteComment = async (req, res, next) => {
     const io = req.app.get("socketIo");
     if (io) {
       io.emit(`filter-comment`, comment);
-
+      io.emit(`update-${model.modelName}`, comment.document);
       if (
         comment.rootThread &&
         req.query.withThread === "true" &&

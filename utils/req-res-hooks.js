@@ -21,6 +21,7 @@ export const getFeedMedias = async ({
   populate,
   verify,
   refPath,
+  isVisiting,
   ...rest
 }) => {
   try {
@@ -34,9 +35,10 @@ export const getFeedMedias = async ({
       };
     }
     dataKey && refPath === undefined && (refPath = "_id");
-    verify && console.log(req.params.id, req.user?.id);
+    verify && console.log(req.params.id, req.user?.id, " REQ-RES-ID ");
     match = await createVisibilityQuery({
       refPath,
+      isVisiting,
       query: match,
       userId: req.params.id,
       searchUser: req.user ? req.user.id : "",
