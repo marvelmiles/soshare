@@ -30,7 +30,7 @@ export default (config = {}) => {
 
           const t = await http.delete(_url, opt._httpConfig || httpConfig);
 
-          handleAction && handleAction("clear-cache", { document: _id });
+          handleAction && handleAction("clear-cache", { document: id });
         } catch (message) {
           if (message === CANCELED_REQUEST_MSG) continue;
           else {

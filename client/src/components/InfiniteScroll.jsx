@@ -48,7 +48,7 @@ const InfiniteScroll = React.forwardRef(
       nodeKey,
       validatePublicDatum,
       NotifierComponent = DataNotifier,
-      exclude = [],
+      exclude,
       className = "",
       withShowRetry,
       verify,
@@ -56,7 +56,8 @@ const InfiniteScroll = React.forwardRef(
       centerOnEmpty = true,
       contentSx,
       withOverflowShowEndOnly = true,
-      withOverflowShowNotifierOnly = true
+      withOverflowShowNotifierOnly = true,
+      excludeSep = ","
     },
     ref
   ) => {
@@ -82,11 +83,12 @@ const InfiniteScroll = React.forwardRef(
             threshold: 0.3,
             nodeKey
           },
-      exclude,
+      exclude: { ...exclude },
       infinitePaging: {},
       prevNotice: [],
       retryCount: 0,
-      maxRetry: 10
+      maxRetry: 10,
+      sep: excludeSep
     });
     const { intersectionKey } = useViewIntersection(
       observedNode,
@@ -208,13 +210,28 @@ const InfiniteScroll = React.forwardRef(
               (async () => {
                 try {
                   stateRef.current.isFetching = true;
+                  const exclude = stateRef.current.exclude;
+                  const isEString = typeof exclude === "string";
+                  const sep = stateRef.current.sep;
+
                   const _url =
                     url +
                     `?limit=${_limit || ""}&cursor=${data.paging?.nextCursor ||
-                      defaultCursor}&withEq=${withEq}&randomize=${false}&withMatchedDocs=${withMatchedDocs}&exclude=${stateRef.current.exclude
-                      .concat(data.data || [])
-                      .map(d => d.id || d._id || d)
-                      .join(",")}&${
+                      defaultCursor}&withEq=${withEq}&randomize=${false}&withMatchedDocs=${withMatchedDocs}&exclude=${
+                      exclude
+                        ? isEString
+                          ? `${data.data.length ? sep : ""}${exclude}`
+                          : (() => {
+                              let str = "";
+                              for (const key in exclude) {
+                                str += `${
+                                  str.length || data.data.length ? sep : ""
+                                }${key}`;
+                              }
+                              return str;
+                            })()
+                        : ""
+                    }&${
                       searchParams
                         ? searchParams
                         : dataKey
@@ -244,11 +261,31 @@ const InfiniteScroll = React.forwardRef(
                         infinitePaging.matchedDocs = _data.paging.matchedDocs;
                       }
                     } else return;
+                    let isProc = false;
                     setData(data => {
-                      const currentData = {
+                      if (isProc) return _data;
+                      isProc = true;
+                      const set = exclude
+                        ? isEString
+                          ? (() => {
+                              const set = {};
+                              exclude.split(sep).forEach(item => {
+                                return (set[
+                                  item.id || item._id || JSON.stringify(item)
+                                ] = true);
+                              });
+
+                              return set;
+                            })()
+                          : exclude
+                        : undefined;
+                      _data = {
                         ..._data,
-                        data: data.data.concat(addToSet(_data.data))
+                        data: data.data.concat(
+                          addToSet(_data.data, undefined, set)
+                        )
                       };
+                      stateRef.current.exclude = set;
                       stateRef.current.shallowUpdate = false;
                       // const _d = (() => {
                       //   const y = [];
@@ -266,7 +303,9 @@ const InfiniteScroll = React.forwardRef(
                       // _d[25].id = "12345";
 
                       // console.log(_d);
-                      return currentData;
+                      // console.log("with dtaa ")
+                      // console.log(_data);
+                      return _data;
                     });
                   }
                 } catch (msg) {
@@ -356,8 +395,6 @@ const InfiniteScroll = React.forwardRef(
             exclude
           } = options;
 
-          const isBool = exclude && withStateDeterminant;
-          stateRef.current.isBool = isBool;
           const handleNotice = _data => {
             numberOfEntries =
               numberOfEntries === undefined
@@ -394,7 +431,7 @@ const InfiniteScroll = React.forwardRef(
                 open: false
               }));
           };
-          const setState = (_data, prevData = data) => {
+          const setState = _data => {
             const dataSize = _data.data.length;
             if (withStateDeterminant && dataSize < data.data.length) {
               const size = stateRef.current.infinitePaging?.matchedDocs;
@@ -408,10 +445,8 @@ const InfiniteScroll = React.forwardRef(
             stateRef.current.preventLoading = preventLoading;
             stateRef.current.dataChanged = dataSize !== data.data.length;
 
-            if (exclude)
-              stateRef.current.exclude = stateRef.current.exclude.concat(
-                exclude
-              );
+            exclude && (stateRef.current.exclude = exclude);
+
             stateRef.current.shallowUpdate = true;
           };
           if (typeof prop === "function") {

@@ -40,7 +40,7 @@ export const getFeedMedias = async ({
       refPath,
       isVisiting,
       query: match,
-      userId: req.params.id,
+      userId: req.params.userId,
       searchUser: req.user ? req.user.id : "",
       verify
     });
@@ -154,6 +154,7 @@ export const getDocument = async ({
   ]
 }) => {
   try {
+    console.log("getting doc ");
     if (!isObjectId(req.params.id))
       throw createError(`${model.modelName} not found`, 404);
     if (req.cookies.access_token) verifyToken(req);
@@ -163,7 +164,7 @@ export const getDocument = async ({
     }
     const query = await createVisibilityQuery({
       userId: req.user?.id,
-      searchUser: req.params.id,
+      searchUser: req.params.userId,
       query: {
         _id: req.params.id
       },
@@ -172,7 +173,7 @@ export const getDocument = async ({
     });
 
     let doc = await model.findOne(query);
-
+    console.log(!!doc, " doc ");
     if (!doc) throw createError(`${model.modelName} not found`, 404);
     if (list.includes(doc.user)) throw createError(`owner blacklisted`, 400);
     doc = await doc.populate(populate);
@@ -191,6 +192,7 @@ export const deleteDocument = async ({
   withCount = true
 }) => {
   try {
+    console.log(req.query);
     const doc = await model.findById(req.params.id);
     if (!doc) return res.json(`Successfully deleted ${model.modelName}`);
     if (doc.user !== req.user.id)
@@ -198,31 +200,35 @@ export const deleteDocument = async ({
     // await model.deleteOne({
     //   _id: req.params.id
     // });
-    res.json(`Successfully deleted ${model.modelName}`);
 
-    const user = await User.findByIdAndUpdate(
-      {
-        _id: doc.user
-      },
-      withCount
-        ? {
-            $inc: { [`${model.modelName}Count`]: -1 }
+    setTimeout(() => {
+      res.json(`Successfully deleted ${model.modelName}`);
+      (async () => {
+        const user = await User.findByIdAndUpdate(
+          {
+            _id: doc.user
+          },
+          withCount
+            ? {
+                $inc: { [`${model.modelName}Count`]: -1 }
+              }
+            : {},
+          { new: true }
+        );
+        const io = req.app.get("socketIo");
+        if (io) {
+          doc.user = user;
+          io.emit(`filter-${model.modelName}`, doc);
+          doc.user && io.emit("update-user", user);
+        }
+        handleMiscDelete(doc.id, io, model.modelName !== "short");
+        if (doc.medias) {
+          for (let { url } of doc.medias) {
+            deleteFile(url);
           }
-        : {},
-      { new: true }
-    );
-    const io = req.app.get("socketIo");
-    if (io) {
-      doc.user = user;
-      io.emit(`filter-${model.modelName}`, doc);
-      doc.user && io.emit("update-user", user);
-    }
-    handleMiscDelete(doc.id, io, model.modelName !== "short");
-    if (doc.medias) {
-      for (let { url } of doc.medias) {
-        deleteFile(url);
-      }
-    } else if (doc.url) deleteFile(doc.url);
+        } else if (doc.url) deleteFile(doc.url);
+      })();
+    }, 10000);
   } catch (err) {
     console.log(err.message, " err ");
     next(err);

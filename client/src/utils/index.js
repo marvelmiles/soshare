@@ -42,19 +42,16 @@ export const filterDuplicateFromArray = arr => {
   return uniq;
 };
 
-export const addToSet = (arr = [], item) => {
-  const map = item
-    ? {
-        [item.id || item._id || JSON.stringify(item)]: true
-      }
-    : {};
+export const addToSet = (arr = [], item, set = {}) => {
+  item = item && (item.id || item._id || JSON.stringify(item));
+  item && (set[item] = true);
   const items = [];
   item && items.push(item);
   for (const _item of arr) {
     const id = _item.id || _item._id || JSON.stringify(item);
-    if (!map[id]) {
+    if (!set[id]) {
       items.push(_item);
-      map[id] = id;
+      set[id] = true;
     }
   }
   return items;

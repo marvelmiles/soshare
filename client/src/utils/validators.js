@@ -283,3 +283,269 @@ export const isObject = obj =>
 
 //   console.log(t);
 // })();
+
+// [
+//   {
+//     user: {
+//       id: "6436e0e74bdec4961bc0680b"
+//     },
+//     document: {
+//       user: {
+//         id: "6436e0e74bdec4961bc0680b"
+//       },
+
+//       id: "647daeca7e8d1629bddae753"
+//     },
+//     docType: "post",
+//     threads: [
+//       {
+//         user: {
+//           id: "6436e0e74bdec4961bc0680b"
+//         },
+//         rootThread: "647f28eed1dc0763e297439a",
+//         rootType: "comment",
+//         document: {
+//           user: {
+//             id: "6436e0e74bdec4961bc0680b"
+//           },
+//           document: {
+//             user: {
+//               id: "6436e0e74bdec4961bc0680b",
+//               blacklistCount: 0
+//             },
+//             id: "647daeca7e8d1629bddae753"
+//           },
+//           docType: "post",
+//           threads: [],
+
+//           id: "647f28eed1dc0763e297439a"
+//         },
+//         docType: "comment",
+//         threads: [],
+
+//         id: "647f4784d1dc0763e2979033"
+//       },
+//       {
+//         user: {
+//           id: "6436e0e74bdec4961bc0680b"
+//         },
+//         rootThread: "647f28eed1dc0763e297439a",
+//         rootType: "comment",
+//         document: {
+//           user: {
+//             id: "6436e0e74bdec4961bc0680b"
+//           },
+//           rootThread: "647f28eed1dc0763e297439a",
+//           rootType: "comment",
+//           document: {
+//             user: {
+//               id: "6436e0e74bdec4961bc0680b"
+//             },
+//             document: "647daeca7e8d1629bddae753",
+//             docType: "post",
+//             threads: [],
+
+//             id: "647f28eed1dc0763e297439a"
+//           },
+//           docType: "comment",
+//           threads: [],
+
+//           id: "647f4784d1dc0763e2979033"
+//         },
+//         docType: "comment",
+//         threads: [],
+
+//         id: "647f478bd1dc0763e297903c"
+//       },
+//       {
+//         user: {
+//           id: "63dfdf516d4ef0602b00790d"
+//         },
+//         rootThread: "647f28eed1dc0763e297439a",
+//         rootType: "comment",
+//         document: {
+//           user: {
+//             id: "6436e0e74bdec4961bc0680b"
+//           },
+//           rootThread: "647f28eed1dc0763e297439a",
+//           rootType: "comment",
+//           document: {
+//             user: {
+//               id: "6436e0e74bdec4961bc0680b"
+//             },
+//             rootThread: "647f28eed1dc0763e297439a",
+//             rootType: "comment",
+//             document: "647f28eed1dc0763e297439a",
+//             docType: "comment",
+//             threads: [],
+
+//             createdAt: "2023-06-06T14:49:40.481Z",
+//             updatedAt: "2023-06-06T14:50:04.076Z",
+//             id: "647f4784d1dc0763e2979033"
+//           },
+//           docType: "comment",
+//           threads: [],
+
+//           createdAt: "2023-06-06T14:49:47.498Z",
+//           updatedAt: "2023-06-06T18:03:37.324Z",
+//           id: "647f478bd1dc0763e297903c"
+//         },
+//         docType: "comment",
+//         threads: [],
+//         createdAt: "2023-06-06T18:03:37.389Z",
+//         updatedAt: "2023-06-06T18:03:45.649Z",
+//         id: "647f74f9f8ec9d81c8c3df2b"
+//       },
+//       {
+//         user: {
+//           id: "63dfdf516d4ef0602b00790d"
+//         },
+//         rootThread: "647f28eed1dc0763e297439a",
+//         rootType: "comment",
+//         document: {
+//           user: {
+//             id: "63dfdf516d4ef0602b00790d"
+//           },
+//           rootThread: "647f28eed1dc0763e297439a",
+//           rootType: "comment",
+//           document: {
+//             user: {
+//               id: "6436e0e74bdec4961bc0680b"
+//             },
+//             rootThread: "647f28eed1dc0763e297439a",
+//             rootType: "comment",
+//             document: "647f4784d1dc0763e2979033",
+//             docType: "comment",
+//             threads: [],
+
+//             createdAt: "2023-06-06T14:49:47.498Z",
+//             updatedAt: "2023-06-06T18:03:37.324Z",
+//             id: "647f478bd1dc0763e297903c"
+//           },
+//           docType: "comment",
+//           threads: [],
+//           createdAt: "2023-06-06T18:03:37.389Z",
+//           updatedAt: "2023-06-06T18:03:45.649Z",
+//           id: "647f74f9f8ec9d81c8c3df2b"
+//         },
+//         docType: "comment",
+//         threads: [],
+
+//         createdAt: "2023-06-06T18:03:45.655Z",
+//         updatedAt: "2023-06-06T18:04:49.041Z",
+//         id: "647f7501f8ec9d81c8c3df34"
+//       },
+//       {
+//         user: {
+//           id: "6436e0e74bdec4961bc0680b"
+//         },
+//         rootThread: "647f28eed1dc0763e297439a",
+//         rootType: "comment",
+//         document: {
+//           user: {
+//             id: "63dfdf516d4ef0602b00790d"
+//           },
+//           rootThread: "647f28eed1dc0763e297439a",
+//           rootType: "comment",
+//           document: {
+//             user: {
+//               id: "63dfdf516d4ef0602b00790d"
+//             },
+//             rootThread: "647f28eed1dc0763e297439a",
+//             rootType: "comment",
+//             document: "647f478bd1dc0763e297903c",
+//             docType: "comment",
+//             threads: [],
+
+//             createdAt: "2023-06-06T18:03:37.389Z",
+//             updatedAt: "2023-06-06T18:03:45.649Z",
+//             id: "647f74f9f8ec9d81c8c3df2b"
+//           },
+//           docType: "comment",
+//           threads: [],
+//           createdAt: "2023-06-06T18:03:45.655Z",
+//           updatedAt: "2023-06-06T18:04:49.041Z",
+//           id: "647f7501f8ec9d81c8c3df34"
+//         },
+//         docType: "comment",
+//         threads: [],
+
+//         createdAt: "2023-06-06T18:04:49.051Z",
+//         updatedAt: "2023-06-06T18:04:56.159Z",
+//         id: "647f7541f8ec9d81c8c3e046"
+//       },
+//       {
+//         user: {
+//           id: "6436e0e74bdec4961bc0680b"
+//         },
+//         rootThread: "647f28eed1dc0763e297439a",
+//         rootType: "comment",
+//         document: {
+//           user: {
+//             id: "6436e0e74bdec4961bc0680b"
+//           },
+//           rootThread: "647f28eed1dc0763e297439a",
+//           rootType: "comment",
+//           document: {
+//             user: {
+//               id: "63dfdf516d4ef0602b00790d"
+//             },
+//             rootThread: "647f28eed1dc0763e297439a",
+//             rootType: "comment",
+//             document: "647f74f9f8ec9d81c8c3df2b",
+//             docType: "comment",
+//             threads: [],
+//             createdAt: "2023-06-06T18:03:45.655Z",
+//             updatedAt: "2023-06-06T18:04:49.041Z",
+//             id: "647f7501f8ec9d81c8c3df34"
+//           },
+//           docType: "comment",
+//           threads: [],
+
+//           createdAt: "2023-06-06T18:04:49.051Z",
+//           updatedAt: "2023-06-06T18:04:56.159Z",
+//           id: "647f7541f8ec9d81c8c3e046"
+//         },
+//         docType: "comment",
+//         threads: [],
+//         createdAt: "2023-06-06T18:04:56.166Z",
+//         updatedAt: "2023-06-06T18:05:04.372Z",
+//         id: "647f7548f8ec9d81c8c3e04f"
+//       },
+//       {
+//         user: {
+//           id: "6436e0e74bdec4961bc0680b"
+//         },
+//         rootThread: "647f28eed1dc0763e297439a",
+//         rootType: "comment",
+//         document: {
+//           user: {
+//             id: "6436e0e74bdec4961bc0680b"
+//           },
+//           rootThread: "647f28eed1dc0763e297439a",
+//           rootType: "comment",
+//           document: {
+//             user: {
+//               id: "6436e0e74bdec4961bc0680b"
+//             },
+//             rootThread: "647f28eed1dc0763e297439a",
+//             rootType: "comment",
+//             document: "647f7501f8ec9d81c8c3df34",
+//             docType: "comment",
+//             threads: [],
+
+//             id: "647f7541f8ec9d81c8c3e046"
+//           },
+//           docType: "comment",
+//           threads: [],
+//           id: "647f7548f8ec9d81c8c3e04f"
+//         },
+//         docType: "comment",
+//         threads: [],
+//         id: "647f7550f8ec9d81c8c3e058"
+//       }
+//     ],
+
+//     id: "647f28eed1dc0763e297439a"
+//   }
+// ]

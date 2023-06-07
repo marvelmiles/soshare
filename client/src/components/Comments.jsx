@@ -38,28 +38,37 @@ const Comments = ({
   infiniteProps
 }) => {
   const currentUser = useSelector(state => state.user.currentUser || {});
-  const { socket } = useContext();
+  const {
+    socket,
+    context: { blacklistedUsers }
+  } = useContext();
   const stateRef = useRef({
-    cachedComments: {},
     url: `/comments/feed/${documentId}`,
     registeredIds: {},
     pending: {},
-    notiferDelay: -1
+    notiferDelay: -1,
+    composeDoc: {}
   });
   const infiniteScrollRef = useRef();
   const appendComment = useCallback(
     comment => {
       const data = infiniteScrollRef.current?.data;
       const stateCtx = stateRef.current;
-      let docId;
+      const docId = comment.document.id;
+
       if (
-        !(docId = comment.document.id) ||
+        blacklistedUsers[comment.user.id] ||
+        stateCtx.registeredIds[comment.id] >= -1 ||
+        !(comment.rootThread
+          ? data.data[stateCtx.registeredIds[comment.rootThread]] &&
+            stateCtx.registeredIds[docId] > -1
+          : docId === documentId) ||
         !checkVisibility(comment, currentUser)
       )
         return;
-      console.log(" append ", comment.id);
-      if (stateCtx.registeredIds[comment.id] >= -1) return;
-      // dummy assignment only helps to prevent duplicate
+
+      console.log(" append ", comment.id, stateCtx.registeredIds[comment.id]);
+
       stateCtx.registeredIds[comment.id] = -1;
 
       stateRef.current.notifierDelay =
@@ -77,10 +86,9 @@ const Comments = ({
           });
       } else {
         const rIndex = stateCtx.registeredIds[comment.rootThread];
-        if (comment.rootThread && rIndex > -1) {
-          let rootComment = data.data[rIndex];
+        const rootComment = data.data[rIndex];
+        if (rootComment) {
           if (docId === rootComment.id) {
-            // delete stateCtx.registeredIds[(rootComment.threads[0]?.id)];
             rootComment = comment.document;
             stateCtx.registeredIds[comment.id] = 0;
             rootComment.threads[0] = comment;
@@ -88,60 +96,58 @@ const Comments = ({
             const dIndex = stateCtx.registeredIds[docId];
             rootComment.threads[dIndex] = comment.document;
             if (rootComment.threads.length < maxThread) {
-              // rootComment.threads
-              //   .slice(dIndex + 1)
-              //   .forEach(({ id }) => delete stateCtx.registeredIds[id]);
               rootComment.threads = rootComment.threads.slice(0, dIndex + 1);
               stateCtx.registeredIds[comment.id] = rootComment.threads.length;
               rootComment.threads.push(comment);
               stateRef.current.maxThread = dIndex + 1;
             }
           }
-          data.data[rIndex] = rootComment;
-          infiniteScrollRef.current.setData({
-            ...data
-          });
-        } else stateCtx.registeredIds[comment.id] = undefined;
+        }
+        data.data[rIndex] = rootComment;
+        infiniteScrollRef.current.setData({
+          ...data
+        });
       }
     },
-    [currentUser, documentId, handleAction, maxThread]
+    [currentUser, documentId, handleAction, maxThread, blacklistedUsers]
   );
 
   const removeComment = useCallback(
-    (
-      { id, rootThread, document, docType, user: { id: uid } },
-      cacheData = true
-    ) => {
-      if (!cacheData && uid === currentUser.id) return;
-
+    ({ id, rootThread, document, user: { id: uid } }, cacheData = true) => {
       const stateCtx = stateRef.current;
 
       const data = infiniteScrollRef.current.data;
       const index = stateCtx.registeredIds[id];
       const docId = document.id;
 
+      if (!(index > -1) || (!cacheData && isRO)) return;
+
       console.log(" deleted id ", id);
 
-      if (docId) {
-        cacheData &&
-          (document.comments = removeFirstItemFromArray(
-            uid,
-            document.comments
-          ));
+      cacheData &&
+        document.comments &&
+        (document.comments = removeFirstItemFromArray(uid, document.comments));
 
-        if (data.data[index]) {
-          if (docId === documentId) {
-            // data.data[index].threads.forEach(
-            //   ({ id }) => delete stateCtx.registeredIds[id]
-            // );
-            data.data.splice(index, 1);
-            handleAction && handleAction("update", { document });
+      const deleteFromReg = ({ id }) => delete stateCtx.registeredIds[id];
+
+      if (docId === documentId) {
+        data.data.splice(index, 1).forEach(deleteFromReg);
+        handleAction && handleAction("update", { document });
+      } else {
+        const rIndex = stateCtx.registeredIds[rootThread];
+        let rootComment = data.data[rIndex];
+        const handleAnomaly = () => {
+          // running just incase of multiple traffic collision maybe
+          // based on dev and test it doesn't happen
+          console.log(" anomaly ");
+        };
+        if (rootComment) {
+          if (docId === rootThread) {
+            rootComment.threads.forEach(deleteFromReg);
+            rootComment.threads = [];
           } else {
-            const rIndex = stateCtx.registeredIds[rootThread];
-            let rootComment = data.data[rIndex];
-            if (docId === rootThread) rootComment.threads = [];
-            else {
-              const dIndex = stateCtx.registeredIds[docId];
+            const dIndex = stateCtx.registeredIds[docId];
+            if (dIndex > -1 && rootComment.threads[dIndex].id === docId) {
               if (typeof document.document === "string") {
                 const _dIndex = stateCtx.registeredIds[document.document];
                 document.document =
@@ -151,49 +157,33 @@ const Comments = ({
               }
               rootComment.threads[dIndex] = document;
 
-              rootComment.threads.splice(index, 1);
+              rootComment.threads.splice(index).forEach(deleteFromReg);
+            } else {
+              console.log("anomaly....");
+              handleAnomaly();
             }
-            data.data[rIndex] = rootComment;
           }
-        }
-      } else {
-        // just incase an anomaly occurs
-        console.log("anomaly comment ");
-        const rIndex = stateCtx.registeredIds[rootThread];
-        const filterComment = ({ id: _id }) => {
-          if (id === _id) {
-            delete stateCtx.registeredIds[id];
-            return false;
-          }
-          return true;
-        };
-        let rootComment;
-        if (rootThread && (rootComment = data.data[rIndex])) {
-          rootComment.threads = rootComment.threads.filter(filterComment);
-          data.data[rIndex] = rootComment;
-        } else
-          data.data = data.data.filter(filterComment).map(c => {
-            if (c.id === id) c.threads = c.threads.filter(filterComment);
-            return c;
-          });
+        } else handleAnomaly();
+
+        data.data[rIndex] = rootComment;
       }
-      // delete stateCtx.registeredIds[id];
+
       infiniteScrollRef.current.setData({
         ...data
       });
     },
-    [documentId, handleAction, currentUser.id]
+    [documentId, handleAction, isRO]
   );
   const _handleAction = useCallback(
     (reason, options = {}) => {
-      const { document, cacheData = true } = options;
+      const { document, cacheData = true, threadsOnly, uid } = options;
       const stateCtx = stateRef.current;
       switch (reason) {
         case "filter":
-          removeComment(document, cacheData);
+          removeComment(document, cacheData, threadsOnly);
           break;
         case "clear-cache":
-          delete stateCtx.cachedComments[document];
+          console.log("clear cahce ");
           delete stateCtx.registeredIds[document];
           break;
         case "update":
@@ -244,6 +234,7 @@ const Comments = ({
   );
   useEffect(() => {
     const handleFilter = comment => {
+      console.log(" remove comment ");
       removeComment(comment, false);
     };
 
@@ -271,6 +262,41 @@ const Comments = ({
       socket.removeEventListener("update-comment", handleUpdate);
     };
   }, [appendComment, socket, removeComment, currentUser.id, _handleAction]);
+
+  useEffect(() => {
+    const { data, setData } = infiniteScrollRef.current;
+    const stateCtx = stateRef.current;
+    let update;
+    for (let i = 0; i < data.data.length; i++) {
+      const comment = data.data[i];
+
+      const deleteFromReg = ({ id, threads }) => {
+        delete stateCtx.registeredIds[id];
+        for (const { id } of threads) {
+          delete stateCtx.registeredIds[id];
+        }
+      };
+
+      if (blacklistedUsers[comment.user.id]) {
+        update = true;
+        deleteFromReg(data.data.splice(i, 1)[0]);
+        continue;
+      }
+
+      for (let i = 0; i < comment.threads.length; i++) {
+        const thread = comment.threads[i];
+        if (blacklistedUsers[thread.user.id]) {
+          update = true;
+          comment.threads.splice(i).forEach(deleteFromReg);
+          break;
+        }
+      }
+    }
+    update &&
+      setData({
+        ...data
+      });
+  }, [blacklistedUsers]);
 
   // if (infiniteScrollRef.current?.data.data.length && stateCtx) {
   //   if (!stateCtx[documentId]) stateCtx[documentId] = {};
@@ -312,6 +338,7 @@ const Comments = ({
       </Button>
     );
   };
+
   return (
     <>
       {docType ? (
@@ -370,7 +397,10 @@ const Comments = ({
                 {data.length ? (
                   data.map((comment, i) => {
                     if (!comment) return null;
-                    stateRef.current.registeredIds[comment.id] = i;
+
+                    if (blacklistedUsers[comment.user.id])
+                      delete stateRef.current.registeredIds[comment.id];
+                    else stateRef.current.registeredIds[comment.id] = i;
 
                     return (
                       <div
@@ -390,38 +420,44 @@ const Comments = ({
                           isRO={isRO}
                           secondaryAction={renderSecAction(comment.id)}
                           searchParams={searchParams}
+                          withDialog={false}
                         />
-                        {comment.threads?.map((_c, i) => {
-                          const limit = Number(maxThread) || 100;
-                          const params = `ro=${rootUid}&maxThread=${
-                            stateRef.current.maxThread
-                              ? limit - stateRef.current.maxThread
-                              : limit - 1
-                          }&withThread=true`;
+                        {comment.threads.length
+                          ? comment.threads?.map((_c, i) => {
+                              const limit = Number(maxThread) || 100;
+                              const params = `ro=${rootUid}&maxThread=${
+                                stateRef.current.maxThread
+                                  ? limit - stateRef.current.maxThread
+                                  : limit - 1
+                              }&withThread=true`;
 
-                          stateRef.current.registeredIds[_c.id] = i;
+                              if (blacklistedUsers[_c.user.id])
+                                delete stateRef.current.registeredIds[_c.id];
+                              else stateRef.current.registeredIds[_c.id] = i;
 
-                          return _c ? (
-                            <PostWidget
-                              key={_c.id}
-                              showThread={
-                                maxThread - 1 > i &&
-                                _c.comments.length &&
-                                _c.thread
-                              }
-                              searchParams={params}
-                              post={_c}
-                              docType="comment"
-                              handleAction={_handleAction}
-                              caption={getThreadOwners(_c)}
-                              isRO={isRO}
-                              sx={{
-                                pt: 0
-                              }}
-                              secondaryAction={renderSecAction(_c.id)}
-                            />
-                          ) : null;
-                        })}
+                              return _c ? (
+                                <PostWidget
+                                  key={_c.id}
+                                  showThread={
+                                    maxThread - 1 > i &&
+                                    _c.comments.length &&
+                                    _c.thread
+                                  }
+                                  searchParams={params}
+                                  post={_c}
+                                  docType="comment"
+                                  handleAction={_handleAction}
+                                  caption={getThreadOwners(_c)}
+                                  isRO={isRO}
+                                  sx={{
+                                    pt: 0
+                                  }}
+                                  secondaryAction={renderSecAction(_c.id)}
+                                  withDialog={false}
+                                />
+                              ) : null;
+                            })
+                          : null}
                         {stateRef.current.pending[comment.id] ? (
                           <Loading />
                         ) : null}

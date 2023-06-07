@@ -67,7 +67,7 @@ const InputBox = ({
   docType = "post"
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const { setSnackBar, setComposeDoc } = useContext();
+  const { setSnackBar, setContext } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const [moreActionPopover, setMoreActionPopover] = useState({});
   const {
@@ -311,10 +311,13 @@ const InputBox = ({
           if (handleAction)
             handleAction(placeholders ? "update" : "new", { document: res });
           else
-            setComposeDoc({
-              docType,
-              document: res,
-              reason: placeholders ? "update" : "new"
+            setContext(context => {
+              context.composeDoc = {
+                docType,
+                document,
+                reason: placeholders ? "update" : "new"
+              };
+              return { ...context };
             });
         } else errors[mediaRefName] && setSnackBar(errors[mediaRefName]);
       } catch (msg) {
@@ -353,7 +356,7 @@ const InputBox = ({
       setSnackBar,
       url,
       withPlaceholders,
-      setComposeDoc,
+      setContext,
       docType
     ]
   );

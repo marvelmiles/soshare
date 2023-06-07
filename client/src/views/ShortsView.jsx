@@ -9,6 +9,7 @@ import { useSelector } from "react-redux";
 import InfiniteScroll from "components/InfiniteScroll";
 import { contextHandler } from "utils";
 import useCallbacks from "hooks/useCallbacks";
+
 const ShortsView = ({
   title,
   miniShort = true,
@@ -25,7 +26,10 @@ const ShortsView = ({
   plainWidget = plainWidget === undefined ? !miniShort : plainWidget;
   centerEmptyText = plainWidget ? true : centerEmptyText;
   const currentUser = useSelector(state => state.user.currentUser || {});
-  const { socket, composeDoc, setComposeDoc } = useContext();
+  const {
+    socket,
+    context: { composeDoc }
+  } = useContext();
 
   const infiniteScrollRef = useRef();
   const stateRef = useRef({
@@ -75,21 +79,16 @@ const ShortsView = ({
       filterOlders();
       taskId = setInterval(filterOlders, 60 * 1000);
     }, (60 - sec) * 1000);
-    if (composeDoc) {
-      switch (composeDoc.reason) {
-        case "filter":
-        case "clear-cache":
-          _handleAction(composeDoc.reason, composeDoc);
-          break;
-        case "new":
-          if (composeDoc.docType === "short")
-            _handleAction("new", {
-              document: composeDoc.document
-            });
-          break;
-        default:
-          break;
-      }
+
+    switch (composeDoc.reason) {
+      case "new":
+        if (composeDoc.docType === "short")
+          _handleAction("new", {
+            document: composeDoc.document
+          });
+        break;
+      default:
+        break;
     }
 
     return () => {
@@ -98,7 +97,7 @@ const ShortsView = ({
         taskId && clearInterval(taskId);
       }
     };
-  }, [composeDoc, setComposeDoc, _handleAction]);
+  }, [composeDoc, _handleAction]);
 
   return (
     <InfiniteScroll
@@ -113,8 +112,7 @@ const ShortsView = ({
       }
       Component={miniShort ? WidgetContainer : undefined}
       notifierDelay={
-        !currentUser.id ||
-        (composeDoc && currentUser.id !== composeDoc.document.user?.id)
+        !currentUser.id || currentUser.id !== composeDoc.document?.user.id
           ? undefined
           : -1
       }
@@ -124,7 +122,7 @@ const ShortsView = ({
       searchId={
         miniShort
           ? undefined
-          : composeDoc?.docType === "short" && composeDoc.reason === "fetch"
+          : composeDoc.docType === "short" && composeDoc.reason === "fetch"
           ? composeDoc.document.id
           : undefined
       }

@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import MoreActions from "components/MoreActions";
 import moment from "moment";
 import useLikeDispatch from "hooks/useLikeDispatch";
+import DocBlacklistedInfo from "components/DocBlacklistedInfo";
 
 const PostWidget = React.forwardRef(
   (
@@ -33,7 +34,8 @@ const PostWidget = React.forwardRef(
       index,
       secondaryAction,
       searchParams,
-      disableNavigation
+      disableNavigation,
+      withDialog = true
     },
     ref
   ) => {
@@ -55,9 +57,27 @@ const PostWidget = React.forwardRef(
       docType,
       document: post
     });
-    const { setSnackBar } = useContext();
+    const {
+      setSnackBar,
+      context: { blacklistedUsers }
+    } = useContext();
     const likeCount = Object.keys(post.likes || {}).length;
     const isOwner = post.user.id === id;
+
+    const openDialog = withDialog
+      ? blacklistedUsers[post.user.id]
+        ? "blacklist"
+        : ""
+      : "";
+
+    useEffect(() => {
+      withDialog &&
+        handleAction &&
+        handleAction("blacklisted", {
+          uid: blacklistedUsers[post.user.id] ? post.user.id : ""
+        });
+    }, [handleAction, blacklistedUsers, post.user.id, withDialog]);
+
     const formatedDate = (() => {
       let str = moment(post.createdAt).fromNow();
       let digit = str.match(/\d+/g);
@@ -87,228 +107,252 @@ const PostWidget = React.forwardRef(
       }
       return str;
     })();
+
     return (
       <>
         {post.id}
-        <WidgetContainer
-          plainWidget={plainWidget}
-          onClick={
-            enableSnippet || disableNavigation
-              ? undefined
-              : e => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  navigate(`/${docType}s/${post.id}`);
-                }
-          }
-          sx={{
-            borderBottom: "1px solid #333",
-            borderBottomColor: "divider",
-            borderRadius: 0,
-            display: "flex",
-            gap: 1,
-            alignItems: "flex-start",
-            height: "auto",
-            minHeight: "0",
-            maxHeight: "none",
-            cursor: disableNavigation ? "" : "pointer",
-            backgroundColor: "transparent !important",
-            mb: 0,
-            pb: 1,
-            ...(showThread && {
-              border: "none",
-              borderRadius: "0",
-              position: "relative",
-              mb: 0,
-              pb: 0,
-              "&::before": {
-                content: `""`,
-                backgroundColor: "primary.main",
-                position: "absolute",
-                top: "30px",
-                // 100% - avatar size +  16px pt
-                height: `calc(100% - 30px)`,
-                width: "1px",
-                transform: {
-                  xs: "translateX(10px)",
-                  s280: "translateX(15px)"
-                }, // half the avatar size
-                bottom: "0px"
-                // zIndex: 1
-              }
-            }),
-            ...sx
-          }}
-          ref={ref}
-        >
-          <Avatar variant="sm" />
-          <Box sx={{ width: "calc(100% - 40px)" }}>
-            <Box
+        <Box sx={{ position: "relative" }}>
+          {openDialog ? (
+            <Typography
+              component="div"
               sx={{
-                position: "relative",
-                display: "flex",
-                "& > *": {
-                  minWidth: "0"
-                }
+                position: "absolute",
+                top: 0,
+                left: 0,
+                backgroundColor: "background.paper",
+                height: "100%",
+                width: "100%",
+                zIndex: 1,
+                color: "inherit"
               }}
             >
-              <div
-                style={{
-                  display: "flex"
+              {
+                {
+                  blacklist: <DocBlacklistedInfo />
+                }[openDialog]
+              }
+            </Typography>
+          ) : null}
+          <WidgetContainer
+            plainWidget={plainWidget}
+            onClick={
+              enableSnippet || disableNavigation
+                ? undefined
+                : e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    navigate(`/${docType}s/${post.id}`);
+                  }
+            }
+            sx={{
+              borderBottom: "1px solid #333",
+              borderBottomColor: "divider",
+              borderRadius: 0,
+              display: "flex",
+              gap: 1,
+              alignItems: "flex-start",
+              height: "auto",
+              minHeight: "0",
+              maxHeight: "none",
+              cursor: disableNavigation ? "" : "pointer",
+              backgroundColor: "transparent !important",
+              mb: 0,
+              pb: 1,
+              ...(showThread && {
+                border: "none",
+                borderRadius: "0",
+                position: "relative",
+                mb: 0,
+                pb: 0,
+                "&::before": {
+                  content: `""`,
+                  backgroundColor: "primary.main",
+                  position: "absolute",
+                  top: "30px",
+                  // 100% - avatar size +  16px pt
+                  height: `calc(100% - 30px)`,
+                  width: "1px",
+                  transform: {
+                    xs: "translateX(10px)",
+                    s280: "translateX(15px)"
+                  }, // half the avatar size
+                  bottom: "0px"
+                  // zIndex: 1
+                }
+              }),
+              ...sx
+            }}
+            ref={ref}
+          >
+            <Avatar variant="sm" />
+            <Box sx={{ width: "calc(100% - 40px)" }}>
+              <Box
+                sx={{
+                  position: "relative",
+                  display: "flex",
+                  "& > *": {
+                    minWidth: "0"
+                  }
                 }}
               >
-                <StyledLink
-                  textEllipsis
-                  variant="caption"
-                  fontWeight="500"
-                  sx={{ color: "text.primary", fontWeight: "500" }}
-                  onClick={e => e.stopPropagation()}
-                  to={`/u/${post.user.id}`}
-                >
-                  {isOwner
-                    ? "You"
-                    : post.user.displayName || post.user.username}
-                </StyledLink>
-                {isOwner ? null : (
-                  <StyledTypography
-                    variant="caption"
-                    textEllipsis
-                    color="primary.contrastText"
-                    sx={{
-                      ml: "3px",
-                      fontWeight: "500"
-                    }}
-                    component="span"
-                  >
-                    @{post.user.username}
-                  </StyledTypography>
-                )}
-              </div>
-              <div style={{ display: "flex" }}>
-                <StyledTypography
-                  component="span"
-                  sx={{
-                    mx: "2px",
-                    color: "text.secondary"
+                <div
+                  style={{
+                    display: "flex"
                   }}
                 >
-                  ·
-                </StyledTypography>
-                <StyledTypography
-                  component="span"
+                  <StyledLink
+                    textEllipsis
+                    variant="caption"
+                    fontWeight="500"
+                    sx={{ color: "text.primary", fontWeight: "500" }}
+                    onClick={e => e.stopPropagation()}
+                    to={`/u/${post.user.id}`}
+                  >
+                    {isOwner
+                      ? "You"
+                      : post.user.displayName || post.user.username}
+                  </StyledLink>
+                  {isOwner ? null : (
+                    <StyledTypography
+                      variant="caption"
+                      textEllipsis
+                      color="primary.contrastText"
+                      sx={{
+                        ml: "3px",
+                        fontWeight: "500"
+                      }}
+                      component="span"
+                    >
+                      @{post.user.username}
+                    </StyledTypography>
+                  )}
+                </div>
+                <div style={{ display: "flex" }}>
+                  <StyledTypography
+                    component="span"
+                    sx={{
+                      mx: "2px",
+                      color: "text.secondary"
+                    }}
+                  >
+                    ·
+                  </StyledTypography>
+                  <StyledTypography
+                    component="span"
+                    variant="caption"
+                    textEllipsis={formatedDate.length > 7}
+                    color="text.secondary"
+                  >
+                    {formatedDate}
+                  </StyledTypography>
+                </div>
+              </Box>
+              {caption ? (
+                <Typography
                   variant="caption"
-                  textEllipsis={formatedDate.length > 7}
                   color="text.secondary"
+                  sx={{
+                    wordBreak: "break-word"
+                  }}
                 >
-                  {formatedDate}
-                </StyledTypography>
-              </div>
-            </Box>
-            {caption ? (
-              <Typography
-                variant="caption"
-                color="text.secondary"
+                  {caption}
+                </Typography>
+              ) : null}
+              <Box
                 sx={{
-                  wordBreak: "break-word"
+                  my: 1,
+                  wordBreak: "break-word",
+                  color: "text.primary"
                 }}
               >
-                {caption}
-              </Typography>
-            ) : null}
-            <Box
-              sx={{
-                my: 1,
-                wordBreak: "break-word",
-                color: "text.primary"
-              }}
-            >
-              {post.text ? (
-                <Typography variant="h5" sx={{ display: "inline" }}>
-                  {post.text}
-                </Typography>
+                {post.text ? (
+                  <Typography variant="h5" sx={{ display: "inline" }}>
+                    {post.text}
+                  </Typography>
+                ) : null}
+                {showAll && post.moreText ? (
+                  <Typography variant="h5" sx={{ display: "inline" }}>
+                    {post.moreText}
+                  </Typography>
+                ) : null}
+                {post.moreText ? (
+                  enableSnippet ? (
+                    <Typography component="span">...</Typography>
+                  ) : (
+                    <StyledTypography
+                      variant="link"
+                      sx={{ ml: 1 }}
+                      onClick={e => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setShowAll(!showAll);
+                      }}
+                    >
+                      {showAll ? "Show less" : "Show more"}
+                    </StyledTypography>
+                  )
+                ) : null}
+              </Box>
+              {(post.medias ? (
+                post.medias.length
+              ) : (
+                post.media
+              )) ? (
+                <MediaCarousel medias={post.medias || [post.media]} />
               ) : null}
-              {showAll && post.moreText ? (
-                <Typography variant="h5" sx={{ display: "inline" }}>
-                  {post.moreText}
-                </Typography>
-              ) : null}
-              {post.moreText ? (
-                enableSnippet ? (
-                  <Typography component="span">...</Typography>
-                ) : (
-                  <StyledTypography
-                    variant="link"
-                    sx={{ ml: 1 }}
-                    onClick={e => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setShowAll(!showAll);
-                    }}
-                  >
-                    {showAll ? "Show less" : "Show more"}
-                  </StyledTypography>
-                )
-              ) : null}
-            </Box>
-            {(post.medias ? (
-              post.medias.length
-            ) : (
-              post.media
-            )) ? (
-              <MediaCarousel medias={post.medias || [post.media]} />
-            ) : null}
-            {hideToolbox || enableSnippet ? null : (
-              <Stack flexWrap="wrap">
-                <Stack>
-                  <Stack gap="4px">
-                    <IconButton onClick={handleLikeToggle}>
-                      {post.likes[id] ? (
-                        <FavoriteOutlinedIcon
-                          sx={{
-                            color: "common.heart"
-                          }}
-                        />
-                      ) : (
-                        <FavoriteBorderOutlinedIcon />
-                      )}
-                    </IconButton>
-                    <Typography>{{}[likeCount] || likeCount}</Typography>
+              {hideToolbox || enableSnippet ? null : (
+                <Stack flexWrap="wrap">
+                  <Stack>
+                    <Stack gap="4px">
+                      <IconButton onClick={handleLikeToggle}>
+                        {post.likes[id] ? (
+                          <FavoriteOutlinedIcon
+                            sx={{
+                              color: "common.heart"
+                            }}
+                          />
+                        ) : (
+                          <FavoriteBorderOutlinedIcon />
+                        )}
+                      </IconButton>
+                      <Typography>{{}[likeCount] || likeCount}</Typography>
+                    </Stack>
+                    <Stack
+                      gap="4px"
+                      onClick={e => {
+                        e.stopPropagation();
+                        if (id)
+                          navigate(`?compose=comment`, {
+                            state: {
+                              composeDoc: post,
+                              docType
+                            }
+                          });
+                        else setSnackBar();
+                      }}
+                    >
+                      <IconButton>
+                        <ChatBubbleOutlineOutlinedIcon />
+                      </IconButton>
+                      <Typography> {post.comments.length}</Typography>
+                    </Stack>
                   </Stack>
-                  <Stack
-                    gap="4px"
-                    onClick={e => {
-                      e.stopPropagation();
-                      if (id)
-                        navigate(`?compose=comment`, {
-                          state: {
-                            composeDoc: post,
-                            docType
-                          }
-                        });
-                      else setSnackBar();
-                    }}
-                  >
-                    <IconButton>
-                      <ChatBubbleOutlineOutlinedIcon />
-                    </IconButton>
-                    <Typography> {post.comments.length}</Typography>
-                  </Stack>
+                  <MoreActions
+                    handleAction={handleAction}
+                    document={post}
+                    isOwner={isOwner}
+                    isRO={isRO}
+                    title={docType}
+                    urls={stateRef.current.moreUrls}
+                    index={index}
+                    docType={docType}
+                  />
                 </Stack>
-                <MoreActions
-                  handleAction={handleAction}
-                  document={post}
-                  isOwner={isOwner}
-                  isRO={isRO}
-                  title={docType}
-                  urls={stateRef.current.moreUrls}
-                  index={index}
-                  docType={docType}
-                />
-              </Stack>
-            )}
-            <div style={{ paddingTop: "8px" }}>{secondaryAction}</div>
-          </Box>
-        </WidgetContainer>
+              )}
+              <div style={{ paddingTop: "8px" }}>{secondaryAction}</div>
+            </Box>
+          </WidgetContainer>
+        </Box>
       </>
     );
   }

@@ -50,8 +50,8 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
   const stateRef = useRef({
     commentHolder: {}
   });
-  const [context, setContext] = useState({});
-  const { setComposeDoc } = useContext();
+  const [ctx, setCtx] = useState({});
+  const { setContext } = useContext();
   const view = (searchParams.get("view") || "").toLowerCase();
   const compose = (searchParams.get("compose") || "").toLowerCase();
   const cid = searchParams.get("cid") || "";
@@ -62,7 +62,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
     (e, dialogType) => {
       e && e.stopPropagation();
       if (stateRef.current.path) handleCancelRequest(stateRef.current.path);
-      setContext({});
+      setCtx({});
       dialogType = e ? e.currentTarget.dataset.dialogType : dialogType;
 
       if (dialogType) searchParams.delete(dialogType);
@@ -82,7 +82,11 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
         stateRef.current.path = undefined;
         res.reason = reason;
         if (!res.docType && state) res.docType = state.docType;
-        setComposeDoc(res);
+        setContext(context => {
+          context.composeDoc = res;
+          console.log(res);
+          return { ...context };
+        });
         closeDialog(undefined, "compose");
       };
       switch (reason) {
@@ -99,7 +103,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           if (compose === "comment") appendDoc();
           break;
         case "context":
-          setContext(context => ({
+          setCtx(context => ({
             ...context,
             ...res
           }));
@@ -108,7 +112,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           break;
       }
     },
-    [closeDialog, setComposeDoc, state, compose]
+    [closeDialog, setContext, state, compose]
   );
   const renderDialog = key => {
     if (!key) return;
@@ -132,7 +136,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
             <DialogTitle component={Stack}>
               <Stack>
                 {goBackElem}
-                {context.processing ? (
+                {ctx.processing ? (
                   <Typography variant="h5" fontWeight="bold">
                     <LoadingDot />
                   </Typography>
@@ -225,7 +229,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
               }}
             >
               <Stack>
-                {goBackElem} {context.processing ? <LoadingDot /> : null}
+                {goBackElem} {ctx.processing ? <LoadingDot /> : null}
               </Stack>
               <Typography color="primary.main">{34} views</Typography>
             </DialogTitle>
@@ -342,15 +346,15 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           <>
             <DialogTitle component={Stack}>
               <Typography color="primary" variant="h5">
-                {context.dataSize || 0} blacklisted user(s)
+                {ctx.dataSize || 0} blacklisted user(s)
               </Typography>
-              {context.processing ? (
+              {ctx.processing ? (
                 <LoadingDot sx={{ float: "right", py: "4px" }} />
               ) : (
                 <Button
                   onClick={e => {
                     e.stopPropagation();
-                    setContext(context => ({
+                    setCtx(context => ({
                       ...context,
                       action: "whitelist-all"
                     }));
@@ -363,7 +367,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
             </DialogTitle>
             <DialogContent ref={scrollNodeRef}>
               <UserBlacklistView
-                whitelistAll={context.action === "whitelist-all"}
+                whitelistAll={ctx.action === "whitelist-all"}
                 key="view-blacklist"
                 scrollNodeRef={scrollNodeRef}
                 handleAction={_handleAction}

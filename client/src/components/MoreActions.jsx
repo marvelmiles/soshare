@@ -47,7 +47,7 @@ const MoreActions = ({
       settings: currentUser.settings || {}
     };
   });
-  const { setSnackBar, setComposeDoc } = useContext();
+  const { setSnackBar, setContext } = useContext();
 
   const { handleDelete } = useDeleteDispatch({
     url: urls.delPath,
@@ -65,35 +65,27 @@ const MoreActions = ({
   const handleDontRecommend = useCallback(async () => {
     if (isLoggedIn) {
       try {
-        console.log("black lsting ");
-        setComposeDoc({
-          docType,
-          document: document.id,
-          uid: document.user.id,
-          reason: "filter"
+        console.log("black lsting ", !!handleAction);
+
+        setContext(context => {
+          return {
+            ...context,
+            blacklistedUsers: {
+              ...context.blacklistedUsers,
+              [document.user.id]: true
+            }
+          };
         });
         await http.put(`/users/recommendation/blacklist/${document.user.id}`);
-        setSnackBar({
-          message: `You blacklisted @${document.user.username}`,
-          severity: "success"
-        });
-        setComposeDoc({
-          docType,
-          document: document.id,
-          uid: document.user.id,
-          reason: "clear-cache"
-        });
-      } catch (msg) {
-        setComposeDoc({
-          docType,
-          document,
-          uid: document.user.id,
-          reason: "new"
-        });
-        setSnackBar(msg);
+      } catch (_) {
+        console.log(_);
+        setSnackBar(
+          `Failed to blacklist @${document.user.username ||
+            "user"}! over the sever`
+        );
       }
     } else setSnackBar();
-  }, [docType, document, isLoggedIn, setComposeDoc, setSnackBar]);
+  }, [document, isLoggedIn, setContext, setSnackBar, handleAction]);
 
   const _handleAction = useCallback(
     reason => {

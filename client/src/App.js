@@ -1,5 +1,11 @@
-import React, { useMemo, useState, useEffect, useCallback } from "react";
-import { Routes, Route, useNavigate } from "react-router-dom";
+import React, {
+  useMemo,
+  useState,
+  useEffect,
+  useCallback,
+  useRef
+} from "react";
+import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import {
   ThemeProvider,
   createTheme,
@@ -12,7 +18,7 @@ import HomePage from "pages/HomePage";
 import ProfilePage from "pages/ProfilePage";
 import Signin from "pages/Signin";
 import Signup from "pages/Signup";
-import { context } from "context/store";
+import { Provider } from "context/store";
 import { Snackbar, useMediaQuery, Button, Typography } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import CloseIcon from "@mui/icons-material/Close";
@@ -41,7 +47,11 @@ const socket = io.connect(API_ENDPOINT, {
 
 const App = () => {
   const [snackbar, setSnackbar] = useState({});
-  const [composeDoc, setComposeDoc] = useState();
+  const [context, setContext] = useState({
+    blacklistedPosts: {},
+    blacklistedUsers: {},
+    composeDoc: {}
+  });
   const [readyState, setReadyState] = useState("pending");
   const mode = useMediaQuery("(prefers-color-scheme: dark)") ? "dark" : "light";
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
@@ -58,7 +68,7 @@ const App = () => {
 
     let handlingErr;
     const handleSocketErr = error => {
-      console.log(" err ");
+      console.log(" err ", error.message);
       if (handlingErr) return;
       handlingErr = true;
       switch (error.message) {
@@ -70,10 +80,8 @@ const App = () => {
               handlingErr = undefined;
             });
           break;
-        case "xhr poll error":
-          setReadyState("reject");
-          break;
         default:
+          setReadyState("reject");
           break;
       }
     };
@@ -185,13 +193,13 @@ const App = () => {
           }
         }}
       />
-      <context.Provider
+      <Provider
         value={{
           setSnackBar,
           socket,
-          setComposeDoc,
-          composeDoc,
+          context,
           readyState,
+          setContext,
           setReadyState
         }}
       >
@@ -218,7 +226,7 @@ const App = () => {
             <Route path="*" element={<Page404 />} />
           </Routes>
         )}
-      </context.Provider>
+      </Provider>
 
       <Snackbar
         open={snackbar.open}

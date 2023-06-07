@@ -8,6 +8,8 @@ import ShortFooter from "./ShortFooter";
 import ShortSidebar from "./ShortSidebar";
 import { useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
+import Typography from "@mui/material/Typography";
+import DocBlacklistedInfo from "components/DocBlacklistedInfo";
 
 const Short = React.forwardRef(
   (
@@ -20,11 +22,15 @@ const Short = React.forwardRef(
       miniShort,
       handleAction,
       loop,
+      withDialog = true,
       ...rest
     },
     ref
   ) => {
-    const { setComposeDoc } = useContext();
+    const {
+      setContext,
+      context: { blacklistedUsers }
+    } = useContext();
     const cid = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
     const stateRef = useRef({
@@ -47,17 +53,20 @@ const Short = React.forwardRef(
         e.stopPropagation();
         console.log(" clicked... ", short.id);
         miniShort &&
-          setComposeDoc({
-            docType: "short",
-            reason: "fetch",
-            document: {
-              id: short.id
-            }
+          setContext(context => {
+            context.composeDoc = {
+              docType: "short",
+              reason: "fetch",
+              document: {
+                id: short.id
+              }
+            };
+            return context;
           });
         window.location.pathname.toLowerCase() !== "/shorts" &&
           navigate(`/shorts`);
       },
-      [navigate, setComposeDoc, short.id, miniShort]
+      [navigate, setContext, short.id, miniShort]
     );
     const onError = useCallback(
       ({ severity, withReload }) => {
@@ -67,13 +76,25 @@ const Short = React.forwardRef(
       [handleAction, short.id]
     );
     const onReload = useCallback(() => setLoading(true), []);
+    const openDialog = withDialog
+      ? blacklistedUsers[short.user.id]
+        ? "blacklist"
+        : ""
+      : "";
+    const inheritSx = {
+      height: "inherit",
+      width: "inherit",
+      border: "inherit",
+      borderRadius: "inherit",
+      color: "inherit"
+    };
     return (
       <Box
-        id={short.id}
-        key={short.id + miniShort + "short"}
-        ref={ref}
         sx={{
           position: "relative",
+          border: "1px solid currentColor",
+          borderColor: "divider",
+          height: miniShort ? "200px" : "calc(100vh - 100px)",
           borderRadius: 3,
           width: miniShort
             ? {
@@ -84,68 +105,91 @@ const Short = React.forwardRef(
                 xs: "100%",
                 s500: "400px"
               },
-          height: miniShort ? "200px" : "calc(100vh - 100px)",
           mb: miniShort ? 1 : 0,
-          border: "1px solid currentColor",
-          borderColor: "divider",
           mx: miniShort ? "" : "auto"
         }}
-        {...rest}
       >
-        <VideoPlayer
+        {openDialog ? (
+          <Typography
+            component="div"
+            sx={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              backgroundColor: "background.paper",
+              zIndex: 1,
+              ...inheritSx
+            }}
+          >
+            {
+              {
+                blacklist: <DocBlacklistedInfo />
+              }[openDialog]
+            }
+          </Typography>
+        ) : null}
+        <Box
           id={short.id}
           key={short.id + miniShort + "short"}
-          loop={loop}
-          src={short.url}
-          mimetype={short.mimetype}
-          hideControls
-          enableIndicator={!miniShort}
-          backdrops={{
-            RELOAD: true
-          }}
-          pause={short.pause}
-          autoPlay={!miniShort}
-          withIntersection={!miniShort}
-          hoverPlayDelay={miniShort && 500}
-          hideTimeline={miniShort}
-          onTimeUpdate={onTimeUpdate}
-          onClick={onClick}
-          onLoadedMetadata={onLoadedMetadata}
-          onReload={onReload}
-          onError={onError}
-          sx={
-            miniShort
-              ? {
-                  cursor: "pointer"
-                }
-              : undefined
-          }
-          footerSx={
-            !miniShort && {
-              background: "none",
-              py: 0,
-              bottom: "-5.5px"
+          ref={ref}
+          sx={inheritSx}
+          {...rest}
+        >
+          <VideoPlayer
+            id={short.id}
+            key={short.id + miniShort + "short"}
+            loop={loop}
+            src={short.url}
+            mimetype={short.mimetype}
+            hideControls
+            enableIndicator={!miniShort}
+            backdrops={{
+              RELOAD: true
+            }}
+            pause={short.pause}
+            autoPlay={!miniShort}
+            withIntersection={!miniShort}
+            hoverPlayDelay={miniShort && 500}
+            hideTimeline={miniShort}
+            onTimeUpdate={onTimeUpdate}
+            onClick={onClick}
+            onLoadedMetadata={onLoadedMetadata}
+            onReload={onReload}
+            onError={onError}
+            sx={
+              miniShort
+                ? {
+                    cursor: "pointer"
+                  }
+                : undefined
             }
-          }
-        />
+            footerSx={
+              !miniShort && {
+                background: "none",
+                py: 0,
+                bottom: "-5.5px"
+              }
+            }
+          />
 
-        <ShortFooter
-          user={short.user}
-          text={short.text}
-          views={short.views ? Object.keys(short.views).length : 0}
-          miniShort={miniShort}
-          id={short.id}
-          handleAction={handleAction}
-          loading={loading}
-          animation={stateRef.current.backdropText ? false : undefined}
-        />
-        <ShortSidebar
-          id={short.id}
-          user={short.user}
-          handleAction={handleAction}
-          loading={loading}
-          animation={stateRef.current.backdropText ? false : undefined}
-        />
+          <ShortFooter
+            user={short.user}
+            text={short.text}
+            views={short.views ? Object.keys(short.views).length : 0}
+            miniShort={miniShort}
+            id={short.id}
+            handleAction={handleAction}
+            loading={loading}
+            animation={stateRef.current.backdropText ? false : undefined}
+          />
+          <ShortSidebar
+            id={short.id}
+            user={short.user}
+            handleAction={handleAction}
+            loading={loading}
+            animation={stateRef.current.backdropText ? false : undefined}
+          />
+        </Box>
       </Box>
     );
   }

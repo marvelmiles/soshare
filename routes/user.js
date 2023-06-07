@@ -26,12 +26,12 @@ router
   .get("/blacklist", verifyToken, getBlacklist)
   .get("/notifications", verifyToken, getUserNotifications)
   .get("/unseen-alerts", verifyToken, getUnseenAlerts)
-  .get("/:id/posts", getUserPosts)
-  .get("/:id/shorts", getUserShorts)
+  .get("/:userId/posts", getUserPosts)
+  .get("/:userId/shorts", getUserShorts)
   .get("/:id/suggest-followers", verifyToken, suggestFollowers)
-  .get("/:id/followers", getFollowers)
-  .get("/:id/following", getFollowing)
-  .get("/:id", getUser)
+  .get("/:userId/followers", getFollowers)
+  .get("/:userId/following", getFollowing)
+  .get("/:userId", getUser)
   .put(
     "/",
     verifyToken,

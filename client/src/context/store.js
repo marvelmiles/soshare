@@ -42,8 +42,10 @@ const store = configureStore({
 
 export const persistor = persistStore(store);
 
-export const context = React.createContext();
+export const appContext = React.createContext();
 
-export const useContext = () => React.useContext(context);
+export const Provider = appContext.Provider;
+
+export const useContext = () => React.useContext(appContext);
 
 export default store;

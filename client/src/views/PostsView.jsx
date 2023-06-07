@@ -21,7 +21,10 @@ const PostsView = ({
   infiniteScrollProps,
   privateView
 }) => {
-  const { socket, composeDoc, setComposeDoc } = useContext();
+  const {
+    socket,
+    context: { composeDoc, blacklistedPosts }
+  } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const infiniteScrollRef = useRef();
   const stateRef = useRef({
@@ -58,10 +61,6 @@ const PostsView = ({
   useEffect(() => {
     if (composeDoc) {
       switch (composeDoc.reason) {
-        case "filter":
-        case "clear-cache":
-          _handleAction(composeDoc.reason, composeDoc);
-          break;
         case "new":
           if (composeDoc.docType === "post")
             _handleAction("new", { document: composeDoc.document });
@@ -70,10 +69,11 @@ const PostsView = ({
           break;
       }
     }
-  }, [composeDoc, _handleAction, setComposeDoc]);
+  }, [composeDoc, _handleAction]);
 
   return (
     <InfiniteScroll
+      exclude={blacklistedPosts}
       root={document.documentElement}
       Component={WidgetContainer}
       componentProps={{
@@ -83,8 +83,7 @@ const PostsView = ({
       url={stateRef.current.url}
       ref={infiniteScrollRef}
       notifierDelay={
-        !currentUser.id ||
-        (composeDoc && currentUser.id !== composeDoc.document.user?.id)
+        !currentUser.id || currentUser.id !== composeDoc.document?.user.id
           ? undefined
           : -1
       }

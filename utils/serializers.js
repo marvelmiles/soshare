@@ -29,6 +29,7 @@ export const createVisibilityQuery = async ({
   refPath = "user",
   verify
 }) => {
+  console.log(userId, searchUser);
   if (!userId && searchUser) {
     userId = searchUser;
     searchUser = undefined;
