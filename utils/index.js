@@ -278,9 +278,9 @@ export const sendAndUpdateNotification = async ({
       to ||
       req.params.userId ||
       (document
-        ? document.user
-          ? document.user.id || document.user
-          : document.id || document
+        ? document.document
+          ? document.document.user?.id || document.document.user
+          : document.user?.id || document.user
         : undefined);
     eventName =
       eventName ||
@@ -325,7 +325,9 @@ export const sendAndUpdateNotification = async ({
       isNew = false,
       filterNotice = false,
       notice;
+
     notice = await Notification.findOne(match);
+
     if (filter) {
       if (notice)
         if (notice.users.length - 1 === 0) {

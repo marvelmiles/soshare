@@ -248,7 +248,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                 mediaRefName="media"
                 multiple={false}
                 message={{
-                  success: `Added comment successfully`
+                  success: `Your comment has been soshared!`
                 }}
                 placeholders={stateRef.current.commentHolder}
                 max={280}

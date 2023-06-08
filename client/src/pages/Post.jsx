@@ -1,11 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import PostWidget from "components/PostWidget";
-import {
-  useParams,
-  useSearchParams,
-  Navigate,
-  useNavigate
-} from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import http from "api/http";
 import { useContext } from "context/store";
 import Comments from "components/Comments";
@@ -24,11 +19,11 @@ const Post = () => {
   const [redirect, setRedirect] = useState(false);
   let { kind = "", id = "" } = useParams();
   kind = kind.toLowerCase();
-  const navigate = useNavigate();
   const {
-    setSnackBar,
     socket,
-    context: { blacklistedPosts, blacklistedUsers, setContext }
+    context: { blacklistedPosts, blacklistedUsers },
+    setContext,
+    setSnackBar
   } = useContext();
   const [searchParams] = useSearchParams();
 
@@ -66,7 +61,7 @@ const Post = () => {
             context.blacklistedPosts[post.id] = "404";
             return { ...context };
           });
-          navigate(-1);
+          setRedirect(true);
           break;
         case "filter-comment":
           setPost(post => {
@@ -91,13 +86,13 @@ const Post = () => {
           });
           break;
         case "blacklisted":
-          // uid && setRedirect(true);
+          uid && setRedirect(true);
           break;
         default:
           break;
       }
     },
-    [navigate, setContext, post?.id]
+    [setContext, post?.id]
   );
 
   useEffect(() => {
@@ -123,8 +118,7 @@ const Post = () => {
   }, [socket, docType, _handleAction, post?.id, cid]);
 
   useEffect(() => {
-    if (blacklistedUsers[(post?.user.id)])
-      console.log(!!_handleAction, " goiing back ");
+    if (blacklistedUsers[(post?.user.id)]) _handleAction("filter");
   }, [blacklistedUsers, post?.user.id, _handleAction]);
 
   if (!docType) stateRef.current.info = "500";

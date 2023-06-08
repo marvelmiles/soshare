@@ -8,12 +8,13 @@ const Redirect = ({
 }) => {
   const navigate = useNavigate();
   useEffect(() => {
-    setTimeout(() => {
+    const id = setTimeout(() => {
       navigate(
         window.location.pathname.toLowerCase() === true || true
           ? fallbackPath
           : -1
       );
+      clearTimeout(id);
     }, 5000);
   }, [navigate, fallbackPath]);
   return <EmptyData label={message} />;

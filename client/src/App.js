@@ -227,7 +227,7 @@ const App = () => {
 
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={snackbar.autoHideDuration || 10000}
+        autoHideDuration={snackbar.autoHideDuration || 5000}
         onClose={closeSnackBar}
         sx={{ maxWidth: "500px" }}
       >

@@ -15,7 +15,7 @@ import Loading from "components/Loading";
 
 // decided to use index-based rendering
 // scability and real-time updates
-// splicing since array is mutable from infinite scroll :)
+// runs splicing since array is mutable from infinite scroll :)
 
 const Comments = ({
   documentId,
@@ -332,7 +332,7 @@ const Comments = ({
             document: documentId
           }}
           message={{
-            success: `Added comment successfully`
+            success: `Your comment has been soshared!`
           }}
           sx={{
             minHeight: 0,

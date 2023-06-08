@@ -42,7 +42,7 @@ export const addComment = async (req, res, next) => {
         mimetype: req.file.mimetype
       };
     }
-    const { _id, comments = [], likes, rootThread, rootType } =
+    const { _id, likes, rootThread, rootType } =
       (await model.findOneAndUpdate(
         {
           _id: req.body.document
@@ -79,7 +79,7 @@ export const addComment = async (req, res, next) => {
     ];
     comment = await comment.populate(docPopulate);
     res.json(comment);
-
+    console.log(" notif comment ");
     await sendAndUpdateNotification({
       req,
       type: "comment",

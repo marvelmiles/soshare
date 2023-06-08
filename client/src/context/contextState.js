@@ -5,10 +5,9 @@ export default {
   composeDoc: {},
   filterDocsByUserSet: (infiniteScrollUtils, usersSet, subPath, stateCtx) => {
     const { data, setData } = infiniteScrollUtils;
-    let update;
+    const arr = [];
     for (let i = 0; i < data.data.length; i++) {
       const doc = data.data[i];
-
       const deleteFromReg = doc => {
         delete stateCtx.registeredIds[doc.id];
 
@@ -19,25 +18,22 @@ export default {
       };
 
       if (usersSet[doc.user.id]) {
-        update = true;
-        const doc = data.data.splice(i, 1);
+        const doc = data.data[i];
         stateCtx?.registeredIds && deleteFromReg(doc);
-        continue;
-      }
+      } else arr.push(doc);
 
       if (doc[subPath])
         for (let i = 0; i < doc[subPath].length; i++) {
           if (usersSet[doc[subPath][i].user.id]) {
-            update = true;
             const array = doc[subPath].splice(i);
             stateCtx?.registeredIds && array.forEach(deleteFromReg);
             break;
           }
         }
     }
-    update &&
-      setData({
-        ...data
-      });
+    setData({
+      ...data,
+      data: arr
+    });
   }
 };
