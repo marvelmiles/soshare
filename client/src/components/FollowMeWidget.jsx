@@ -16,16 +16,18 @@ const FollowMeWidget = ({
   title = "",
   url = "suggest",
   searchParams,
-  priority = "follow",
+  priority = "toggle",
   secondaryTitle,
   variant = "block",
   infiniteScrollProps,
   userFollowing,
   widgetProps,
-  emptyDataMessage
+  emptyDataMessage,
+  privateUid
 }) => {
   const { previewUser, currentUser = {} } = useSelector(state => state.user);
   let { userId } = useParams();
+  userId = userId || currentUser.id;
   const [dataSize, setDataSize] = useState();
   const isCurrentUser = currentUser.id === userId;
   const { socket } = useContext();
@@ -251,12 +253,14 @@ const FollowMeWidget = ({
                   label={
                     emptyDataMessage ||
                     {
-                      toggle: isCurrentUser
-                        ? "You don't have any followers"
-                        : `Followers list is currently empty.`,
-                      unfollow: isCurrentUser
-                        ? "Your following list is currently empty. Start following other users to see their updates"
-                        : `Following list appears to be empty at this time.`,
+                      toggle:
+                        isCurrentUser || privateUid
+                          ? "You don't have any followers"
+                          : `Followers list is currently empty.`,
+                      unfollow:
+                        isCurrentUser || privateUid
+                          ? "Your following list is currently empty. Start following other users to see their updates"
+                          : `Following list appears to be empty at this time.`,
                       follow:
                         "We're sorry it seems there is no one to follow at the moment"
                     }[priority]

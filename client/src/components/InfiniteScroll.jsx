@@ -50,7 +50,7 @@ const InfiniteScroll = React.forwardRef(
       NotifierComponent = DataNotifier,
       exclude,
       className = "",
-      withShowRetry,
+      withShowRetry = true,
       verify,
       notifierProps,
       centerOnEmpty = true,
@@ -309,7 +309,13 @@ const InfiniteScroll = React.forwardRef(
                     });
                   }
                 } catch (msg) {
-                  console.log(msg, verify, " msg ");
+                  console.log(
+                    msg,
+                    verify,
+                    withShowRetry,
+                    stateRef.current,
+                    " msg "
+                  );
                   if (
                     stateRef.current.retryCount < stateRef.current.maxRetry &&
                     (withShowRetry !== undefined
@@ -547,8 +553,8 @@ const InfiniteScroll = React.forwardRef(
         {...componentProps}
         sx={{
           // border: "1px solid green",
-          height: "inherit",
-          minHeight: "inherit",
+          // height: "inherit",
+          // minHeight: "inherit",
           position: "relative",
           overflow: "hidden",
           flex: 1,

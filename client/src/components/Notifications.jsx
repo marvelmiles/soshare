@@ -33,7 +33,10 @@ import { Link } from "react-router-dom";
 const Notifications = ({
   markNotification,
   defaultType = "unmarked",
-  cache = {},
+  cache = {
+    unmarked: {},
+    marked: {}
+  },
   dataSx,
   sx
 }) => {
@@ -97,7 +100,20 @@ const Notifications = ({
   const infiniteScrollRef = useRef();
 
   useEffect(() => {
-    socket.on("notification", (n, { filter, isNew }) => {
+    const handleFilter = notices => {
+      infiniteScrollRef.current.setData({
+        ...infiniteScrollRef.data,
+        data: infiniteScrollRef.current.data.data.filter(
+          ({ id }) => !notices.includes(id)
+        )
+      });
+    };
+
+    let appended = false;
+    const handleAppend = (n, { filter, isNew }) => {
+      if (appended) return;
+      appended = true;
+      console.log(" append e...");
       if (n.to.id === cid && type === "unmarked") {
         if (filter)
           infiniteScrollRef.current.setData({
@@ -117,15 +133,15 @@ const Notifications = ({
           });
         }
       }
-    });
-    socket.on("filter-notifications", notices => {
-      infiniteScrollRef.current.setData({
-        ...infiniteScrollRef.data,
-        data: infiniteScrollRef.current.data.data.filter(
-          ({ id }) => !notices.includes(id)
-        )
-      });
-    });
+    };
+
+    socket.on("notification", handleAppend);
+    socket.on("filter-notifications", handleFilter);
+
+    return () => {
+      socket.removeEventListener("notification", handleAppend);
+      socket.removeEventListener("filter-notifications", handleFilter);
+    };
   }, [socket, type, cid]);
 
   const handleTabSwitch = (type, e = {}) => {

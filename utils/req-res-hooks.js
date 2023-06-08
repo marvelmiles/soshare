@@ -35,7 +35,13 @@ export const getFeedMedias = async ({
       };
     }
     dataKey && refPath === undefined && (refPath = "_id");
-    verify && console.log(req.params.id, req.user?.id, " REQ-RES-ID ");
+    verify &&
+      console.log(
+        req.params.id,
+        req.user?.id,
+        req.params.userId,
+        " REQ-RES-ID "
+      );
     match = await createVisibilityQuery({
       refPath,
       isVisiting,
@@ -151,12 +157,19 @@ export const getDocument = async ({
     {
       path: "user"
     }
-  ]
+  ],
+  verify
 }) => {
   try {
-    console.log("getting doc ");
-    if (!isObjectId(req.params.id))
-      throw createError(`${model.modelName} not found`, 404);
+    // verify &&
+    //   console.log(
+    //     "getting doc ",
+    //     model.modelName,
+    //     req.params.id,
+    //     req.params.userId
+    //   );
+    const _id = req.params.id || req.params.userId;
+
     if (req.cookies.access_token) verifyToken(req);
     let list = [];
     if (req.user) {
@@ -166,14 +179,13 @@ export const getDocument = async ({
       userId: req.user?.id,
       searchUser: req.params.userId,
       query: {
-        _id: req.params.id
+        _id
       },
       allowDefaultCase: true,
       withBlacklist: false
     });
 
     let doc = await model.findOne(query);
-    console.log(!!doc, " doc ");
     if (!doc) throw createError(`${model.modelName} not found`, 404);
     if (list.includes(doc.user)) throw createError(`owner blacklisted`, 400);
     doc = await doc.populate(populate);
@@ -192,7 +204,7 @@ export const deleteDocument = async ({
   withCount = true
 }) => {
   try {
-    console.log(req.query);
+    // console.log(req.query);
     const doc = await model.findById(req.params.id);
     if (!doc) return res.json(`Successfully deleted ${model.modelName}`);
     if (doc.user !== req.user.id)

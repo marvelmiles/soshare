@@ -119,7 +119,6 @@ const Search = () => {
           key={"serach-posts"}
         />
         <FollowMeWidget
-          priority="toggle"
           variant="block"
           emptyDataMessage={
             "We're sorry it seems there is no one to follow at the moment"

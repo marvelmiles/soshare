@@ -15,7 +15,7 @@ import {
   Popover,
   List,
   ListItemButton,
-  ListItemIcon,
+  ListItemIcon, // 090392266763 ay from deko
   ListItemText
 } from "@mui/material";
 import useForm from "hooks/useForm";
@@ -35,6 +35,7 @@ import { useDispatch } from "react-redux";
 import { updateUser } from "context/slices/userSlice";
 import DeleteDialog from "components/DeleteDialog";
 import useDeleteDispatch from "hooks/useDeleteDispatch";
+
 const InputBox = ({
   sx,
   autoFocus = true,
@@ -765,6 +766,6 @@ const InputBox = ({
   );
 };
 
-InputBox.formDataTypes = {};
+InputBox.propTypes = {};
 
 export default InputBox;

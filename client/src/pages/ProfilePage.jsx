@@ -87,7 +87,6 @@ const ProfilePage = () => {
             <UserWidget
               key="profile-page-user-widget"
               width={width}
-              hideUserSettingsIcon
               user={user}
               isCurrentUser={isCurrentUser}
             />
@@ -102,7 +101,6 @@ const ProfilePage = () => {
             ) : null}
             <FollowMeWidget
               url="followers"
-              priority="toggle"
               title={isCurrentUser ? "Your Followers" : "Followers"}
               secondaryTitle="followers"
               width={width}
@@ -130,6 +128,7 @@ const ProfilePage = () => {
                 key="suggest"
                 title="People to follow"
                 userFollwoing={user.following}
+                priority="follow"
               />
             ) : null}
           </Stack>

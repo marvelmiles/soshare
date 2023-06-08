@@ -32,7 +32,7 @@ const Comments = ({
   maxSizeElement,
   maxSize,
   rootUid = "",
-  maxThread = 100,
+  maxThread = 2,
   searchParams = `ro=${rootUid}&maxThread=${maxThread || ""}&withThread=true`,
   scrollNodeRef = null,
   infiniteProps
@@ -40,7 +40,7 @@ const Comments = ({
   const currentUser = useSelector(state => state.user.currentUser || {});
   const {
     socket,
-    context: { blacklistedUsers }
+    context: { blacklistedUsers, filterDocsByUserSet }
   } = useContext();
   const stateRef = useRef({
     url: `/comments/feed/${documentId}`,
@@ -86,7 +86,7 @@ const Comments = ({
           });
       } else {
         const rIndex = stateCtx.registeredIds[comment.rootThread];
-        const rootComment = data.data[rIndex];
+        let rootComment = data.data[rIndex];
         if (rootComment) {
           if (docId === rootComment.id) {
             rootComment = comment.document;
@@ -264,39 +264,13 @@ const Comments = ({
   }, [appendComment, socket, removeComment, currentUser.id, _handleAction]);
 
   useEffect(() => {
-    const { data, setData } = infiniteScrollRef.current;
-    const stateCtx = stateRef.current;
-    let update;
-    for (let i = 0; i < data.data.length; i++) {
-      const comment = data.data[i];
-
-      const deleteFromReg = ({ id, threads }) => {
-        delete stateCtx.registeredIds[id];
-        for (const { id } of threads) {
-          delete stateCtx.registeredIds[id];
-        }
-      };
-
-      if (blacklistedUsers[comment.user.id]) {
-        update = true;
-        deleteFromReg(data.data.splice(i, 1)[0]);
-        continue;
-      }
-
-      for (let i = 0; i < comment.threads.length; i++) {
-        const thread = comment.threads[i];
-        if (blacklistedUsers[thread.user.id]) {
-          update = true;
-          comment.threads.splice(i).forEach(deleteFromReg);
-          break;
-        }
-      }
-    }
-    update &&
-      setData({
-        ...data
-      });
-  }, [blacklistedUsers]);
+    filterDocsByUserSet(
+      infiniteScrollRef.current,
+      blacklistedUsers,
+      "threads",
+      stateRef.current
+    );
+  }, [filterDocsByUserSet, blacklistedUsers]);
 
   // if (infiniteScrollRef.current?.data.data.length && stateCtx) {
   //   if (!stateCtx[documentId]) stateCtx[documentId] = {};
@@ -412,7 +386,7 @@ const Comments = ({
                         }
                       >
                         <PostWidget
-                          showThread={!!comment.thread}
+                          showThread={!!comment.threads.length}
                           docType="comment"
                           post={comment}
                           handleAction={_handleAction}
@@ -438,11 +412,7 @@ const Comments = ({
                               return _c ? (
                                 <PostWidget
                                   key={_c.id}
-                                  showThread={
-                                    maxThread - 1 > i &&
-                                    _c.comments.length &&
-                                    _c.thread
-                                  }
+                                  showThread={i !== comment.threads.length - 1}
                                   searchParams={params}
                                   post={_c}
                                   docType="comment"

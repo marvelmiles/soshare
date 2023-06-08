@@ -28,7 +28,7 @@ const Post = () => {
   const {
     setSnackBar,
     socket,
-    context: { blacklistedPosts, setContext }
+    context: { blacklistedPosts, blacklistedUsers, setContext }
   } = useContext();
   const [searchParams] = useSearchParams();
 
@@ -121,6 +121,11 @@ const Post = () => {
       socket.removeEventListener(`update-${docType}`, handleUpdate);
     };
   }, [socket, docType, _handleAction, post?.id, cid]);
+
+  useEffect(() => {
+    if (blacklistedUsers[(post?.user.id)])
+      console.log(!!_handleAction, " goiing back ");
+  }, [blacklistedUsers, post?.user.id, _handleAction]);
 
   if (!docType) stateRef.current.info = "500";
 

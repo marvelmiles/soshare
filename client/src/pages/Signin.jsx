@@ -4,8 +4,7 @@ import { Stack, InputBase, Button } from "@mui/material";
 import { WidgetContainer, StyledLink } from "components/styled";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
-import { signInWithPopup } from "@firebase/auth";
-import { auth, provider } from "api/firebase";
+import { signInWithPopupTimeout } from "api/firebase";
 import http from "api/http";
 import { useDispatch } from "react-redux";
 import { loginUser, logoutUser } from "context/slices/userSlice";
@@ -19,6 +18,8 @@ import IconButton from "@mui/material/IconButton";
 import LockIcon from "@mui/icons-material/Lock";
 import AccountBoxIcon from "@mui/icons-material/AccountBox";
 import CustomInput from "components/CustomInput";
+import { createRelativeURL } from "api/http";
+
 InputBase.defaultProps = {
   value: ""
 };
@@ -59,7 +60,7 @@ const Signin = () => {
       const url = `/auth/signin?rememberMe=${stateRef.rememberMe || ""}`;
       switch (e) {
         case "google":
-          user = (await signInWithPopup(auth, provider)).user;
+          user = (await signInWithPopupTimeout()).user;
           user = await http.post(url, {
             username: user.displayName,
             displayName: user.displayName,
@@ -78,6 +79,12 @@ const Signin = () => {
       const redirect = decodeURIComponent(searchParams.get("redirect") || "");
       navigate(redirect || "/");
     } catch (message) {
+      console.log(message);
+      if (message.code) {
+        if (message.code === "auth/popup-closed-by-user")
+          message = "Authentication popup closed by you!";
+        else message = "Something went wrong!";
+      }
       reset(true);
       if (message === "Account is not registered") stateRef.email = false;
       message && setSnackBar(message);
@@ -161,7 +168,13 @@ const Signin = () => {
           </Button>
           <Typography textAlign="center" mt={1}>
             Don't have an account?{" "}
-            <StyledLink to="/auth/signup">signup!</StyledLink>
+            <StyledLink
+              to={`/auth/signup?redirect=${encodeURIComponent(
+                createRelativeURL()
+              )}`}
+            >
+              signup!
+            </StyledLink>
           </Typography>
         </WidgetContainer>
       </Stack>

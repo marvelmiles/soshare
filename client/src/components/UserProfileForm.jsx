@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import useForm, { isLink } from "hooks/useForm";
 import { WidgetContainer, StyledLink } from "components/styled";
@@ -29,7 +29,7 @@ const UserProfileForm = ({
   placeholders,
   withConfirmPwd = !placeholders,
   hidePwd,
-  onUpdate,
+  handleAction,
   required = placeholders
     ? true
     : {
@@ -91,38 +91,42 @@ const UserProfileForm = ({
     return () => url && URL.revokeObjectURL(url);
   }, [dispatch, stateChanged, formData, errors]);
 
-  const onSubmit = async e => {
-    try {
-      const formData = handleSubmit(e);
-      let user;
+  const onSubmit = useCallback(
+    async e => {
+      try {
+        const formData = handleSubmit(e);
+        let user;
 
-      if (formData) {
-        user = await http[placeholders ? "put" : "post"](
-          placeholders ? "/users" : "/auth/signup",
-          formData
-        );
-        setSnackBar({
-          message: placeholders ? (
-            "Updated profile successfully!"
-          ) : (
-            <Typography>
-              Thank you for registering. You can{" "}
-              <StyledLink to="/auth/signin">login</StyledLink>!
-            </Typography>
-          ),
-          severity: "success"
+        if (formData) {
+          user = await http[placeholders ? "put" : "post"](
+            placeholders ? "/users" : "/auth/signup",
+            formData
+          );
+          setSnackBar({
+            message: placeholders ? (
+              "Updated profile successfully!"
+            ) : (
+              <Typography>
+                Thank you for registering. You can{" "}
+                <StyledLink to="/auth/signin">login</StyledLink>!
+              </Typography>
+            ),
+            severity: "success"
+          });
+
+          reset(placeholders && user);
+          handleAction &&
+            handleAction(placeholders ? "update" : "new", { document: user });
+        }
+      } catch (message) {
+        setSnackBar(message);
+        reset(true, {
+          stateChanged: true
         });
-
-        reset(placeholders && user);
-        onUpdate && onUpdate(user);
       }
-    } catch (message) {
-      setSnackBar(message);
-      reset(true, {
-        stateChanged: true
-      });
-    }
-  };
+    },
+    [handleAction, handleSubmit, placeholders, reset, setSnackBar]
+  );
   const handlePhotoTransfer = file => {
     navigate("");
     reset(

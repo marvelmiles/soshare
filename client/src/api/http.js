@@ -37,9 +37,10 @@ export const processQueue = (err, data) => {
 export const getHttpErrMsg = err => {
   let message = "Something went wrong. Check your network and try again.";
   if (err instanceof AxiosError) {
-    switch (err.code) {
+    switch (err.code?.toLowerCase()) {
       case "auth/popup-closed-by-user":
         message = "Popup closed by you";
+        console.log(" messg pioppe ");
         break;
       default:
         if (err.response) {
@@ -50,8 +51,10 @@ export const getHttpErrMsg = err => {
         } else if (err.status !== 500) message = err.message || message;
         break;
     }
-  } else message = err;
+  } else message = err.message || err;
 
+  if (message.indexOf("Cast") > -1) message = "Something went wrong!";
+  console.log(message);
   return message;
 };
 export const isTokenCancelled = rootAxios.isCancel;

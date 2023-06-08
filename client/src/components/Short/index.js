@@ -22,15 +22,12 @@ const Short = React.forwardRef(
       miniShort,
       handleAction,
       loop,
-      withDialog = true,
+      dialogContent,
       ...rest
     },
     ref
   ) => {
-    const {
-      setContext,
-      context: { blacklistedUsers }
-    } = useContext();
+    const { setContext } = useContext();
     const cid = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
     const stateRef = useRef({
@@ -76,11 +73,7 @@ const Short = React.forwardRef(
       [handleAction, short.id]
     );
     const onReload = useCallback(() => setLoading(true), []);
-    const openDialog = withDialog
-      ? blacklistedUsers[short.user.id]
-        ? "blacklist"
-        : ""
-      : "";
+
     const inheritSx = {
       height: "inherit",
       width: "inherit",
@@ -109,7 +102,7 @@ const Short = React.forwardRef(
           mx: miniShort ? "" : "auto"
         }}
       >
-        {openDialog ? (
+        {dialogContent ? (
           <Typography
             component="div"
             sx={{
@@ -121,11 +114,7 @@ const Short = React.forwardRef(
               ...inheritSx
             }}
           >
-            {
-              {
-                blacklist: <DocBlacklistedInfo />
-              }[openDialog]
-            }
+            {dialogContent}
           </Typography>
         ) : null}
         <Box

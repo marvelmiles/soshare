@@ -292,7 +292,7 @@ export const sendAndUpdateNotification = async ({
     const io = req.app.get("socketIo");
 
     if (!withFrom && to === from) {
-      if (!document.document.id && document.populate)
+      if (!document.document?.id && document.populate)
         document = await document.populate(docPopulate);
 
       eventName &&

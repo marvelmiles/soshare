@@ -84,7 +84,6 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
         if (!res.docType && state) res.docType = state.docType;
         setContext(context => {
           context.composeDoc = res;
-          console.log(res);
           return { ...context };
         });
         closeDialog(undefined, "compose");
@@ -275,7 +274,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                 {
                   "user-posts": (
                     <PostsView
-                      privateView
+                      privateUid={uid}
                       plainWidget
                       url={`/users/${uid}/posts`}
                       sx={{
@@ -287,7 +286,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                   ),
                   "user-shorts": (
                     <ShortsView
-                      privateView
+                      privateUid={uid}
                       hideDataNotifier
                       plainWidget
                       url={`/users/${uid}/shorts`}
@@ -318,6 +317,13 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                     "user-following": "following"
                   }[view]
                 }
+                priority={
+                  {
+                    "user-followers": "toggle",
+                    "user-following": "unfollow"
+                  }[view]
+                }
+                privateUid={uid}
               />
             </DialogContent>
           </>

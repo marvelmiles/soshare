@@ -39,6 +39,7 @@ import Auth404 from "pages/404/Auth404";
 import Page404 from "pages/404/Page404";
 import BrandIcon from "components/BrandIcon";
 import EmptyData from "components/EmptyData";
+import contextState from "context/contextState";
 
 const socket = io.connect(API_ENDPOINT, {
   path: "/mernsocial",
@@ -47,11 +48,7 @@ const socket = io.connect(API_ENDPOINT, {
 
 const App = () => {
   const [snackbar, setSnackbar] = useState({});
-  const [context, setContext] = useState({
-    blacklistedPosts: {},
-    blacklistedUsers: {},
-    composeDoc: {}
-  });
+  const [context, setContext] = useState(contextState);
   const [readyState, setReadyState] = useState("pending");
   const mode = useMediaQuery("(prefers-color-scheme: dark)") ? "dark" : "light";
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);

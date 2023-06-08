@@ -6,6 +6,7 @@ import { isEmail } from "../utils/validators.js";
 import { sendMail } from "../utils/file-handlers.js";
 import { verifyToken } from "../utils/middlewares.js";
 import { GMAIL_USER } from "../config.js";
+
 export const signup = async (req, res, next) => {
   try {
     if (!isEmail(req.body.email))
@@ -43,8 +44,7 @@ export const signin = async (req, res, next) => {
     let user = await User.findOne(query);
     switch (req.body.provider) {
       case "google":
-        if (user) break;
-        user = await new User(req.body).save();
+        if (!user) user = await new User(req.body).save();
         break;
       default:
         if (!user) throw createError("Account is not registered");

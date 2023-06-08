@@ -21,14 +21,14 @@ const ShortsView = ({
   mx,
   centerEmptyText,
   scrollNodeRef,
-  privateView
+  privateUid
 }) => {
   plainWidget = plainWidget === undefined ? !miniShort : plainWidget;
   centerEmptyText = plainWidget ? true : centerEmptyText;
   const currentUser = useSelector(state => state.user.currentUser || {});
   const {
     socket,
-    context: { composeDoc }
+    context: { composeDoc, blacklistedUsers, filterDocsByUserSet }
   } = useContext();
 
   const infiniteScrollRef = useRef();
@@ -46,7 +46,8 @@ const ShortsView = ({
     };
 
     const handleAppend = short => {
-      _handleAction("new", { document: short });
+      (privateUid ? privateUid === short.user.id : true) &&
+        _handleAction("new", { document: short });
     };
 
     socket.on("short", handleAppend);
@@ -56,7 +57,8 @@ const ShortsView = ({
       socket.removeEventListener("short", handleFilter);
       socket.removeEventListener("short", handleAppend);
     };
-  }, [socket, _handleAction]);
+  }, [socket, _handleAction, privateUid]);
+
   useEffect(() => {
     let taskId, timeId;
     let date = new Date();
@@ -99,6 +101,10 @@ const ShortsView = ({
     };
   }, [composeDoc, _handleAction]);
 
+  useEffect(() => {
+    filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
+  }, [blacklistedUsers, filterDocsByUserSet]);
+
   return (
     <InfiniteScroll
       key={"infinite-shorts-" + miniShort}
@@ -112,7 +118,7 @@ const ShortsView = ({
       }
       Component={miniShort ? WidgetContainer : undefined}
       notifierDelay={
-        !currentUser.id || currentUser.id !== composeDoc.document?.user.id
+        !currentUser.id || currentUser.id !== composeDoc.document?.user?.id
           ? undefined
           : -1
       }
@@ -186,7 +192,7 @@ const ShortsView = ({
         ) : (
           <EmptyData
             label={
-              privateView
+              privateUid
                 ? `You don't have any short at the moment!`
                 : `We're sorry it seems there is no shorts at the moment`
             }

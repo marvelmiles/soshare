@@ -28,7 +28,7 @@ export const createError = (message, status) => {
       err.message = message.message
         .replaceAll(/_id+/g, "id")
         .slice(0, message.message.indexOf(`" for model`));
-      err.status = 409;
+      err.status = 400;
       break;
     case "customerror":
       err.message = message.message || message;

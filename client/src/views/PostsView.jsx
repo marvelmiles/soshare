@@ -19,11 +19,16 @@ const PostsView = ({
   centerEmptyText,
   scrollNodeRef,
   infiniteScrollProps,
-  privateView
+  privateUid
 }) => {
   const {
     socket,
-    context: { composeDoc, blacklistedPosts }
+    context: {
+      composeDoc,
+      blacklistedPosts,
+      blacklistedUsers,
+      filterDocsByUserSet
+    }
   } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const infiniteScrollRef = useRef();
@@ -40,7 +45,8 @@ const PostsView = ({
     };
 
     const handleAppend = post => {
-      _handleAction("new", { document: post });
+      (privateUid ? post.user.id === privateUid : true) &&
+        _handleAction("new", { document: post });
     };
 
     const handleUpdate = post => {
@@ -56,7 +62,7 @@ const PostsView = ({
       socket.removeEventListener("post", handleAppend);
       socket.removeEventListener("update-post", handleUpdate);
     };
-  }, [socket, _handleAction]);
+  }, [socket, _handleAction, privateUid]);
 
   useEffect(() => {
     if (composeDoc) {
@@ -71,6 +77,10 @@ const PostsView = ({
     }
   }, [composeDoc, _handleAction]);
 
+  useEffect(() => {
+    filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
+  }, [blacklistedUsers, filterDocsByUserSet]);
+
   return (
     <InfiniteScroll
       exclude={blacklistedPosts}
@@ -83,7 +93,7 @@ const PostsView = ({
       url={stateRef.current.url}
       ref={infiniteScrollRef}
       notifierDelay={
-        !currentUser.id || currentUser.id !== composeDoc.document?.user.id
+        !currentUser.id || currentUser.id !== composeDoc.document?.user?.id
           ? undefined
           : -1
       }
@@ -129,7 +139,7 @@ const PostsView = ({
                   height: "normal"
                 }}
                 label={
-                  privateView
+                  privateUid
                     ? `You don't have any post at the moment!`
                     : `We're sorry it seems there is no posts at the moment`
                 }
@@ -140,7 +150,7 @@ const PostsView = ({
           <EmptyData
             centerEmptyText={centerEmptyText}
             label={
-              privateView
+              privateUid
                 ? `You don't have any post at the moment!`
                 : `We're sorry it seems there is no posts at the moment`
             }

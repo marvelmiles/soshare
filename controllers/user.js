@@ -22,7 +22,8 @@ export const getUser = (req, res, next) =>
     req,
     res,
     next,
-    model: User
+    model: User,
+    verify: true
   });
 
 export const getFollowing = async (req, res, next) => {
@@ -31,7 +32,8 @@ export const getFollowing = async (req, res, next) => {
     res,
     next,
     model: User,
-    dataKey: "following"
+    dataKey: "following",
+    verify: true
   });
 };
 

@@ -98,41 +98,53 @@ const Navbar = ({ routePage = "homePage" }) => {
   }, [setSnackBar, currentUser.id]);
 
   useEffect(() => {
-    if (currentUser.id) {
-      socket.on("notification", (n, { filter, isNew }) => {
-        if (isNew && !filter && n.to.id === currentUser.id) {
-          let notified = false;
-          setUnseens(unseens => {
-            if (notified) return unseens;
-            notified = true;
-            return {
-              ...unseens,
-              notifications: unseens.notifications + 1
-            };
-          });
-          stateRef.current.notifications.unmarked = {
-            data: [n]
-          };
-        }
-      });
-      socket.on("filter-notifications", notices => {
+    const handleAppendNotification = (n, { filter, isNew }) => {
+      if (isNew && !filter && n.to.id === currentUser.id) {
         let notified = false;
         setUnseens(unseens => {
-          if (notified) {
-            notified = false;
-            return unseens;
-          }
+          if (notified) return unseens;
           notified = true;
           return {
             ...unseens,
-            notifications:
-              unseens.notifications > notices.length
-                ? unseens.notifications - notices.length
-                : 0
+            notifications: unseens.notifications + 1
           };
         });
+        stateRef.current.notifications.unmarked = {
+          data: [n]
+        };
+      }
+    };
+
+    const handleDeleteNotifications = notices => {
+      let notified = false;
+      setUnseens(unseens => {
+        if (notified) {
+          notified = false;
+          return unseens;
+        }
+        notified = true;
+        return {
+          ...unseens,
+          notifications:
+            unseens.notifications > notices.length
+              ? unseens.notifications - notices.length
+              : 0
+        };
       });
+    };
+
+    if (currentUser.id) {
+      socket.on("notification", handleAppendNotification);
+      socket.on("filter-notifications", handleDeleteNotifications);
     }
+
+    return () => {
+      socket.removeEventListener("notification", handleAppendNotification);
+      socket.removeEventListener(
+        "filter-notifications",
+        handleDeleteNotifications
+      );
+    };
   }, [socket, currentUser.id]);
 
   useEffect(() => {
@@ -159,12 +171,11 @@ const Navbar = ({ routePage = "homePage" }) => {
     }, 5000);
   };
 
-  const handleSubmit = useCallback(
+  const handleSearch = useCallback(
     e => {
       e.preventDefault();
       e.stopPropagation();
-      if (query)
-        navigate(`/search?q=${query}&tab=${searchParams.get("tab") || ""}`);
+      navigate(`/search?q=${query}&tab=${searchParams.get("tab") || ""}`);
     },
     [searchParams, navigate, query]
   );
@@ -416,7 +427,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           }
         }}
         component="form"
-        onSubmit={handleSubmit}
+        onSubmit={handleSearch}
       >
         <InputBase
           placeholder="Search..."
@@ -438,7 +449,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           <Notifications
             defaultType={type}
             markNotification={markNotification}
-            cache={stateRef.current.notifications}
+            // cache={stateRef.current.notifications}
             dataSx={{
               minHeight: "300px",
               maxHeight: "300px",

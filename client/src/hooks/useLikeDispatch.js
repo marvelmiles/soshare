@@ -19,7 +19,8 @@ export default ({ handleAction, document = {}, docType }) => {
           setIsProcessingLike(true);
           if (likedDoc) delete likes[cid];
           else likes[cid] = true;
-          handleAction && handleAction("update", { id, likes, rootThread });
+          handleAction &&
+            handleAction("update", { document: { id, likes, rootThread } });
 
           await http.patch(
             `/${docType}s/${id}/${likedDoc ? "dislike" : "like"}`
@@ -27,7 +28,8 @@ export default ({ handleAction, document = {}, docType }) => {
         } catch (message) {
           if (likedDoc) likes[cid] = true;
           else delete likes[cid];
-          handleAction && handleAction("update", { id, likes, rootThread });
+          handleAction &&
+            handleAction("update", { document: { id, likes, rootThread } });
           setSnackBar(message);
         } finally {
           setIsProcessingLike(false);

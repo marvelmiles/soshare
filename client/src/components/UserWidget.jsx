@@ -203,7 +203,7 @@ const UserWidget = ({ width, user }) => {
             </div>
           </Box>
         </Stack>
-        {stateRef.current.isCurrentUser ? (
+        {stateRef.current.isCurrentUser && !user ? (
           <IconButton component={StyledLink} to={userLink}>
             <ManageAccountsOutlined />
           </IconButton>

@@ -11,7 +11,7 @@ const useCallbacks = (
 
   const ref = useRef({
     _handleAction: (reason, options = {}) => {
-      const { document, uid, cacheData = true, action, value } = options;
+      const { document, uid, action, value } = options;
       const { setData, data } = infiniteScrollRef.current;
       const docId = document && (document.id || document);
 
@@ -30,8 +30,9 @@ const useCallbacks = (
             );
             delete stateCtx.cachedData[docId];
           } else {
-            checkVisibility(document, currentUser) &&
-              (_data = [document, ...data.data]);
+            (document.visibility
+              ? checkVisibility(document, currentUser)
+              : true) && (_data = [document, ...data.data]);
           }
           setData({ ...data, data: _data });
 
@@ -42,12 +43,12 @@ const useCallbacks = (
             {
               ...data,
               data: data.data.filter((doc, index) => {
-                if (doc.id === docId || doc.user.id === uid) {
-                  cacheData &&
-                    (stateCtx.cachedData[doc.id] = {
-                      index,
-                      data: doc
-                    });
+                if (doc.id === docId || (doc.user && doc.user.id === uid)) {
+                  // cacheData &&
+                  //   (stateCtx.cachedData[doc.id] = {
+                  //     index,
+                  //     data: doc
+                  //   });
                   return false;
                 }
                 return true;
@@ -60,7 +61,7 @@ const useCallbacks = (
           break;
         case "clear-cache":
           ref.current.isProc = true;
-          delete stateCtx.cachedData[docId];
+          // delete stateCtx.cachedData[docId];
           break;
         case "update":
           ref.current.isProc = true;

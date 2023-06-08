@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useSelector } from "react-redux";
 import PropTypes from "prop-types";
 import {
@@ -35,7 +35,8 @@ const PostWidget = React.forwardRef(
       secondaryAction,
       searchParams,
       disableNavigation,
-      withDialog = true
+      withDialog = true,
+      dialogContent
     },
     ref
   ) => {
@@ -57,26 +58,9 @@ const PostWidget = React.forwardRef(
       docType,
       document: post
     });
-    const {
-      setSnackBar,
-      context: { blacklistedUsers }
-    } = useContext();
+    const { setSnackBar } = useContext();
     const likeCount = Object.keys(post.likes || {}).length;
     const isOwner = post.user.id === id;
-
-    const openDialog = withDialog
-      ? blacklistedUsers[post.user.id]
-        ? "blacklist"
-        : ""
-      : "";
-
-    useEffect(() => {
-      withDialog &&
-        handleAction &&
-        handleAction("blacklisted", {
-          uid: blacklistedUsers[post.user.id] ? post.user.id : ""
-        });
-    }, [handleAction, blacklistedUsers, post.user.id, withDialog]);
 
     const formatedDate = (() => {
       let str = moment(post.createdAt).fromNow();
@@ -112,7 +96,7 @@ const PostWidget = React.forwardRef(
       <>
         {post.id}
         <Box sx={{ position: "relative" }}>
-          {openDialog ? (
+          {dialogContent ? (
             <Typography
               component="div"
               sx={{
@@ -126,11 +110,7 @@ const PostWidget = React.forwardRef(
                 color: "inherit"
               }}
             >
-              {
-                {
-                  blacklist: <DocBlacklistedInfo />
-                }[openDialog]
-              }
+              {dialogContent}
             </Typography>
           ) : null}
           <WidgetContainer
