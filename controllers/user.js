@@ -86,6 +86,10 @@ export const follow = async (req, res, next) => {
     if (io) {
       io.emit("update-user", user);
       io.emit("update-user", _user);
+      io.emit("follow", {
+        from: _user,
+        to: user
+      });
     }
     res.json("Successfully followed user");
     sendAndUpdateNotification({
@@ -125,6 +129,10 @@ export const unfollow = async (req, res, next) => {
     if (io) {
       io.emit("update-user", user);
       io.emit("update-user", _user);
+      io.emit("follow", {
+        from: _user,
+        to: user
+      });
     }
     res.json("Successfully unfollowed user");
     sendAndUpdateNotification({
@@ -318,12 +326,15 @@ export const markNotifications = async (req, res, next) => {
         for (let i = start; i < req.body.length; i++) {
           activeId = req.body[i];
           count = start + 1;
-          await Notification.updateOne(
-            { _id: activeId },
-            {
-              marked: true
-            }
-          );
+          const notice = await Notification.findById(activeId);
+          const markedUsers = {};
+          for (const id of notice.users) {
+            markedUsers[id] = true;
+          }
+          await notice.updateOne({
+            marked: true,
+            markedUsers
+          });
         }
       } catch (err) {
         if (req.query.sequentialEffect === "true")

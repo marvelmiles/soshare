@@ -100,6 +100,7 @@ const Notifications = ({
   const infiniteScrollRef = useRef();
 
   useEffect(() => {
+    console.log(" notification rendered ");
     const handleFilter = notices => {
       infiniteScrollRef.current.setData({
         ...infiniteScrollRef.data,

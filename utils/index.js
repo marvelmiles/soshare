@@ -268,11 +268,14 @@ export const sendAndUpdateNotification = async ({
       populate: "document user"
     }
   ],
-  maxFromNotification = 20,
   withFrom = false
 }) => {
   let match;
   try {
+    const {
+      maxNotificationAge: maxAge = 1,
+      maxFromNotification: maxFrom = 20
+    } = req.query;
     const from = req.user.id;
     to =
       to ||
@@ -290,6 +293,24 @@ export const sendAndUpdateNotification = async ({
       type;
 
     const io = req.app.get("socketIo");
+
+    // if (io && eventName) {
+    //   const _from = await User.findById(from);
+    //   eventName &&
+    //     notice.to &&
+    //     _from &&
+    //     io.emit(
+    //       eventName,
+    //       {
+    //         follow: {
+    //           to: notice.to,
+    //           from
+    //         }
+    //       }[type] ||
+    //         notice.document ||
+    //         notice
+    //     );
+    // }
 
     if (!withFrom && to === from) {
       if (!document.document?.id && document.populate)
@@ -311,7 +332,22 @@ export const sendAndUpdateNotification = async ({
     document = document && (document.id || document);
     docType = docType || (document && type);
 
-    match = { type, document, to, docType };
+    match = {
+      type,
+      document,
+      to,
+      docType,
+      markedUsers: {
+        $ne: null
+      }
+    };
+
+    if ({ follow: true }[type]) {
+      match.$in = {
+        users: [from]
+      };
+    }
+
     const populate = [
       {
         path: "to users"
@@ -328,25 +364,45 @@ export const sendAndUpdateNotification = async ({
 
     notice = await Notification.findOne(match);
 
-    if (filter) {
-      if (notice)
-        if (notice.users.length - 1 === 0) {
+    if (filter && notice) {
+      if (notice.users.length - 1 === 0) {
+        if (
+          notice.expireAt &&
+          notice.expireAt.getTime() < new Date().getTime()
+        ) {
           filterNotice = true;
           await notice.deleteOne();
         } else {
+          const expireAt = new Date();
+          expireAt.setDate(expireAt.getDate() + maxAge);
           notice = await Notification.findByIdAndUpdate(
             notice.id,
             {
-              users: notice.users.filter(id => id !== from)
+              expireAt
             },
-            {
-              new: true
-            }
+            { new: true }
           );
         }
+      } else {
+        notice = await Notification.findByIdAndUpdate(
+          notice.id,
+          {
+            users: notice.users.filter(id => id !== from)
+          },
+          {
+            new: true
+          }
+        );
+      }
     } else if (notice && !notice.marked) {
-      if (notice.users.includes(from)) report = false;
-      else {
+      let index;
+      if (
+        (index = notice.users.findIndex(id => id === from)) < 0 ||
+        (notice.expireAt
+          ? notice.expireAt.getTime() < new Date().getTime()
+          : false)
+      ) {
+        index > -1 && notice.users.splice(index, 1);
         notice.users.unshift(from);
         notice = await Notification.findByIdAndUpdate(
           notice.id,
@@ -357,9 +413,16 @@ export const sendAndUpdateNotification = async ({
             new: true
           }
         );
-        report = notice.users.length <= maxFromNotification;
+        report = notice.users.length <= maxFrom;
       }
-    } else {
+    } else if (
+      notice
+        ? !notice.markedUsers[from] &&
+          (await notice.updateOne({
+            markedUsers: null
+          }))
+        : true
+    ) {
       isNew = true;
       match.users = [from];
       notice = await new Notification(match).save();
@@ -367,29 +430,14 @@ export const sendAndUpdateNotification = async ({
 
     if (notice) notice = await notice.populate(populate);
 
-    if (io && notice) {
-      if (report) {
-        if (filterNotice) io.emit("filter-notifications", [notice.id]);
-        else
-          io.emit("notification", notice, {
-            filter,
-            eventName,
-            isNew
-          });
-      }
-      const user = notice.users[0] || {};
-      eventName &&
-        io.emit(
+    if (io && notice && report) {
+      if (filterNotice) io.emit("filter-notifications", [notice.id]);
+      else
+        io.emit("notification", notice, {
+          filter,
           eventName,
-          {
-            follow: {
-              to: notice.to,
-              from: user.id === from ? user : await User.findById(from)
-            }
-          }[type] ||
-            notice.document ||
-            notice
-        );
+          isNew
+        });
     }
   } catch (err) {
     match && (match.users = [from]);

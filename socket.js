@@ -9,9 +9,18 @@ import { Types } from "mongoose";
 import Comment from "./models/Comment.js";
 import Post from "./models/Post.js";
 import Short from "./models/Short.js";
+import Notification from "./models/Notification.js";
 
 export default (app, port = process.env.PORT || 8800) => {
   (async () => {
+    // const expireAt = new Date();
+    // expireAt.setDate(expireAt.getDate() + 3);
+    // await Notification.updateMany(
+    //   {},
+    //   {
+    //     expireAt: null
+    //   }
+    // );
     // const posts = await Short.find({
     //   // user: "647bfecf807e097cf56a64a1"
     // });

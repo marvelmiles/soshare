@@ -29,6 +29,12 @@ const schema = new mongoose.Schema(
       required: function() {
         return !!this.document;
       }
+    },
+    expireAt: Date,
+    markedUsers: {
+      type: Map,
+      of: Boolean,
+      default: {}
     }
   },
   {

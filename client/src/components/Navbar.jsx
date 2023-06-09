@@ -449,7 +449,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           <Notifications
             defaultType={type}
             markNotification={markNotification}
-            // cache={stateRef.current.notifications}
+            cache={stateRef.current.notifications}
             dataSx={{
               minHeight: "300px",
               maxHeight: "300px",

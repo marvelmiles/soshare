@@ -90,7 +90,13 @@ export const getFeedMedias = async ({
 
 export const likeMedia = async (model, req, res, next) => {
   try {
-    const media = await model.findById(req.params.id);
+    let media = await model.findByIdAndUpdate(
+      req.params.id,
+      {
+        likes: media.likes
+      },
+      { new: true }
+    );
     if (media.likes.get(req.user.id))
       return next(
         createError(
@@ -99,22 +105,16 @@ export const likeMedia = async (model, req, res, next) => {
         )
       );
     media.likes.set(req.user.id, true);
-    res.json(
-      (await model.findByIdAndUpdate(
-        req.params.id,
-        {
-          likes: media.likes
-        },
-        { new: true }
-      )).likes
-    );
+
+    const io = req.app.get("socketIo");
+    if (io) io.emit(`update-${model.modelName}`, media);
+    res.json(media.likes);
 
     await sendAndUpdateNotification({
       req,
       type: "like",
       docType: model.modelName,
-      document: media,
-      eventName: `update-${model.modelName}`
+      document: media
     });
   } catch (err) {
     next(err);

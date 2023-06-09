@@ -24,7 +24,7 @@ const SessionTimeout = () => {
           fontWeight: "400"
         }}
       >
-        Sorry, your session has timed out. Please login again to continue
+        Sorry, your session has timeout. Please login again to continue
       </Typography>
       <Stack
         justifyContent="normal"
