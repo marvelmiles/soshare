@@ -1,12 +1,12 @@
 export const createError = (message, status) => {
-  console.log(
-    message.message || message,
-    "----",
-    message.code,
-    "---",
-    message.name,
-    " err "
-  );
+  // console.log(
+  //   message.message || message,
+  //   "----",
+  //   message.code,
+  //   "---",
+  //   message.name,
+  //   " err handler "
+  // );
 
   if (message.status) return message;
 
@@ -24,11 +24,12 @@ export const createError = (message, status) => {
       err.status = status || 400;
       break;
     case "casterror":
-      console.error(`[CAST ERROR]: ${message.message}`);
+      // console.error(`[CAST ERROR]: ${message.message}`);
       err.message = message.message
         .replaceAll(/_id+/g, "id")
         .slice(0, message.message.indexOf(`" for model`));
       err.status = 400;
+      // console.log(err.message);
       break;
     case "customerror":
       err.message = message.message || message;
@@ -47,6 +48,11 @@ export const createError = (message, status) => {
           break;
       }
       break;
+    case "fetcherror":
+    case "econnreset":
+      err.message = "Netowrk error. Check connectivity";
+      err.status = 400;
+      break;
     default:
       setDefault();
       break;
@@ -54,9 +60,8 @@ export const createError = (message, status) => {
 
   if (err.status === 500)
     console.log(
-      `[SERVER_ERROR]: ${err.name}: [code:${err.code}]: ${
-        err.message
-      } at ${new Date()}. `
+      `[SERVER_ERROR]: ${message.name || err.name}: [code:${message.code ||
+        err.code}]: ${message.message || err.message} at ${new Date()}. `
     );
 
   return err;

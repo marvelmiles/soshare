@@ -78,13 +78,15 @@ export const addComment = async (req, res, next) => {
       }
     ];
     comment = await comment.populate(docPopulate);
+    const io = req.app.get("socketIo");
+    if (io) io.emit("comment", comment);
     res.json(comment);
     console.log(" notif comment ");
     await sendAndUpdateNotification({
       req,
+      docPopulate,
       type: "comment",
-      document: comment,
-      docPopulate
+      document: comment
     });
   } catch (err) {
     next(err);

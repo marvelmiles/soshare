@@ -73,8 +73,9 @@ app.use((err, req, res, next) => {
     );
   } else {
     err = err.status ? err : createError(err);
-    if (err) return res.status(err.status).json(err.message);
+    if (err) res.status(err.status).json(err.message);
   }
+  console.log(!!req.file, " with err file ");
   if (req.file) deleteFile(req.file.publicUrl);
   if (req.files)
     for (const { publicUrl } of req.files) {

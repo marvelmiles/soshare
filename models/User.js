@@ -67,7 +67,7 @@ const schema = new mongoose.Schema(
       default: 0
     },
     settings: {
-      type: mongoose.Schema.Types.Mixed,
+      type: Object,
       default: {}
     }
   },

@@ -69,58 +69,35 @@ const FollowMeWidget = ({
     priority,
     currentUser.following || userFollowing
   );
-  // useEffect(() => {
-  //   const user = previewUser?.followUser;
-  //   if (user && user.id === userId) {
-  //     if (user.filter) {
-  //       if (priority !== "toggle") {
-  //         if (priority === user.priority)
-  //           _handlerAction("new", { document: user });
-  //         else _handlerAction("filter", { document: user });
-  //       }
-  //     } else {
-  //       priority !== "toggle" && _handlerAction("filter", { document: user });
-  //       if (user.isFollowing)
-  //         priority === "follow" && _handlerAction("new", { document: user });
-  //       else {
-  //         (user.priority ===
-  //           {
-  //             follow: "unfollow",
-  //             unfollow: "follow"
-  //           }[priority] ||
-  //           (user.priority === "toggle" && priority === "unfollow")) &&
-  //           _handlerAction("new", { document: user });
-  //       }
-  //     }
-  //     stateRef.current[priority].followId = user.id + userId;
-  //     stateRef.current[priority].unfollowId = user.id + userId;
-  //   }
-  // }, [previewUser?.followUser, _handlerAction, priority, userId]);
 
-  useEffect(() => {
-    const isSuggest = priority === "follow";
-
-    const toggleFollowing = toFollow => ({ to, from }) => {
+  const handleFollowingAction = useCallback(
+    toFollow => ({ to, from = { id: userId } }) => {
       const isFrm = from.id === userId;
       const isTo = to.id === userId;
       const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
       if (isTo || isFrm) {
         if (stateRef.current[key]) return;
         stateRef.current[key] = true;
-        if (isTo && priority === "toggle")
-          _handlerAction(toFollow ? "new" : "filter", { document: from });
-        else if (isFrm) {
+
+        if (isTo && priority === "toggle") {
+          _handleAction(toFollow ? "new" : "filter", { document: from });
+        } else if (isFrm) {
           if (priority === "unfollow")
-            _handlerAction(toFollow ? "new" : "filter", { document: to });
+            _handleAction(toFollow ? "new" : "filter", { document: to });
           else if (priority === "follow")
-            _handlerAction(toFollow ? "filter" : "new", { document: to });
-          else _handlerAction("update", { document: to });
+            _handleAction(toFollow ? "filter" : "new", { document: to });
+          else _handleAction("update", { document: to });
         }
         stateRef.current[
           (toFollow ? "unfollowId" : "followId") + to.id + from.id
         ] = undefined;
       }
-    };
+    },
+    [_handleAction, priority, userId]
+  );
+
+  useEffect(() => {
+    const isSuggest = priority === "follow";
 
     const suggestFollowers = data => {
       if (!stateRef.current[priority]) {
@@ -133,8 +110,8 @@ const FollowMeWidget = ({
       }
     };
 
-    const handleFollow = toggleFollowing(true);
-    const handleUnfollow = toggleFollowing();
+    const handleFollow = handleFollowingAction(true);
+    const handleUnfollow = handleFollowingAction();
 
     socket.on("unfollow", handleUnfollow);
     socket.on("follow", handleFollow);
@@ -145,10 +122,23 @@ const FollowMeWidget = ({
         socket.emit("disconnect-suggest-followers-task");
         socket.removeEventListener("suggest-followers", suggestFollowers);
       }
-      socket.removeEventListener("follow", handleFollow);
-      socket.removeEventListener("unfollow", handleUnfollow);
+      socket
+        .removeEventListener("follow", handleFollow)
+        .removeEventListener("unfollow", handleUnfollow);
     };
-  }, [socket, dispatch, _handlerAction, userId, priority, isCurrentUser]);
+  }, [
+    socket,
+    dispatch,
+    userId,
+    priority,
+    isCurrentUser,
+    handleFollowingAction
+  ]);
+
+  useEffect(() => {
+    const user = previewUser?.followUser;
+    if (user) handleFollowingAction(!user.isFollowing)({ to: user });
+  }, [handleFollowingAction, previewUser?.followUser]);
 
   return (
     <WidgetContainer

@@ -14,14 +14,14 @@ export default (config = {}) => {
       let i = 0;
       let errCount = 0;
       opt.label = `${opt.label || "selection"}${ids.length > 1 ? "s" : ""}`;
-      for (let _id of ids) {
-        setActiveDelItem(opt.activeItem || _id.id || _id);
-        handleAction && handleAction("filter", { document: _id });
+      for (let item of ids) {
+        setActiveDelItem(opt.activeItem || item.id || item);
+        handleAction && handleAction("filter", { document: item });
       }
       setActiveDelItem("");
       handleAction("close");
-      for (let _id of ids) {
-        const id = _id.id || _id;
+      for (let item of ids) {
+        const id = item.id || item;
         try {
           _url = _url || url;
           _url = _url.url
@@ -35,7 +35,7 @@ export default (config = {}) => {
           if (message === CANCELED_REQUEST_MSG) continue;
           else {
             errCount++;
-            handleAction && handleAction("new", { document: _id });
+            handleAction && handleAction("new", { document: item });
           }
         } finally {
           i++;

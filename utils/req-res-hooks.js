@@ -83,28 +83,20 @@ export const getFeedMedias = async ({
 
     res.json(result);
   } catch (err) {
-    console.log(err.message, " feed medias ");
+    // console.log(err.message, " feed medias ");
     next(err);
   }
 };
 
 export const likeMedia = async (model, req, res, next) => {
   try {
-    let media = await model.findByIdAndUpdate(
+    const media = await model.findByIdAndUpdate(
       req.params.id,
       {
-        likes: media.likes
+        [`likes.${req.user.id}`]: true
       },
       { new: true }
     );
-    if (media.likes.get(req.user.id))
-      return next(
-        createError(
-          `${model.collection.collectionName} already liked by you`,
-          200
-        )
-      );
-    media.likes.set(req.user.id, true);
 
     const io = req.app.get("socketIo");
     if (io) io.emit(`update-${model.modelName}`, media);
@@ -123,25 +115,22 @@ export const likeMedia = async (model, req, res, next) => {
 
 export const dislikeMedia = async (model, req, res, next) => {
   try {
-    const media = await model.findById(req.params.id);
-    if (media.likes.get(req.user.id)) media.likes.delete(req.user.id);
-    res.json(
-      (await model.findByIdAndUpdate(
-        req.params.id,
-        {
-          likes: media.likes
-        },
-        { new: true }
-      )).likes
+    const media = await model.findByIdAndUpdate(
+      req.params.id,
+      {
+        [`likes.${req.user.id}`]: false
+      },
+      { new: true }
     );
-
+    const io = req.app.get("socketIo");
+    if (io) io.emit(`update-${model.modelName}`, media);
+    res.json(media.likes);
     await sendAndUpdateNotification({
       req,
       filter: true,
       type: "like",
       docType: model.modelName,
-      document: media,
-      eventName: `update-${model.modelName}`
+      document: media
     });
   } catch (err) {
     next(err);

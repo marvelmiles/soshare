@@ -13,7 +13,9 @@ export const deleteFile = filePath => {
     .bucket(FIREBASE_BUCKET_NAME)
     .file(filePath)
     .delete()
-    .then(() => {})
+    .then(() => {
+      console.log("eleted file success");
+    })
     .catch(err => {
       console.error(
         `[Error Deleting ${filePath}]: ${err.message} at ${new Date()}.`

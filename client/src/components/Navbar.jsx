@@ -109,9 +109,10 @@ const Navbar = ({ routePage = "homePage" }) => {
             notifications: unseens.notifications + 1
           };
         });
-        stateRef.current.notifications.unmarked = {
-          data: [n]
-        };
+        if (popover.openFor !== "notifications")
+          stateRef.current.notifications.unmarked = {
+            data: [n]
+          };
       }
     };
 
@@ -145,10 +146,12 @@ const Navbar = ({ routePage = "homePage" }) => {
         handleDeleteNotifications
       );
     };
-  }, [socket, currentUser.id]);
+  }, [socket, currentUser.id, popover.openFor]);
 
   useEffect(() => {
-    isMd && setOpenDrawer(false);
+    setOpenUserSelect(false);
+    setOpenDrawer(false);
+    setPopover(prev => ({ ...prev, open: false }));
   }, [isMd]);
 
   const toggleTheme = () => {
@@ -175,7 +178,7 @@ const Navbar = ({ routePage = "homePage" }) => {
     e => {
       e.preventDefault();
       e.stopPropagation();
-      navigate(`/search?q=${query}&tab=${searchParams.get("tab") || ""}`);
+      navigate(`/search?q=${query}&tab=${searchParams.get("tab") || "posts"}`);
     },
     [searchParams, navigate, query]
   );
@@ -220,7 +223,6 @@ const Navbar = ({ routePage = "homePage" }) => {
       to && navigate(to);
       await http.patch(`/users/notifications/mark`, filter.map(({ id }) => id));
     } catch (err) {
-      console.log(err, "errr");
       const validList = mapValidItems(err, filter);
       if (validList.length)
         if (cacheType) stateRef.current.notifications[cacheType].filter = true;
@@ -266,7 +268,11 @@ const Navbar = ({ routePage = "homePage" }) => {
   const selectElem = currentUser.id ? (
     <FormControl
       variant="outlined"
-      sx={{ width: "100%", minWidth: "180px", px: 2 }}
+      sx={{
+        width: "100%",
+        minWidth: "180px",
+        px: 2
+      }}
     >
       <Select
         onClose={closeUserSelect}
@@ -280,6 +286,8 @@ const Navbar = ({ routePage = "homePage" }) => {
           borderRadius: "0.25rem",
           p: "0.25rem 1rem",
           gap: 2,
+          border: "1px solid currentColor",
+          borderColor: "divider",
           "& .MuiSvgIcon-root": {
             fontSize: "32px"
           },

@@ -182,7 +182,6 @@ const useForm = (config = {}) => {
             if (keyValue) {
               if (form) {
                 // console.log(keyValue, dataType, isFileList(keyValue));
-
                 let isFilelist;
                 if (
                   dataType === "object" ||
@@ -604,8 +603,13 @@ const useForm = (config = {}) => {
           ? false
           : config.stateChanged !== true))) &&
       setErrors({});
-    if (isObj) setFormData(formData);
-    else if (!formData) setFormData({});
+    if (isObj) {
+      if (config.withInput)
+        for (const key in formData) {
+          stateRef.current.inputs[key] = 1;
+        }
+      setFormData(formData);
+    } else if (!formData) setFormData({});
   }, []);
 
   return {

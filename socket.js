@@ -18,7 +18,7 @@ export default (app, port = process.env.PORT || 8800) => {
     // await Notification.updateMany(
     //   {},
     //   {
-    //     expireAt: null
+    //     markedUsers: {}
     //   }
     // );
     // const posts = await Short.find({
@@ -101,11 +101,12 @@ export default (app, port = process.env.PORT || 8800) => {
         });
         socket.handshake.withCookies = true;
       }
+      console.log(" cook ", !!cookies);
       next();
     } catch (err) {
       if (socket.handshake.userId) socket.disconnect();
       const withCredentials = !!socket.request;
-      // console.log(!!cookies.access_token);
+      console.log(!!cookies.access_token);
       next(
         cookies.access_token
           ? createError(
@@ -135,7 +136,7 @@ export default (app, port = process.env.PORT || 8800) => {
       delete socket.handshake.suggestFollowersTime;
       delete socket.handshake.suggestFollowersInterval;
     };
-
+    console.log(socket.handshake.withCookies);
     if (socket.handshake.withCookies) {
       !socket.handshake.userId && io.emit("register-user");
       socket.on("register-user", handleRegUser);

@@ -45,6 +45,9 @@ const Signin = () => {
   const stateRef = useRef({
     rememberMe: "true"
   }).current;
+
+  const redirect = searchParams.get("redirect");
+
   useEffect(() => {
     dispatch(logoutUser());
   }, [dispatch]);
@@ -76,7 +79,7 @@ const Signin = () => {
           break;
       }
       dispatch(loginUser(user));
-      const redirect = decodeURIComponent(searchParams.get("redirect") || "");
+      console.log(redirect);
       navigate(redirect || "/");
     } catch (message) {
       console.log(message);
@@ -169,9 +172,11 @@ const Signin = () => {
           <Typography textAlign="center" mt={1}>
             Don't have an account?{" "}
             <StyledLink
-              to={`/auth/signup?redirect=${encodeURIComponent(
-                createRelativeURL()
-              )}`}
+              to={`/auth/signup?${
+                redirect
+                  ? `redirect=${encodeURIComponent(createRelativeURL("view"))}`
+                  : ""
+              }`}
             >
               signup!
             </StyledLink>

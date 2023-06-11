@@ -64,6 +64,7 @@ export const follow = async (req, res, next) => {
       {
         _id: req.user.id
       },
+    
       {
         $addToSet: {
           following: req.params.userId
@@ -87,8 +88,8 @@ export const follow = async (req, res, next) => {
       io.emit("update-user", user);
       io.emit("update-user", _user);
       io.emit("follow", {
-        from: _user,
-        to: user
+        from: user,
+        to: _user
       });
     }
     res.json("Successfully followed user");
@@ -129,9 +130,9 @@ export const unfollow = async (req, res, next) => {
     if (io) {
       io.emit("update-user", user);
       io.emit("update-user", _user);
-      io.emit("follow", {
-        from: _user,
-        to: user
+      io.emit("unfollow", {
+        from: user,
+        to: _user
       });
     }
     res.json("Successfully unfollowed user");
@@ -327,13 +328,8 @@ export const markNotifications = async (req, res, next) => {
           activeId = req.body[i];
           count = start + 1;
           const notice = await Notification.findById(activeId);
-          const markedUsers = {};
-          for (const id of notice.users) {
-            markedUsers[id] = true;
-          }
           await notice.updateOne({
-            marked: true,
-            markedUsers
+            marked: true
           });
         }
       } catch (err) {

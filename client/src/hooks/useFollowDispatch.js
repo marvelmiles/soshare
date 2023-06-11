@@ -41,15 +41,13 @@ export default (user, priority = "toggle", following) => {
         if (stateRef.current.isProc) return;
         stateRef.current.isProc = true;
         const prop = {};
-        const updateFollowMe = (isFollowing, filter) => {
+        const updateFollowMe = isFollowing => {
           setActiveFollowId(_user.id);
           dispatch(
             updatePreviewUser({
               followUser: {
                 ..._user,
-                priority,
-                isFollowing,
-                filter
+                isFollowing
               }
             })
           );
@@ -68,13 +66,13 @@ export default (user, priority = "toggle", following) => {
         } catch (message) {
           console.log("message ", message);
           setSnackBar(message);
-          updateFollowMe(!_isFollowing, true);
+          updateFollowMe(!_isFollowing);
         } finally {
           stateRef.current.isProc = false;
         }
       } else setSnackBar();
     },
-    [dispatch, _following, isFollowing, priority, setSnackBar, user]
+    [dispatch, _following, isFollowing, setSnackBar, user]
   );
   return {
     toggleFollow,
@@ -82,8 +80,6 @@ export default (user, priority = "toggle", following) => {
     isFollowing,
     isLoggedIn: !!_following,
     following: _following,
-    isProcessingFollow: user
-      ? activeFollowId === user.id
-      : stateRef.current.isProc
+    isProcessingFollow: user ? activeFollowId === user.id : !!activeFollowId
   };
 };

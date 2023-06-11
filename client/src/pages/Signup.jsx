@@ -7,19 +7,18 @@ import { useSearchParams, useNavigate } from "react-router-dom";
 const Signup = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-
+  const redirect = searchParams.get("redirect");
   const _handleAction = useCallback(
     reason => {
       switch (reason) {
         case "new":
-          const redirect = searchParams.get("redirect");
           redirect && navigate(decodeURIComponent(redirect));
           break;
         default:
           break;
       }
     },
-    [navigate, searchParams]
+    [navigate, redirect]
   );
 
   return (
@@ -35,9 +34,11 @@ const Signup = () => {
         <Typography textAlign="center" mt={1}>
           Already have an account?{" "}
           <StyledLink
-            to={`/auth/signin?redirect=${encodeURIComponent(
-              createRelativeURL(undefined, undefined, false)
-            )}`}
+            to={`/auth/signin?${
+              redirect
+                ? `redirect=${encodeURIComponent(createRelativeURL("view"))}`
+                : ""
+            }`}
           >
             Signin!
           </StyledLink>

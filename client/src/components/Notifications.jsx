@@ -42,59 +42,49 @@ const Notifications = ({
 }) => {
   const { socket } = useContext();
   const [disabled, setDisabled] = useState(true);
-  const [processing, setProcessing] = useState(false);
   const [type, setType] = useState(defaultType);
   const cid = useSelector(state => state.user.currentUser?.id);
   const stateRef = useRef({
-    notiDelKeyData: {}
+    registeredIds: {}
   });
   const selectedColor = alpha(useTheme().palette.primary.main, "0.08");
-  const _handleAction = useCallback((reason, res, cacheData) => {
+  const _handleAction = useCallback((reason, options = {}) => {
+    const { document, dataSize } = options;
     switch (reason) {
       case "filter":
         infiniteScrollRef.current.setData(data => ({
           ...data,
-          data: data.data.filter((d, i) => {
-            if (d.id === res) {
-              if (cacheData)
-                stateRef.current.notiDelKeyData[res] = {
-                  index: i,
-                  data: d
-                };
+          data: data.data.filter(({ id }, i) => {
+            if (id === document.id) {
+              stateRef.current.registeredIds[id] = i;
               return false;
             }
             return true;
           })
         }));
         break;
-      case "clear-cache":
-        delete stateRef.current.notiDelKeyData[res];
-        break;
       case "new":
-        if (stateRef.current.notiDelKeyData[res]) {
-          infiniteScrollRef.current.data.data.splice(
-            stateRef.current.notiDelKeyData[res].index,
-            0,
-            stateRef.current.notiDelKeyData[res].data
-          );
+        const index = stateRef.current.registeredIds[document.id];
+        if (index > -1) {
+          infiniteScrollRef.current.data.data.splice(index, 0, document);
           infiniteScrollRef.current.setData(data => ({
             ...data
           }));
         }
         break;
+
       case "data":
-        console.log(res);
-        if (res.dataSize) setDisabled(false);
+        if (dataSize) setDisabled(false);
+        else setDisabled(true);
         break;
       case "close":
-        setProcessing(false);
-        setDisabled(stateRef.current.disabled || false);
+        setDisabled(false);
         break;
       default:
         break;
     }
   }, []);
-  const { handleDelete, activeDelItem } = useDeleteDispatch({
+  const { handleDelete, isProcessingDelete } = useDeleteDispatch({
     handleAction: _handleAction
   });
   const infiniteScrollRef = useRef();
@@ -145,12 +135,6 @@ const Notifications = ({
     };
   }, [socket, type, cid]);
 
-  const handleTabSwitch = (type, e = {}) => {
-    e && e.stopPropagation && e.stopPropagation();
-    setProcessing(false);
-    setDisabled(e.disabled !== false);
-    type && setType(type);
-  };
   useEffect(() => {
     if (cache[type].filter) {
       const cachedData = cache[type].data;
@@ -162,48 +146,44 @@ const Notifications = ({
       });
       cache[type] = {};
     }
+    console.log(cache[type].data);
+    cache[type].data = [];
   }, [cache, type]);
+
+  const handleTabSwitch = (type, e = {}) => {
+    e && e.stopPropagation && e.stopPropagation();
+    setDisabled(e.disabled !== false);
+    type && setType(type);
+  };
 
   const handleDeleteAll = e => {
     e.stopPropagation();
-    stateRef.current.disabled = true;
-    setProcessing(true);
     const data = infiniteScrollRef.current.data.data;
-    data.forEach((d, i) => {
-      stateRef.current.notiDelKeyData[d.id] = {
-        index: i,
-        data: d
-      };
-    });
     infiniteScrollRef.current.setData({
       ...infiniteScrollRef.current.data,
       data: []
     });
+    setDisabled(true);
     handleDelete(`/users/notifications`, data, {
       label: "notification"
     });
   };
 
-  const deleteOne = id => e => {
+  const deleteOne = notice => e => {
     e.stopPropagation();
-    if (activeDelItem !== "all" && activeDelItem !== id) {
-      setProcessing(true);
-      handleDelete(`/users/notifications`, [id], {
-        label: "notification"
-      });
-    }
+    handleDelete(`/users/notifications`, [notice], {
+      label: "notification"
+    });
   };
 
   const markOne = (i, to) => e => {
     e.stopPropagation();
-    if (type === "unmarked") {
-      setProcessing(true);
+    if (type === "unmarked")
       markNotification(i, infiniteScrollRef.current, {
         to,
         handleState: handleTabSwitch,
         cacheType: "marked"
       });
-    }
   };
 
   return (
@@ -246,7 +226,7 @@ const Notifications = ({
                     Notices
                   </Typography>
                 </Stack>
-                {processing ? (
+                {isProcessingDelete ? (
                   <LoadingDot sx={{ p: 1 }} />
                 ) : type === "unmarked" ? (
                   <Button disabled={disabled} onClick={markOne(-1)}>
@@ -395,7 +375,7 @@ const Notifications = ({
                                 sx={{
                                   backgroundColor: "action.selected"
                                 }}
-                                onClick={deleteOne(n.id)}
+                                onClick={deleteOne(n)}
                               >
                                 <DeleteIcon />
                               </IconButton>

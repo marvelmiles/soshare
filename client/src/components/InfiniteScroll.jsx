@@ -88,7 +88,8 @@ const InfiniteScroll = React.forwardRef(
       prevNotice: [],
       retryCount: 0,
       maxRetry: 10,
-      sep: excludeSep
+      sep: excludeSep,
+      withDefaultData: !!defaultData
     });
     const { intersectionKey } = useViewIntersection(
       observedNode,
@@ -281,12 +282,22 @@ const InfiniteScroll = React.forwardRef(
                         : undefined;
                       _data = {
                         ..._data,
-                        data: data.data.concat(
-                          addToSet(_data.data, undefined, set)
+                        data: (stateRef.current.withDefaultData
+                          ? []
+                          : data.data
+                        ).concat(
+                          addToSet(
+                            stateRef.current.withDefaultData
+                              ? [..._data.data, ...data.data]
+                              : _data.data,
+                            undefined,
+                            set
+                          )
                         )
                       };
                       stateRef.current.exclude = set;
                       stateRef.current.shallowUpdate = false;
+                      stateRef.current.withDefaultData = undefined;
                       // const _d = (() => {
                       //   const y = [];
                       //   for (let i = 0; i < 50; i++) {
@@ -491,7 +502,7 @@ const InfiniteScroll = React.forwardRef(
 
     const nullifyChildren =
       stateRef.current.readyState === "pending" ||
-      data.paging?.nextCursor === undefined;
+      (data.paging?.nextCursor === undefined && !data.data.length);
 
     const isEnd =
       data.paging?.nextCursor === null &&

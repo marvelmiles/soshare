@@ -131,6 +131,7 @@ const UserWidget = ({ width, user }) => {
           <Avatar
             src={cUser.photoUrl}
             alt={`${cUser.username} avatar`}
+            title={`@${cUser.username || cUser.displayName}`}
             variant="sm"
           />
           <Box

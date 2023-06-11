@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import PropTypes from "prop-types";
 import useForm, { isLink } from "hooks/useForm";
 import { WidgetContainer, StyledLink } from "components/styled";
@@ -38,7 +38,10 @@ const UserProfileForm = ({
         password: true
       }
 }) => {
-  const photoUrl = useSelector(state => state.user.previewUser?.photoUrl);
+  const stateRef = useRef({
+    fileKey: `drag-drop-area-input-file-upload-${Date.now()}`
+  });
+  const [photoUrl, setPhotoUrl] = useState(placeholders?.photoUrl);
   const locState = useLocation().state;
   const {
     formData,
@@ -91,6 +94,14 @@ const UserProfileForm = ({
     return () => url && URL.revokeObjectURL(url);
   }, [dispatch, stateChanged, formData, errors]);
 
+  useEffect(() => {
+    const url = formData.avatar ? URL.createObjectURL(formData.avatar) : "";
+    setPhotoUrl(url || formData.photoUrl || placeholders?.photoUrl);
+    return () => {
+      url && URL.revokeObjectURL(url);
+    };
+  }, [formData.avatar, placeholders?.photoUrl, formData.photoUrl]);
+
   const onSubmit = useCallback(
     async e => {
       try {
@@ -98,6 +109,7 @@ const UserProfileForm = ({
         let user;
 
         if (formData) {
+          console.log(formData.get("avatar"));
           user = await http[placeholders ? "put" : "post"](
             placeholders ? "/users" : "/auth/signup",
             formData
@@ -128,13 +140,12 @@ const UserProfileForm = ({
     [handleAction, handleSubmit, placeholders, reset, setSnackBar]
   );
   const handlePhotoTransfer = file => {
-    navigate("");
     reset(
       {
         ...formData,
         avatar: file
       },
-      { stateChanged: true }
+      { stateChanged: true, withInput: true }
     );
   };
 
@@ -154,6 +165,7 @@ const UserProfileForm = ({
     reset(placeholders);
     dispatch(updatePreviewUser(placeholders));
   };
+
   return (
     <WidgetContainer
       sx={{
@@ -171,8 +183,7 @@ const UserProfileForm = ({
           height: "175px",
           mb: 2,
           position: "relative",
-          ".drag-drop-area,.MuiAvatar-root": {
-            borderRadius: "50%",
+          ".drag-drop-area,.file-avatar": {
             color: "primary.dark",
             width: fluidSize,
             height: fluidSize,
@@ -193,14 +204,20 @@ const UserProfileForm = ({
             <DragDropArea
               autoResetOnDrop
               multiple={false}
+              mimetype="image"
               accept=".jpg,.jpeg,.png"
               onDrop={handlePhotoTransfer}
               disabled={isSubmitting}
+              inputKey={stateRef.current.fileKey}
+              name="avatar"
             >
-              <div style={{ position: "relative" }}>
+              <div
+                className="file-avatar"
+                style={{
+                  position: "relative"
+                }}
+              >
                 <Avatar
-                  component="label"
-                  htmlFor="drag-drop-area-input-file-upload"
                   src={photoUrl}
                   alt={
                     formData.avatar
@@ -214,11 +231,17 @@ const UserProfileForm = ({
                       ? `${formData.avatar.name} photo`
                       : `@${formData.username || placeholders?.username}`
                   }
+                  sx={{
+                    width: `calc(100% - 10px)`,
+                    height: "calc(100% - 10px)",
+                    m: "5px"
+                  }}
                 />
                 <IconButton
+                  htmlFor={stateRef.current.fileKey}
                   sx={{
                     position: "absolute",
-                    bottom: 0,
+                    bottom: "5px",
                     right: "15px",
                     backgroundColor: "background.alt",
                     "&:hover": {
@@ -226,7 +249,6 @@ const UserProfileForm = ({
                     }
                   }}
                   component="label"
-                  htmlFor="drag-drop-area-input-file-upload"
                   disabled={isSubmitting}
                 >
                   <AddAPhotoIcon />

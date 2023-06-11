@@ -258,25 +258,16 @@ export const sendAndUpdateNotification = async ({
   docType,
   filter = false,
   to,
-  eventName,
-  docPopulate = [
-    {
-      path: "user"
-    },
-    {
-      path: "document",
-      populate: "document user"
-    }
-  ],
-  withFrom = false
+  withFrom = false,
+  docPopulate = "user document"
 }) => {
   let match;
+  const from = req.user.id;
   try {
     const {
       maxNotificationAge: maxAge = 1,
       maxFromNotification: maxFrom = 20
     } = req.query;
-    const from = req.user.id;
     to =
       to ||
       req.params.userId ||
@@ -285,49 +276,8 @@ export const sendAndUpdateNotification = async ({
           ? document.document.user?.id || document.document.user
           : document.user?.id || document.user
         : undefined);
-    eventName =
-      eventName ||
-      {
-        follow: filter ? "unfollow" : "follow"
-      }[type] ||
-      type;
 
-    const io = req.app.get("socketIo");
-
-    // if (io && eventName) {
-    //   const _from = await User.findById(from);
-    //   eventName &&
-    //     notice.to &&
-    //     _from &&
-    //     io.emit(
-    //       eventName,
-    //       {
-    //         follow: {
-    //           to: notice.to,
-    //           from
-    //         }
-    //       }[type] ||
-    //         notice.document ||
-    //         notice
-    //     );
-    // }
-
-    if (!withFrom && to === from) {
-      if (!document.document?.id && document.populate)
-        document = await document.populate(docPopulate);
-
-      eventName &&
-        document?.id &&
-        io.emit(
-          eventName,
-          {
-            follow: {
-              from: await User.findById(from)
-            }
-          }[type] || document
-        );
-      return;
-    }
+    if (!withFrom && to === from) return;
 
     document = document && (document.id || document);
     docType = docType || (document && type);
@@ -336,10 +286,7 @@ export const sendAndUpdateNotification = async ({
       type,
       document,
       to,
-      docType,
-      markedUsers: {
-        $ne: null
-      }
+      docType
     };
 
     if ({ follow: true }[type]) {
@@ -362,37 +309,41 @@ export const sendAndUpdateNotification = async ({
       filterNotice = false,
       notice;
 
-    notice = await Notification.findOne(match);
+    notice = await Notification.findOne(match).sort({
+      createdAt: -1
+    });
 
-    if (filter && notice) {
-      if (notice.users.length - 1 === 0) {
-        if (
-          notice.expireAt &&
-          notice.expireAt.getTime() < new Date().getTime()
-        ) {
-          filterNotice = true;
-          await notice.deleteOne();
+    if (filter) {
+      if (notice) {
+        if (notice.users.length - 1 === 0) {
+          if (
+            notice.expireAt &&
+            notice.expireAt.getTime() < new Date().getTime()
+          ) {
+            filterNotice = true;
+            await notice.deleteOne();
+          } else {
+            const expireAt = new Date();
+            expireAt.setDate(expireAt.getDate() + maxAge);
+            notice = await Notification.findByIdAndUpdate(
+              notice.id,
+              {
+                expireAt
+              },
+              { new: true }
+            );
+          }
         } else {
-          const expireAt = new Date();
-          expireAt.setDate(expireAt.getDate() + maxAge);
           notice = await Notification.findByIdAndUpdate(
             notice.id,
             {
-              expireAt
+              users: notice.users.filter(id => id !== from)
             },
-            { new: true }
+            {
+              new: true
+            }
           );
         }
-      } else {
-        notice = await Notification.findByIdAndUpdate(
-          notice.id,
-          {
-            users: notice.users.filter(id => id !== from)
-          },
-          {
-            new: true
-          }
-        );
       }
     } else if (notice && !notice.marked) {
       let index;
@@ -415,14 +366,7 @@ export const sendAndUpdateNotification = async ({
         );
         report = notice.users.length <= maxFrom;
       }
-    } else if (
-      notice
-        ? !notice.markedUsers[from] &&
-          (await notice.updateOne({
-            markedUsers: null
-          }))
-        : true
-    ) {
+    } else if (notice ? !notice.users.includes(from) : true) {
       isNew = true;
       match.users = [from];
       notice = await new Notification(match).save();
@@ -430,12 +374,13 @@ export const sendAndUpdateNotification = async ({
 
     if (notice) notice = await notice.populate(populate);
 
+    const io = req.app.get("socketIo");
+
     if (io && notice && report) {
       if (filterNotice) io.emit("filter-notifications", [notice.id]);
       else
         io.emit("notification", notice, {
           filter,
-          eventName,
           isNew
         });
     }

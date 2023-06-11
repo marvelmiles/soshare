@@ -110,6 +110,7 @@ const ProfilePage = () => {
               key="followers"
               userFollwoing={user.following}
             />
+
             <FollowMeWidget
               url="following"
               title={isCurrentUser ? "People you follow" : "Following"}

@@ -30,12 +30,7 @@ const schema = new mongoose.Schema(
         return !!this.document;
       }
     },
-    expireAt: Date,
-    markedUsers: {
-      type: Map,
-      of: Boolean,
-      default: {}
-    }
+    expireAt: Date
   },
   {
     collection: "notification",
@@ -50,11 +45,7 @@ const schema = new mongoose.Schema(
     }
   }
 );
-schema.index(
-  {
-    expireAt: 1
-  },
-  { expireAfterSeconds: 0 }
-);
+
+schema.index({ createdAt: 1 });
 
 export default mongoose.model("notification", schema);

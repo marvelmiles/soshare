@@ -12,11 +12,14 @@ const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { q, tab } = useMemo(() => {
     let tab = (searchParams.get("tab") || "").toLowerCase();
-    !{
-      posts: true,
-      shorts: true,
-      users: true
-    }[tab] && (tab = "posts");
+    switch (tab) {
+      case "posts":
+      case "shorts":
+      case "users":
+        break;
+      default:
+        tab = "";
+    }
     return {
       tab,
       q: searchParams.get("q") || ""
@@ -25,11 +28,11 @@ const Search = () => {
 
   const carouselRef = useRef();
   const stateRef = useRef({
-    hasMounted: false
+    withActiveTab: !!tab
   });
   useEffect(() => {
     if (carouselRef.current) {
-      stateRef.current.hasMounted = true;
+      stateRef.current.withActiveTab = true;
       carouselRef.current.goToSlide(
         {
           posts: 0,
@@ -47,6 +50,7 @@ const Search = () => {
     minHeight: "inherit",
     height: "auto"
   };
+
   return (
     <MainView
       borderline
@@ -88,15 +92,18 @@ const Search = () => {
         }}
         ref={carouselRef}
         beforeChange={current => {
-          searchParams.set(
-            "tab",
-            {
-              0: "posts",
-              1: "users",
-              2: "shorts"
-            }[current]
-          );
-          setSearchParams(searchParams);
+          if (stateRef.current.hasChange) {
+            searchParams.set(
+              "tab",
+              {
+                0: "posts",
+                1: "users",
+                2: "shorts"
+              }[current]
+            );
+            setSearchParams(searchParams);
+          }
+          stateRef.current.hasChange = true;
         }}
       >
         <PostsView
@@ -105,7 +112,7 @@ const Search = () => {
             searchParams: `q=${q}&select=posts`,
             url: `/search`,
             readyState:
-              tab === "posts" && stateRef.current.hasMounted
+              tab === "posts" && stateRef.current.withActiveTab
                 ? "ready"
                 : "pending"
           }}
@@ -128,7 +135,7 @@ const Search = () => {
             searchParams: `q=${q}&select=users`,
             url: `/search`,
             readyState:
-              tab === "users" && stateRef.current.hasMounted
+              tab === "users" && stateRef.current.withActiveTab
                 ? "ready"
                 : "pending"
           }}
@@ -144,7 +151,7 @@ const Search = () => {
             searchParams: `q=${q}&select=shorts`,
             url: `/search`,
             readyState:
-              tab === "shorts" && stateRef.current.hasMounted
+              tab === "shorts" && stateRef.current.withActiveTab
                 ? "ready"
                 : "pending"
           }}

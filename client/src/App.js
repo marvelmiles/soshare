@@ -41,10 +41,7 @@ import BrandIcon from "components/BrandIcon";
 import EmptyData from "components/EmptyData";
 import contextState from "context/contextState";
 
-const socket = io.connect(API_ENDPOINT, {
-  path: "/mernsocial",
-  withCredentials: window.location.pathname !== "/auth/signin"
-});
+let socket;
 
 const App = () => {
   const [snackbar, setSnackbar] = useState({});
@@ -56,12 +53,23 @@ const App = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    socket.connect();
-
+    if (cid) {
+      socket = io.connect(API_ENDPOINT, {
+        path: "/mernsocial",
+        withCredentials: true
+      });
+    } else {
+      socket = io.connect(API_ENDPOINT, {
+        path: "/mernsocial"
+      });
+    }
     const handleRegUser = () =>
       socket.emit("register-user", cid, () => setReadyState("ready"));
 
-    const handleBareConnect = () => setReadyState("ready");
+    const handleBareConnect = () => {
+      console.log(" socket connectd ");
+      setReadyState("ready");
+    };
 
     let handlingErr;
     const handleSocketErr = error => {
@@ -203,7 +211,7 @@ const App = () => {
         {{
           reject: <EmptyData maxWidth="400px" withReload />,
           pending: <BrandIcon hasLoader />
-        }[readyState] || (
+        }[socket ? "pendig" : readyState] || (
           <Routes path="/">
             <Route index element={<HomePage />} />
             <Route path="/auth">
