@@ -4,10 +4,10 @@ import { useContext } from "context/store";
 import { useSelector, useDispatch } from "react-redux";
 import { updateUser, updatePreviewUser } from "context/slices/userSlice";
 
-export default (user, priority = "toggle", following) => {
-  const ffl = useSelector(
-    ({ user: { currentUser } }) => currentUser?.following
-  );
+export default (options = {}) => {
+  const { user, priority = "toggle", following, docId } = options;
+  const { setSnackBar, setContext } = useContext();
+  const ffl = useSelector(({ user: { currentUser } }) => currentUser.following);
   const { _following, isFollowing } = useMemo(() => {
     const _following = following || ffl;
     return {
@@ -24,7 +24,6 @@ export default (user, priority = "toggle", following) => {
     };
   }, [following, ffl, priority, user]);
   const dispatch = useDispatch();
-  const { setSnackBar } = useContext();
   const [activeFollowId, setActiveFollowId] = useState("");
 
   const stateRef = useRef({});
@@ -32,12 +31,10 @@ export default (user, priority = "toggle", following) => {
   const toggleFollow = useCallback(
     async (e, _user, _isFollowing) => {
       if (e) e.stopPropagation();
-
+      _isFollowing =
+        typeof _isFollowing === "boolean" ? _isFollowing : isFollowing;
       if (_following) {
         _user = _user || user;
-        _isFollowing =
-          typeof _isFollowing === "boolean" ? _isFollowing : isFollowing;
-
         if (stateRef.current.isProc) return;
         stateRef.current.isProc = true;
         const prop = {};
@@ -64,15 +61,28 @@ export default (user, priority = "toggle", following) => {
             `/users/${_user.id}/${_isFollowing ? "unfollow" : "follow"}`
           );
         } catch (message) {
-          console.log("message ", message);
           setSnackBar(message);
           updateFollowMe(!_isFollowing);
         } finally {
           stateRef.current.isProc = false;
         }
-      } else setSnackBar();
+      } else {
+        setContext(prev => ({
+          ...prev,
+          composeDoc: {
+            url: id => `/users/${id}/${_isFollowing ? "unfollow" : "follow"}`,
+            reason: "request",
+            method: "put",
+            document: {
+              id: docId
+            },
+            done: false
+          }
+        }));
+        setSnackBar();
+      }
     },
-    [dispatch, _following, isFollowing, setSnackBar, user]
+    [dispatch, _following, isFollowing, setSnackBar, user, setContext, docId]
   );
   return {
     toggleFollow,

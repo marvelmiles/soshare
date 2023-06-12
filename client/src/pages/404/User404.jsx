@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import EmptyData from "components/EmptyData";
 import { StyledLink } from "components/styled";
 import Layout from "components/Layout";
+
 const User404 = ({ contentOnly }) => {
   const content = (
     <EmptyData

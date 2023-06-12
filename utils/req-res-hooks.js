@@ -11,6 +11,7 @@ import User from "../models/User.js";
 import { deleteFile } from "./file-handlers.js";
 import { isObjectId } from "./validators.js";
 import { Types } from "mongoose";
+
 export const getFeedMedias = async ({
   req,
   res,
@@ -24,6 +25,7 @@ export const getFeedMedias = async ({
   isVisiting,
   ...rest
 }) => {
+  verify = false;
   try {
     req.query.randomize = req.query.randomize || "true";
 
@@ -90,13 +92,15 @@ export const getFeedMedias = async ({
 
 export const likeMedia = async (model, req, res, next) => {
   try {
-    const media = await model.findByIdAndUpdate(
-      req.params.id,
-      {
-        [`likes.${req.user.id}`]: true
-      },
-      { new: true }
-    );
+    const media = await model
+      .findByIdAndUpdate(
+        req.params.id,
+        {
+          [`likes.${req.user.id}`]: true
+        },
+        { new: true }
+      )
+      .populate("user");
 
     const io = req.app.get("socketIo");
     if (io) io.emit(`update-${model.modelName}`, media);
@@ -115,17 +119,22 @@ export const likeMedia = async (model, req, res, next) => {
 
 export const dislikeMedia = async (model, req, res, next) => {
   try {
-    const media = await model.findByIdAndUpdate(
-      req.params.id,
-      {
-        [`likes.${req.user.id}`]: false
-      },
-      { new: true }
-    );
+    const likes = (await model.findById(req.params.id))?.likes;
+    if (!likes) return res.json({});
+    likes.delete(req.user.id);
+    const media = await model
+      .findByIdAndUpdate(
+        req.params.id,
+        {
+          likes
+        },
+        { new: true }
+      )
+      .populate("user");
     const io = req.app.get("socketIo");
-    if (io) io.emit(`update-${model.modelName}`, media);
-    res.json(media.likes);
-    await sendAndUpdateNotification({
+    if (io && media) io.emit(`update-${model.modelName}`, media);
+    res.json(likes);
+    sendAndUpdateNotification({
       req,
       filter: true,
       type: "like",

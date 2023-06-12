@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { WidgetContainer } from "components/styled";
 import EmptyData from "components/EmptyData";
@@ -7,7 +7,6 @@ import { Typography, Stack } from "@mui/material";
 import { useContext } from "context/store";
 import { useSelector } from "react-redux";
 import InfiniteScroll from "components/InfiniteScroll";
-import { contextHandler } from "utils";
 import useCallbacks from "hooks/useCallbacks";
 
 const ShortsView = ({
@@ -50,12 +49,17 @@ const ShortsView = ({
         _handleAction("new", { document: short });
     };
 
+    const handleUpdateUser = user => _handleAction("update", { user });
+
     socket.on("short", handleAppend);
     socket.on("filter-short", handleFilter);
+    socket.on("update-user", handleUpdateUser);
 
     return () => {
-      socket.removeEventListener("short", handleFilter);
-      socket.removeEventListener("short", handleAppend);
+      socket
+        .removeEventListener("short", handleAppend)
+        .removeEventListener("filter-short", handleFilter)
+        .removeEventListener("update-user", handleUpdateUser);
     };
   }, [socket, _handleAction, privateUid]);
 
@@ -82,16 +86,17 @@ const ShortsView = ({
       taskId = setInterval(filterOlders, 60 * 1000);
     }, (60 - sec) * 1000);
 
-    switch (composeDoc.reason) {
-      case "new":
-        if (composeDoc.docType === "short")
-          _handleAction("new", {
-            document: composeDoc.document
-          });
-        break;
-      default:
-        break;
-    }
+    if (composeDoc)
+      switch (composeDoc.reason) {
+        case "new":
+          if (composeDoc.docType === "short")
+            _handleAction("new", {
+              document: composeDoc.document
+            });
+          break;
+        default:
+          break;
+      }
 
     return () => {
       if (timeId) {
@@ -109,6 +114,7 @@ const ShortsView = ({
     <InfiniteScroll
       key={"infinite-shorts-" + miniShort}
       url={stateRef.current.url}
+      sx={sx}
       componentProps={
         miniShort
           ? {
@@ -124,17 +130,13 @@ const ShortsView = ({
       }
       {...infiniteScrollProps}
       ref={infiniteScrollRef}
-      verify
-      searchId={
-        miniShort
-          ? undefined
-          : composeDoc.docType === "short" && composeDoc.reason === "fetch"
-          ? composeDoc.document.id
-          : undefined
-      }
       name="shorts"
       scrollNodeRef={scrollNodeRef}
       withCredentials={!!currentUser.id}
+      readyState={
+        composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
+      }
+      searchId={composeDoc?.url && composeDoc.document?.id}
     >
       {({ data: { data, paging }, setObservedNode }) => {
         return data.length ? (

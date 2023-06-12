@@ -28,9 +28,9 @@ const BrandIcon = ({ to = "/", hasLoader, staticFont, sx }) => {
           "&:hover": {
             textDecoration: "none"
           },
-          cursor: hasLoader || staticFont ? "default" : "pointer"
+          cursor: hasLoader || !to ? "default" : "pointer"
         }}
-        to={hasLoader ? undefined : to}
+        to={hasLoader || !to ? undefined : to}
       >
         <span style={{ fontSize: hasLoader || staticFont ? "24px" : "18px" }}>
           S

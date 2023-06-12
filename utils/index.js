@@ -72,7 +72,8 @@ export const getAll = async ({
   dataKey,
   populate,
   sort = {},
-  verify
+  verify,
+  vet
 }) => {
   try {
     let {
@@ -92,7 +93,15 @@ export const getAll = async ({
     withMatchedDocs = withMatchedDocs === "true";
     randomize = randomize === "true";
 
+    // verify && console.log(cursor, exclude, " curosr  ");
+
+    vet && console.log(cursor, exclude, " curosr  ");
+
     exclude = exclude ? exclude.split(",") : [];
+    // verify && console.log(exclude);
+
+    vet && console.log(exclude);
+
     if (match._id?.$nin) {
       exclude = exclude.concat(match._id.$nin);
       delete match._id?.$nin;
@@ -144,6 +153,10 @@ export const getAll = async ({
       };
       value && (match._id.$eq = value);
     }
+
+    // verify && console.log(withMatchedDocs, randomize, exclude, " with match ");
+
+    vet && console.log(withMatchedDocs, randomize, exclude, " with match ");
 
     (withMatchedDocs || randomize) &&
       (matchedDocs = dataKey
@@ -224,7 +237,7 @@ export const getAll = async ({
     result = await model.populate(await model.aggregate(pipelines), populate);
 
     if (dataKey && result[0]) result = result[0][dataKey];
-    // verify && console.log(match);
+
     cursor = null;
     if (result.length === limit) {
       cursor = result[limit - 1].id;
@@ -246,7 +259,7 @@ export const getAll = async ({
       );
     });
   } catch (err) {
-    console.log(err.message, " get  all ");
+    verify && console.log(err.message, " get  all ");
     throw err;
   }
 };
@@ -391,7 +404,6 @@ export const sendAndUpdateNotification = async ({
         err.message
       }: ${JSON.stringify(match)} at ${new Date()}.`
     );
-    throw err;
   }
 };
 

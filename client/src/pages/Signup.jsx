@@ -4,6 +4,7 @@ import { Stack, Typography } from "@mui/material";
 import { StyledLink } from "../components/styled";
 import { createRelativeURL } from "api/http";
 import { useSearchParams, useNavigate } from "react-router-dom";
+
 const Signup = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();

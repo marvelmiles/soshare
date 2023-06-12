@@ -18,7 +18,6 @@ import { Typography, IconButton } from "@mui/material";
 import http from "api/http";
 import Avatar from "@mui/material/Avatar";
 import AddAPhotoIcon from "@mui/icons-material/AddAPhoto";
-import { useSelector } from "react-redux";
 import CustomInput from "./CustomInput";
 
 const UserProfileForm = ({
@@ -109,7 +108,6 @@ const UserProfileForm = ({
         let user;
 
         if (formData) {
-          console.log(formData.get("avatar"));
           user = await http[placeholders ? "put" : "post"](
             placeholders ? "/users" : "/auth/signup",
             formData
@@ -171,6 +169,7 @@ const UserProfileForm = ({
       sx={{
         width,
         maxHeight: "none",
+        transform: "scale(0.75)",
         ...sx
       }}
       onSubmit={onSubmit}
@@ -376,7 +375,7 @@ const UserProfileForm = ({
               }
               required={required && (required === true || required[input.name])}
               value={
-                (typeof formData[input.name] === "undefined" && placeholders
+                (formData[input.name] === undefined && placeholders
                   ? input.dataName
                     ? placeholders[input.name][input.dataName]
                     : placeholders[input.name]
@@ -400,6 +399,7 @@ const UserProfileForm = ({
           )
         )}
       </Stack>
+
       {readOnly ? null : (
         <Button
           type="submit"

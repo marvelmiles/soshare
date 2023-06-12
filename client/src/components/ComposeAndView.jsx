@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState } from "react";
+import React, { useRef, useCallback, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -45,22 +45,24 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
     comment: true,
     ...openFor
   };
-  const { state } = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const stateRef = useRef({
-    commentHolder: {}
+    commentHolder: {},
+    dType: ""
   });
   const [ctx, setCtx] = useState({});
-  const { setContext } = useContext();
-  const view = (searchParams.get("view") || "").toLowerCase();
-  const compose = (searchParams.get("compose") || "").toLowerCase();
+  const { setContext, locState } = useContext();
   const cid = searchParams.get("cid") || "";
   const scrollNodeRef = useRef();
   const navigate = useNavigate();
 
+  let view = (searchParams.get("view") || "").toLowerCase();
+  let compose = (searchParams.get("compose") || "").toLowerCase();
+
   const closeDialog = useCallback(
     (e, dialogType) => {
       e && e.stopPropagation();
+      stateRef.current.dType = "";
       if (stateRef.current.path) handleCancelRequest(stateRef.current.path);
       setCtx({});
       dialogType = e ? e.currentTarget.dataset.dialogType : dialogType;
@@ -81,7 +83,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
       const appendDoc = () => {
         stateRef.current.path = undefined;
         res.reason = reason;
-        if (!res.docType && state) res.docType = state.docType;
+        if (!res.docType && locState) res.docType = locState.docType;
         setContext(context => {
           context.composeDoc = res;
           return { ...context };
@@ -111,8 +113,13 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           break;
       }
     },
-    [closeDialog, setContext, state, compose]
+    [closeDialog, setContext, locState, compose]
   );
+
+  useEffect(() => {
+    if (stateRef.current.dType) closeDialog(undefined, stateRef.current.dType);
+  }, [closeDialog]);
+
   const renderDialog = key => {
     if (!key) return;
     const goBackElem = (
@@ -211,9 +218,9 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           </>
         );
       case "comment":
-        if (state.composeDoc.id !== stateRef.current.commentHolder.document)
+        if (locState.composeDoc.id !== stateRef.current.commentHolder.document)
           stateRef.current.commentHolder = {
-            document: state.composeDoc.id
+            document: locState.composeDoc.id
           };
 
         return (
@@ -233,15 +240,15 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
               <Typography color="primary.main">{34} views</Typography>
             </DialogTitle>
             <DialogContent sx={{ p: 0 }} ref={scrollNodeRef}>
-              <PostWidget post={state.composeDoc} enableSnippet />
+              <PostWidget post={locState.composeDoc} enableSnippet />
               <InputBox
                 withPlaceholders={false}
                 submitInputsOnly={false}
                 resetData={false}
                 method="post"
                 accept=".jpg,.jpeg,.png,.gif"
-                url={`/comments/new/${state.docType || "post"}?ro=${
-                  state.composeDoc.user.id
+                url={`/comments/new/${locState.docType || "post"}?ro=${
+                  locState.composeDoc.user.id
                 }`}
                 placeholder="Send your opinion"
                 actionText="Reply"
@@ -400,11 +407,17 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
   };
 
   if (
-    (compose === "comment" && !state) ||
-    (compose === "comments" && !cid) ||
-    (view === "user-blacklist" && !isCurrentUser)
-  )
-    return <Navigate to={-1} />;
+    (compose === "comment" && !locState) ||
+    (compose === "comments" && !cid)
+  ) {
+    stateRef.current.dType = "compose";
+    compose = "";
+  }
+
+  if (view === "user-blacklist" && !isCurrentUser) {
+    stateRef.current.dType = "view";
+    view = "";
+  }
 
   const paperStyles = {
     sx: {

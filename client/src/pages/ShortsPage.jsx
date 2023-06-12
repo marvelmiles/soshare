@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import MainView from "views/MainView";
 import ShortsView from "views/ShortsView";
 
-const ShortsPage = props => {
+const ShortsPage = () => {
   return (
     <MainView sideView="">
       <ShortsView
@@ -11,9 +11,6 @@ const ShortsPage = props => {
         key="shorts-page"
         plainWidget
         miniShort={false}
-        sx={{
-          maxWidth: "450px"
-        }}
         scrollNodeRef={null}
       />
     </MainView>

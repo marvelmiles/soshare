@@ -30,10 +30,11 @@ const ShortFooter = ({
   const {
     id: cid,
     settings: { hideDelDialog }
-  } = useSelector(state => state.user.currentUser || { settings: {} });
-  const { toggleFollow, isProcessingFollow, isFollowing } = useFollowDispatch(
-    user
-  );
+  } = useSelector(state => state.user.currentUser);
+  const { toggleFollow, isProcessingFollow, isFollowing } = useFollowDispatch({
+    user,
+    docId: id
+  });
 
   const { handleDelete } = useDeleteDispatch({
     handleAction
@@ -93,7 +94,7 @@ const ShortFooter = ({
         ) : (
           <Avatar
             src={user.photoUrl}
-            alt={`$${user.username} photo`}
+            alt={`${user.username} photo`}
             variant="sm"
           />
         )}

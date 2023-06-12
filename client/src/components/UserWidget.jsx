@@ -214,7 +214,7 @@ const UserWidget = ({ width, user }) => {
         <Typography
           variant="caption"
           component="p"
-          color="grey.800"
+          color="text.secondary"
           fontWeight="500"
           sx={{ mt: "1rem", pl: "0px" }}
         >

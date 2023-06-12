@@ -5,12 +5,13 @@ export const defaultUser = {
   following: [],
   followers: [],
   recommendationBlacklist: [],
-  socials: {}
+  socials: {},
+  settings: {}
 };
 
 const initialState = {
   previewUser: undefined,
-  currentUser: undefined
+  currentUser: defaultUser
 };
 
 const userSlice = createSlice({
@@ -32,7 +33,7 @@ const userSlice = createSlice({
           )
           .then(() => {})
           .catch(() => {});
-      state.currentUser = undefined;
+      state.currentUser = defaultUser;
       state.previewUser = undefined;
     },
     loginUser(state, { payload }) {

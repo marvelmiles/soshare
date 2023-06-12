@@ -6,6 +6,7 @@ import { useSelector } from "react-redux";
 import EmptyData from "components/EmptyData";
 import { Stack } from "@mui/material";
 import useWhitelistDispatch from "hooks/useWhitelistDispatch";
+
 const UserBlacklistView = ({
   infiniteScrollProps,
   scrollNodeRef,
@@ -80,13 +81,13 @@ const UserBlacklistView = ({
       ref={infiniteRef}
       key="infinite-user-blacklist"
     >
-      {({ data: { data }, setObservedNode, dataChanged }) => {
+      {({ data: { data }, setObservedNode }) => {
         return data.length ? (
           <Stack Stack flexWrap="wrap" justifyContent="normal" gap={2} p={2}>
-            {data.map((u = {}) => (
+            {data.map((u = {}, i) => (
               <Person
                 ref={
-                  dataChanged
+                  i === data.length - 1
                     ? node => node && setObservedNode(node)
                     : undefined
                 }

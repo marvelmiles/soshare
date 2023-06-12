@@ -3,6 +3,7 @@ import http from "api/http";
 import { useContext } from "context/store";
 import { CANCELED_REQUEST_MSG } from "context/config";
 import { useSelector } from "react-redux";
+
 export default (config = {}) => {
   const isLoggedIn = useSelector(state => !!state.user.currentUser);
   const { url, handleAction, httpConfig } = config;
@@ -28,8 +29,7 @@ export default (config = {}) => {
             ? _url.url + `/${id}?${_url.searchParams || ""}`
             : _url + `/${id}`;
 
-          const t = await http.delete(_url, opt._httpConfig || httpConfig);
-
+          await http.delete(_url, opt._httpConfig || httpConfig);
           handleAction && handleAction("clear-cache", { document: id });
         } catch (message) {
           if (message === CANCELED_REQUEST_MSG) continue;

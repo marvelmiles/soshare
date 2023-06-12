@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from "react";
+import React, { useState, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
 import { Box } from "@mui/material";
 import VideoPlayer from "components/VideoPlayer";
@@ -9,7 +9,6 @@ import ShortSidebar from "./ShortSidebar";
 import { useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
 import Typography from "@mui/material/Typography";
-import DocBlacklistedInfo from "components/DocBlacklistedInfo";
 
 const Short = React.forwardRef(
   (
@@ -48,22 +47,10 @@ const Short = React.forwardRef(
     const onClick = useCallback(
       e => {
         e.stopPropagation();
-        console.log(" clicked... ", short.id);
-        miniShort &&
-          setContext(context => {
-            context.composeDoc = {
-              docType: "short",
-              reason: "fetch",
-              document: {
-                id: short.id
-              }
-            };
-            return context;
-          });
         window.location.pathname.toLowerCase() !== "/shorts" &&
           navigate(`/shorts`);
       },
-      [navigate, setContext, short.id, miniShort]
+      [navigate]
     );
     const onError = useCallback(
       ({ severity, withReload }) => {
@@ -96,7 +83,7 @@ const Short = React.forwardRef(
               }
             : {
                 xs: "100%",
-                s500: "400px"
+                s320: "280px"
               },
           mb: miniShort ? 1 : 0,
           mx: miniShort ? "" : "auto"

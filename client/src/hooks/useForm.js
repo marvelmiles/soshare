@@ -40,17 +40,6 @@ export const isLink = str => {
   }
 };
 
-export const toSeconds = (duration, shallow = true) => {
-  if (Number.isInteger(duration)) {
-    return duration * (shallow ? 1 : 1000); // Multiply integer input by 1 second
-  } else if (typeof duration === "number") {
-    // media duration in minutes and seconds
-    return Math.floor(duration / 60) * 60 + (duration % 60);
-  } else {
-    return NaN;
-  }
-};
-
 export const mergeFileList = (a = "", b = "") => {
   const dt = new DataTransfer();
   for (let i = 0; i < a.length; i++) {
@@ -181,7 +170,6 @@ const useForm = (config = {}) => {
               deletePathFromObject(errors, key, formName, dataType);
             if (keyValue) {
               if (form) {
-                // console.log(keyValue, dataType, isFileList(keyValue));
                 let isFilelist;
                 if (
                   dataType === "object" ||
@@ -555,7 +543,6 @@ const useForm = (config = {}) => {
           else detStateChange();
         } else {
           if (_required) {
-            console.log("will det change ");
             addError(typeof _required === "string" ? _required : "required");
             detStateChange();
           } else if (formData) {

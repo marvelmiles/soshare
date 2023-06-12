@@ -10,9 +10,8 @@ import { useSelector } from "react-redux";
 import Loading from "components/Loading";
 import { Stack } from "@mui/material";
 import User404 from "./404/User404";
-
-import { updateUser, updatePreviewUser } from "context/slices/userSlice";
 import { useDispatch } from "react-redux";
+
 const ProfilePage = () => {
   let { userId } = useParams();
   const [searchParams] = useSearchParams();
@@ -108,7 +107,7 @@ const ProfilePage = () => {
               readOnly={!isCurrentUser}
               variant="flex"
               key="followers"
-              userFollwoing={user.following}
+              privateUserFollowing={user.following}
             />
 
             <FollowMeWidget
@@ -120,7 +119,7 @@ const ProfilePage = () => {
               isCurrentUser={isCurrentUser}
               variant="flex"
               key="following"
-              userFollwoing={user.following}
+              privateUserFollowing={user.following}
             />
             {isCurrentUser ? (
               <FollowMeWidget
@@ -128,7 +127,7 @@ const ProfilePage = () => {
                 variant="flex"
                 key="suggest"
                 title="People to follow"
-                userFollwoing={user.following}
+                privateUserFollowing={user.following}
                 priority="follow"
               />
             ) : null}

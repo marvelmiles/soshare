@@ -48,9 +48,9 @@ const Person = React.forwardRef(
               pt="16px"
               maxLine={3}
             >
-              @{user.username}
+              {isOwner ? "You" : `@${user.displayName || user.username}`}
             </StyledTypography>
-            {isOwner ? null : btnLabel ? (
+            {btnLabel ? (
               <Button
                 variant="contained"
                 sx={{
@@ -58,6 +58,7 @@ const Person = React.forwardRef(
                   mt: "16px"
                 }}
                 onClick={onBtnClick}
+                disabled={isOwner || disabled}
               >
                 {btnLabel}
               </Button>
@@ -127,7 +128,7 @@ const Person = React.forwardRef(
                   </Box>
                 </Box>
               </Stack>
-              {isOwner ? null : btnLabel ? (
+              {btnLabel ? (
                 <Button
                   variant={{}[variant] || "contained"}
                   sx={{
@@ -135,7 +136,7 @@ const Person = React.forwardRef(
                     flexShrink: 0
                   }}
                   onClick={onBtnClick}
-                  disabled={disabled}
+                  disabled={isOwner || disabled}
                 >
                   {btnLabel}
                 </Button>

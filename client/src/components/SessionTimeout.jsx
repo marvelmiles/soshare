@@ -5,9 +5,11 @@ import { Box, Typography, Button, Stack } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { createRelativeURL } from "api/http";
+import { useNavigate } from "react-router-dom";
 
 const SessionTimeout = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   useEffect(() => {
     dispatch(logoutUser());
   }, [dispatch]);
@@ -54,7 +56,7 @@ const SessionTimeout = () => {
             mr: "8px"
           }}
           component={Link}
-          to={createRelativeURL("view")}
+          to={() => navigate(-1)}
           variant="contained"
         >
           Continue

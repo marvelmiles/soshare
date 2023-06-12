@@ -40,14 +40,14 @@ const Comments = ({
   const currentUser = useSelector(state => state.user.currentUser || {});
   const {
     socket,
-    context: { blacklistedUsers, filterDocsByUserSet }
+    context: { blacklistedUsers, filterDocsByUserSet, composeDoc },
+    setContext
   } = useContext();
   const stateRef = useRef({
     url: `/comments/feed/${documentId}`,
     registeredIds: {},
     pending: {},
-    notiferDelay: -1,
-    composeDoc: {}
+    notiferDelay: -1
   });
   const infiniteScrollRef = useRef();
   const appendComment = useCallback(
@@ -66,8 +66,6 @@ const Comments = ({
         !checkVisibility(comment, currentUser)
       )
         return;
-
-      console.log(" append ", comment.id, stateCtx.registeredIds[comment.id]);
 
       stateCtx.registeredIds[comment.id] = -1;
 
@@ -122,8 +120,6 @@ const Comments = ({
 
       if (!(index > -1) || (!cacheData && isRO)) return;
 
-      console.log(" deleted id ", id);
-
       cacheData &&
         document.comments &&
         (document.comments = removeFirstItemFromArray(uid, document.comments));
@@ -139,7 +135,6 @@ const Comments = ({
         const handleAnomaly = () => {
           // running just incase of multiple traffic collision maybe
           // based on dev and test it doesn't happen
-          console.log(" anomaly ");
         };
         if (rootComment) {
           if (docId === rootThread) {
@@ -158,10 +153,7 @@ const Comments = ({
               rootComment.threads[dIndex] = document;
 
               rootComment.threads.splice(index).forEach(deleteFromReg);
-            } else {
-              console.log("anomaly....");
-              handleAnomaly();
-            }
+            } else handleAnomaly();
           }
         } else handleAnomaly();
 
@@ -183,7 +175,6 @@ const Comments = ({
           removeComment(document, cacheData, threadsOnly);
           break;
         case "clear-cache":
-          console.log("clear cahce ");
           delete stateCtx.registeredIds[document];
           break;
         case "update":
@@ -233,16 +224,12 @@ const Comments = ({
     [removeComment]
   );
   useEffect(() => {
-    const handleFilter = comment => {
-      console.log(" remove comment ");
-      removeComment(comment, false);
-    };
+    const handleFilter = comment => removeComment(comment, false);
 
-    const handleUpdate = comment => {
+    const handleUpdate = comment =>
       _handleAction("update", {
         document: comment
       });
-    };
 
     const handleAppend = (comment, replace) => {
       if (Array.isArray(comment)) {
@@ -262,6 +249,24 @@ const Comments = ({
       socket.removeEventListener("update-comment", handleUpdate);
     };
   }, [appendComment, socket, removeComment, currentUser.id, _handleAction]);
+
+  useEffect(() => {
+    if (composeDoc && composeDoc.docType === "comment") {
+      switch (composeDoc.reason) {
+        case "request":
+          _handleAction("update", composeDoc.document);
+          break;
+        default:
+          break;
+      }
+      if (composeDoc.url ? composeDoc.done : true) {
+        const id = setTimeout(() => {
+          setContext(prev => ({ ...prev, composeDoc: undefined }));
+          clearTimeout(id);
+        }, 0);
+      }
+    }
+  }, [composeDoc, _handleAction, setContext]);
 
   useEffect(() => {
     filterDocsByUserSet(
@@ -350,7 +355,6 @@ const Comments = ({
           searchParams={searchParams}
           limit={limit}
           url={stateRef.current.url}
-          // defaultData={stateCtx?.[documentId]?.childData || defaultData}
           defaultShowEnd={defaultShowEnd}
           httpConfig={
             isRO && {
@@ -381,7 +385,7 @@ const Comments = ({
                         key={comment.id}
                         ref={
                           i === data.length - 1
-                            ? node => node && setObservedNode(node, true)
+                            ? node => node && setObservedNode(node)
                             : null
                         }
                       >

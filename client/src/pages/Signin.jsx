@@ -19,6 +19,7 @@ import LockIcon from "@mui/icons-material/Lock";
 import AccountBoxIcon from "@mui/icons-material/AccountBox";
 import CustomInput from "components/CustomInput";
 import { createRelativeURL } from "api/http";
+import BrandIcon from "components/BrandIcon";
 
 InputBase.defaultProps = {
   value: ""
@@ -38,7 +39,7 @@ const Signin = () => {
     }
   });
   const [searchParams] = useSearchParams();
-  const { setSnackBar } = useContext();
+  const { setSnackBar, locState } = useContext();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [showPwd, setShowPwd] = useState(false);
@@ -79,10 +80,10 @@ const Signin = () => {
           break;
       }
       dispatch(loginUser(user));
-      console.log(redirect);
-      navigate(redirect || "/");
+      navigate(redirect || "/", {
+        state: locState
+      });
     } catch (message) {
-      console.log(message);
       if (message.code) {
         if (message.code === "auth/popup-closed-by-user")
           message = "Authentication popup closed by you!";
@@ -97,6 +98,7 @@ const Signin = () => {
     <>
       <Stack sx={{ minHeight: "100vh", width: "100%" }}>
         <WidgetContainer sx={{ maxWidth: "576px", mx: "auto" }}>
+          <BrandIcon staticFont />
           <CustomInput
             name="placeholder"
             label="Email or username"

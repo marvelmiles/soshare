@@ -1,5 +1,5 @@
 import React, { useRef, useMemo, useEffect } from "react";
-import { useSearchParams, Navigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Carousel from "react-multi-carousel";
@@ -114,15 +114,11 @@ const Search = () => {
             readyState:
               tab === "posts" && stateRef.current.withActiveTab
                 ? "ready"
-                : "pending"
+                : "pending",
+            verify: true,
+            scrollNodeRef: null
           }}
           sx={viewSx}
-          postSx={{
-            "&:first-of-type": {
-              borderTop: "1px solid currentColor",
-              borderColor: "divider"
-            }
-          }}
           key={"serach-posts"}
         />
         <FollowMeWidget
@@ -137,7 +133,8 @@ const Search = () => {
             readyState:
               tab === "users" && stateRef.current.withActiveTab
                 ? "ready"
-                : "pending"
+                : "pending",
+            scrollNodeRef: null
           }}
           key={"serach-users"}
           widgetProps={{
@@ -153,7 +150,8 @@ const Search = () => {
             readyState:
               tab === "shorts" && stateRef.current.withActiveTab
                 ? "ready"
-                : "pending"
+                : "pending",
+            scrollNodeRef: null
           }}
           sx={viewSx}
           key={"serach-shorts"}

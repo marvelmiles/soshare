@@ -13,6 +13,7 @@ import {
 import storage from "redux-persist/lib/storage";
 import configReducer from "./slices/configSlice";
 import userReducer from "./slices/userSlice";
+
 const store = configureStore({
   reducer: persistReducer(
     {

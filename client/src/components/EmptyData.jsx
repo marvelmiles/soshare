@@ -45,7 +45,7 @@ const EmptyData = ({
     >
       {withReload ? (
         <div>
-          {nullifyBrand ? null : <BrandIcon staticFont sx={{ mb: 1 }} />}
+          {nullifyBrand ? null : <BrandIcon staticFont sx={{ mb: 1 }} to="" />}
           <Typography variant="h5">
             Something went wrong, but don’t fret — let’s give it another shot.
           </Typography>

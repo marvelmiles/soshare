@@ -40,7 +40,6 @@ export const getHttpErrMsg = err => {
     switch (err.code?.toLowerCase()) {
       case "auth/popup-closed-by-user":
         message = "Popup closed by you";
-        console.log(" messg pioppe ");
         break;
       default:
         if (err.response) {
@@ -54,7 +53,6 @@ export const getHttpErrMsg = err => {
   } else message = err.message || err;
 
   if (message.indexOf("Cast") > -1) message = "Something went wrong!";
-  console.log(message);
   return message;
 };
 export const isTokenCancelled = rootAxios.isCancel;
@@ -130,7 +128,6 @@ http.interceptors.request.use(function(config) {
 http.interceptors.response.use(
   response => Promise.resolve(response.data),
   async err => {
-    // console.log(err.response?.data, err.message, err.code);
     if (!(err instanceof AxiosError) || rootAxios.isCancel(err))
       return Promise.reject(getHttpErrMsg(err));
     const originalRequest = err.config;

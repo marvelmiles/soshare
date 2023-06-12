@@ -17,7 +17,6 @@ const useCallbacks = (
 
       if (!stateCtx?.cachedData) stateCtx.cachedData = {};
       if (ref.current.isProc) return;
-
       switch (reason) {
         case "new":
           ref.current.isProc = true;
@@ -43,14 +42,9 @@ const useCallbacks = (
             {
               ...data,
               data: data.data.filter((doc, index) => {
-                if (doc.id === docId || (doc.user && doc.user.id === uid)) {
-                  // cacheData &&
-                  //   (stateCtx.cachedData[doc.id] = {
-                  //     index,
-                  //     data: doc
-                  //   });
+                if (doc.id === docId || (doc.user && doc.user.id === uid))
                   return false;
-                }
+
                 return true;
               })
             },
@@ -61,14 +55,14 @@ const useCallbacks = (
           break;
         case "clear-cache":
           ref.current.isProc = true;
-          // delete stateCtx.cachedData[docId];
           break;
         case "update":
           ref.current.isProc = true;
+
           setData({
             ...data,
             data: data.data.map(s =>
-              s.id === docId ? { ...s, ...document } : s
+              s.id === docId || s.user.id === uid ? { ...s, ...document } : s
             )
           });
           break;

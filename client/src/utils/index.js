@@ -26,21 +26,11 @@ export const reloadBrowser = e => {
   window.location.reload();
 };
 
-export const handleScrollUp = () =>
-  window.scrollTo({ top: 0, behavior: "smooth" });
-
-export const filterDuplicateFromArray = arr => {
-  const uniq = [];
-  const map = {};
-  for (const item of arr) {
-    const id = item.id || item._id || item;
-    if (!map[id]) {
-      map[id] = true;
-      uniq.push(item);
-    }
-  }
-  return uniq;
-};
+export const handleScrollUp = e =>
+  (e && e.target.dataset.scroll !== "disable" ? e.target : window).scrollTo({
+    top: 0,
+    behavior: "smooth"
+  });
 
 export const addToSet = (arr = [], item, set = {}) => {
   item = item && (item.id || item._id || JSON.stringify(item));
@@ -53,14 +43,6 @@ export const addToSet = (arr = [], item, set = {}) => {
       items.push(_item);
       set[id] = true;
     }
-  }
-  return items;
-};
-
-export const mapArray = (arr, fn) => {
-  const items = [];
-  for (let i = 0; i < arr.length; i++) {
-    items.push(fn(arr[i], i));
   }
   return items;
 };

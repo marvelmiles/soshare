@@ -90,7 +90,6 @@ const Notifications = ({
   const infiniteScrollRef = useRef();
 
   useEffect(() => {
-    console.log(" notification rendered ");
     const handleFilter = notices => {
       infiniteScrollRef.current.setData({
         ...infiniteScrollRef.data,
@@ -104,7 +103,6 @@ const Notifications = ({
     const handleAppend = (n, { filter, isNew }) => {
       if (appended) return;
       appended = true;
-      console.log(" append e...");
       if (n.to.id === cid && type === "unmarked") {
         if (filter)
           infiniteScrollRef.current.setData({
@@ -146,7 +144,6 @@ const Notifications = ({
       });
       cache[type] = {};
     }
-    console.log(cache[type].data);
     cache[type].data = [];
   }, [cache, type]);
 
@@ -200,6 +197,7 @@ const Notifications = ({
         }
         handleAction={_handleAction}
         sx={sx}
+        vet
       >
         {({ setObservedNode, data: { data }, dataChanged }) => {
           return (
@@ -276,7 +274,7 @@ const Notifications = ({
                         <ListItemButton
                           key={n.id}
                           ref={
-                            dataChanged && i === data.length - 1
+                            i === data.length - 1
                               ? node => node && setObservedNode(node)
                               : undefined
                           }

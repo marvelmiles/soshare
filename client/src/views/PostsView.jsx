@@ -65,11 +65,13 @@ const PostsView = ({
   }, [socket, _handleAction, privateUid]);
 
   useEffect(() => {
-    if (composeDoc) {
+    if (composeDoc && composeDoc.docType === "post") {
       switch (composeDoc.reason) {
         case "new":
-          if (composeDoc.docType === "post")
-            _handleAction("new", { document: composeDoc.document });
+          _handleAction("new", { document: composeDoc.document });
+          break;
+        case "request":
+          _handleAction("update", composeDoc.document);
           break;
         default:
           break;
@@ -93,7 +95,7 @@ const PostsView = ({
       url={stateRef.current.url}
       ref={infiniteScrollRef}
       notifierDelay={
-        !currentUser.id || currentUser.id !== composeDoc.document?.user?.id
+        !currentUser.id || currentUser.id !== composeDoc?.document?.user?.id
           ? undefined
           : -1
       }
@@ -102,9 +104,12 @@ const PostsView = ({
       handleAction={_handleAction}
       key={"infinite-posts"}
       withCredentials={!!currentUser.id}
+      readyState={
+        composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
+      }
+      searchId={composeDoc?.url && composeDoc.document?.id}
     >
-      {({ data: { data, paging }, setObservedNode, dataChanged }) => {
-        // console.log(data.length);
+      {({ data: { data, paging }, setObservedNode }) => {
         return paging?.nextCursor !== undefined || data.length ? (
           <>
             {title && (
@@ -122,7 +127,7 @@ const PostsView = ({
                     handleAction={_handleAction}
                     key={i}
                     ref={
-                      dataChanged && i === data.length - 1
+                      i === data.length - 1
                         ? node => node && setObservedNode(node)
                         : undefined
                     }

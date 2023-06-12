@@ -22,8 +22,8 @@ export const getUser = (req, res, next) =>
     req,
     res,
     next,
-    model: User,
-    verify: true
+    model: User
+    // verify: true
   });
 
 export const getFollowing = async (req, res, next) => {
@@ -32,8 +32,8 @@ export const getFollowing = async (req, res, next) => {
     res,
     next,
     model: User,
-    dataKey: "following",
-    verify: true
+    dataKey: "following"
+    // verify: true
   });
 };
 
@@ -64,7 +64,7 @@ export const follow = async (req, res, next) => {
       {
         _id: req.user.id
       },
-    
+
       {
         $addToSet: {
           following: req.params.userId
@@ -153,7 +153,7 @@ export const getUserPosts = async (req, res, next) => {
     res,
     next,
     model: Post,
-    verify: true,
+    // verify: true,
     isVisiting: true
   });
 };
@@ -171,7 +171,9 @@ export const suggestFollowers = async (req, res, next) => {
           $nin: following.concat(recommendationBlacklist, req.user.id)
         }
       },
-      query: req.query
+      query: req.query,
+      verify: true
+      // vet: true
     };
     let result = await getAll(queryConfig);
     res.json(result);
@@ -242,7 +244,7 @@ export const updateUser = async (req, res, next) => {
       new: true
     });
     const io = req.app.get("socketIo");
-    if (io) io.emit("update-user", user);
+    if (io) io.emit("update-user", user, true);
     res.json(user);
     if (req.file && photoUrl) {
       await deleteFile(photoUrl);
@@ -382,8 +384,9 @@ export const getUserShorts = async (req, res, next) => {
 
 export const blacklistUserRecommendation = async (req, res, next) => {
   try {
-    console.log(" black user ");
-    return res.json("Blacklisted successfully");
+    console.log(" black user ", req.params.userId);
+    // return res.json("Blacklisted successfully");
+
     await User.updateOne(
       {
         _id: req.user.id

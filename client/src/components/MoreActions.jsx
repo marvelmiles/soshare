@@ -53,7 +53,9 @@ const MoreActions = ({
     url: urls.delPath,
     handleAction
   });
-  const { toggleFollow, isFollowing } = useFollowDispatch(document.user);
+  const { toggleFollow, isFollowing } = useFollowDispatch({
+    user: document.user
+  });
 
   const closePopover = useCallback(e => {
     if (e) {
@@ -63,10 +65,9 @@ const MoreActions = ({
   }, []);
 
   const handleDontRecommend = useCallback(async () => {
+    const url = `/users/recommendation/blacklist/${document.user.id}`;
     if (isLoggedIn) {
       try {
-        console.log("black lsting ", !!handleAction);
-
         setContext(context => {
           return {
             ...context,
@@ -76,16 +77,26 @@ const MoreActions = ({
             }
           };
         });
-        await http.put(`/users/recommendation/blacklist/${document.user.id}`);
+        await http.put(url);
       } catch (_) {
-        console.log(_);
         setSnackBar(
           `Failed to blacklist @${document.user.username ||
             "user"}! over the sever`
         );
       }
-    } else setSnackBar();
-  }, [document, isLoggedIn, setContext, setSnackBar, handleAction]);
+    } else {
+      setContext(prev => ({
+        ...prev,
+        composeDoc: {
+          url,
+          reason: "request",
+          method: "put",
+          done: false
+        }
+      }));
+      setSnackBar();
+    }
+  }, [document, isLoggedIn, setContext, setSnackBar]);
 
   const _handleAction = useCallback(
     reason => {

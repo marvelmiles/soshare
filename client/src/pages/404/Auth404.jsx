@@ -2,7 +2,7 @@ import React from "react";
 import PropTypes from "prop-types";
 import EmptyData from "components/EmptyData";
 import { StyledLink } from "components/styled";
-const Auth404 = props => {
+const Auth404 = () => {
   return (
     <EmptyData
       maxWidth="320px"

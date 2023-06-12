@@ -119,7 +119,6 @@ const InputBox = ({
   const deleteMedia = useCallback(
     _multiple => {
       if (formData[mediaRefName]) {
-        console.log("deleting media ", multiple, dialog.multiple, _multiple);
         const stateCtx = stateRef.current;
 
         if (multiple) {
@@ -181,8 +180,6 @@ const InputBox = ({
           ...dialog,
           open: false
         }));
-      } else {
-        console.log(" no medid ");
       }
     },
     [
@@ -264,7 +261,6 @@ const InputBox = ({
 
         const stateCtx = stateRef.current;
         const _formData = handleSubmit();
-        console.log(formData);
         if (_formData) {
           let _url =
             url +
@@ -272,14 +268,10 @@ const InputBox = ({
               multiple && placeholders ? stateCtx.filteredMedias : ""
             }`;
           handleAction && handleAction("temp-data", formData, _url);
-          const file = _formData.get(`${mediaRefName}[0]`);
-          const f = _formData.getAll(`${mediaRefName}`);
-          console.log(formData, " form ");
           let res = await http[method ? method : placeholders ? "put" : "post"](
             _url,
             _formData
           );
-          // console.log(res);
           setSnackBar({
             message:
               message && message.success

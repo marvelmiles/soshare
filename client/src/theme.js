@@ -240,7 +240,6 @@ export const themeSettings = mode => ({
       lg: 1024,
       xl: 1200,
       xxl: 1536,
-      s500: 500,
       s200: 200,
       s280: 280,
       s320: 320,

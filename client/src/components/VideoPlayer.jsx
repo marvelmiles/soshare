@@ -230,7 +230,6 @@ const VideoPlayer = ({
         }
         setLoading(false);
         onLoadedMetadata && onLoadedMetadata();
-        // if (autoPlay) handlePlay();
       };
       if (typeof onError === "function") {
         handleError = ({ target: { error: err } }) => {

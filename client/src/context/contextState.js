@@ -1,8 +1,7 @@
 export default {
   blacklistedPosts: {},
   blacklistedUsers: {},
-  usersSet: {},
-  composeDoc: {},
+  composeDoc: undefined,
   filterDocsByUserSet: (infiniteScrollUtils, usersSet, subPath, stateCtx) => {
     const { data, setData } = infiniteScrollUtils;
     const arr = [];

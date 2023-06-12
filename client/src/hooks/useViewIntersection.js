@@ -1,7 +1,7 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { isDOMElement } from "../utils/validators";
 
-const useViewIntersection = (targetRef, options, verify) => {
+const useViewIntersection = (targetRef, options) => {
   const [entry, setEntry] = useState({
     isIntersecting: false,
     key: false
@@ -16,17 +16,18 @@ const useViewIntersection = (targetRef, options, verify) => {
         dataset: {}
       }
     };
-    let key = stateRef.current.nodeKey
-      ? entry.target.dataset[stateRef.current.nodeKey] ||
-        entry.target.getAttribute(stateRef.current.nodeKey) ||
-        ""
-      : entry.target.id || entry.target.dataset.id || "";
+    let key = "";
     if (entry.isIntersecting) {
+      key = stateRef.current.nodeKey
+        ? entry.target.dataset[stateRef.current.nodeKey] ||
+          entry.target.getAttribute(stateRef.current.nodeKey) ||
+          ""
+        : entry.target.id || entry.target.dataset.id || "";
       if (!key) {
         key = Date.now();
         entry.target.dataset.id = key;
       }
-    } else key = "";
+    }
     entry.intersectionKey = key;
 
     setEntry(entry);
@@ -66,10 +67,9 @@ const useViewIntersection = (targetRef, options, verify) => {
         observer.disconnect();
       }
     };
-  }, [targetRef, options, verify]);
+  }, [targetRef, options]);
 
   return entry;
 };
 
 export default useViewIntersection;
-  

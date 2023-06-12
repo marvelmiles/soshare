@@ -51,8 +51,7 @@ export const getFeedShorts = async (req, res, next) => {
       // createdAt: {
       //   $gte: start
       // }
-    },
-    verify: true
+    }
   });
 };
 

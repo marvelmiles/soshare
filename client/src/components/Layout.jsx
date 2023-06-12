@@ -91,6 +91,7 @@ const Layout = ({
       >
         <Fab
           color="primary"
+          data-scroll="disable"
           onClick={handleScrollUp}
           sx={
             fabIcon

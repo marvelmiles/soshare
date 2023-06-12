@@ -40,6 +40,7 @@ import Page404 from "pages/404/Page404";
 import BrandIcon from "components/BrandIcon";
 import EmptyData from "components/EmptyData";
 import contextState from "context/contextState";
+import { StyledLink } from "components/styled";
 
 let socket;
 
@@ -51,8 +52,14 @@ const App = () => {
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
   const cid = useSelector(state => state.user?.currentUser?.id);
   const navigate = useNavigate();
+  const { state: locState, key } = useLocation();
+  const stateRef = useRef({
+    isProcUrl: false
+  });
 
   useEffect(() => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+
     if (cid) {
       socket = io.connect(API_ENDPOINT, {
         path: "/mernsocial",
@@ -103,9 +110,9 @@ const App = () => {
         .removeEventListener("bare-connection", handleBareConnect)
         .removeEventListener("connect_error", handleSocketErr);
 
-      handleCancelRequest();
+      // handleCancelRequest();
     };
-  }, [cid]);
+  }, [cid, key]);
 
   useEffect(() => {
     http.interceptors.response.use(
@@ -130,10 +137,78 @@ const App = () => {
     );
   }, [navigate, readyState, cid]);
 
+  useEffect(() => {
+    if (cid && context.composeDoc?.url) {
+      if (context.composeDoc.done) {
+        const id = setTimeout(() => {
+          setContext(prev => ({ ...prev, composeDoc: undefined }));
+          clearTimeout(id);
+        }, 0);
+      } else if (!stateRef.current.isProcUrl) {
+        stateRef.current.isProcUrl = true;
+        console.log(context.composeDoc);
+        const _url = context.composeDoc.url;
+        http[context.composeDoc.method](
+          typeof _url === "function" ? _url(cid) : _url
+        )
+          .then(() => {
+            setContext(prev => {
+              if (!prev.composeDoc) return prev;
+              return {
+                ...prev,
+                composeDoc: {
+                  ...prev.composeDoc,
+                  done: true,
+                  document: {
+                    ...prev.document,
+                    ...prev.composeDoc.onSuccess?.()
+                  }
+                }
+              };
+            });
+          })
+          .catch(msg => {
+            console.log(msg, " user will manually like ");
+            setContext(prev => {
+              if (!prev.composeDoc) return prev;
+              return {
+                ...prev,
+                composeDoc: {
+                  ...prev.composeDoc,
+                  done: true,
+                  document: {
+                    ...prev.document,
+                    ...prev.composeDoc.onError?.()
+                  }
+                }
+              };
+            });
+          })
+          .finally(() => {
+            stateRef.current.isProcUrl = undefined;
+          });
+      }
+    }
+  }, [cid, context.composeDoc]);
+
   const setSnackBar = useCallback(
     (
       snackbar = {
-        message: "You need to login"
+        message: (
+          <div>
+            You need to{" "}
+            <StyledLink
+              style={{ textDecoration: "underline" }}
+              to={`/auth/signin?redirect=${encodeURIComponent(
+                createRelativeURL()
+              )}`}
+              state={locState}
+            >
+              login!
+            </StyledLink>
+          </div>
+        ),
+        autoHideDuration: 10000
       }
     ) =>
       setSnackbar({
@@ -144,7 +219,7 @@ const App = () => {
               message: snackbar
             })
       }),
-    []
+    [locState]
   );
   const closeSnackBar = () =>
     setSnackbar({
@@ -203,6 +278,7 @@ const App = () => {
           setSnackBar,
           socket,
           context,
+          locState,
           readyState,
           setContext,
           setReadyState

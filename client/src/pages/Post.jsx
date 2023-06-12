@@ -56,7 +56,6 @@ const Post = () => {
       const { document, value, uid } = options;
       switch (reason) {
         case "filter":
-          console.log(" filter with status text ");
           setContext(context => {
             context.blacklistedPosts[post.id] = "404";
             return { ...context };
@@ -79,7 +78,6 @@ const Post = () => {
           }));
           break;
         case "clear-cache":
-          console.log("clear ed cache...");
           setContext(context => {
             delete context.blacklistedPosts[post.id];
             return { ...context };

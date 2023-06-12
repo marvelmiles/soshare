@@ -16,7 +16,6 @@ import { useNavigate } from "react-router-dom";
 import MoreActions from "components/MoreActions";
 import moment from "moment";
 import useLikeDispatch from "hooks/useLikeDispatch";
-import DocBlacklistedInfo from "components/DocBlacklistedInfo";
 
 const PostWidget = React.forwardRef(
   (
@@ -35,7 +34,6 @@ const PostWidget = React.forwardRef(
       secondaryAction,
       searchParams,
       disableNavigation,
-      withDialog = true,
       dialogContent
     },
     ref
@@ -301,14 +299,12 @@ const PostWidget = React.forwardRef(
                       gap="4px"
                       onClick={e => {
                         e.stopPropagation();
-                        if (id)
-                          navigate(`?compose=comment`, {
-                            state: {
-                              composeDoc: post,
-                              docType
-                            }
-                          });
-                        else setSnackBar();
+                        navigate(`?compose=comment`, {
+                          state: {
+                            composeDoc: post,
+                            docType
+                          }
+                        });
                       }}
                     >
                       <IconButton>

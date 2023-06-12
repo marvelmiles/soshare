@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import Layout from "components/Layout";
 import EmptyData from "components/EmptyData";
 import { StyledLink } from "components/styled";
+
 const Page404 = props => {
   return (
     <Layout>

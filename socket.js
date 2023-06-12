@@ -75,7 +75,9 @@ export default (app, port = process.env.PORT || 8800) => {
     //       _id: user.id
     //     },
     //     {
-    //       $unset: { postCount: 1, shortCount: 1 } // Updated field names: postCount and shortCount
+    //       recommendationBlacklist: user.recommendationBlacklist.filter(
+    //         id => !!id
+    //       )
     //     }
     //   );
     // }
