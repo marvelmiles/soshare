@@ -95,7 +95,7 @@ export default (app, port = process.env.PORT || 8800) => {
 
   io.use((socket, next) => {
     const cookies = cookie.parse(socket.request.headers.cookie || "");
-    // console.log(cookies)
+    console.log(!!cookies);
     try {
       if (cookies) {
         verifyToken({

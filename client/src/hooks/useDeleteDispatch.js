@@ -24,15 +24,15 @@ export default (config = {}) => {
       for (let item of ids) {
         const id = item.id || item;
         try {
-          _url = _url || url;
-          _url = _url.url
-            ? _url.url + `/${id}?${_url.searchParams || ""}`
-            : _url + `/${id}`;
+          let __url = _url || url;
+          __url = _url.url
+            ? __url.url + `/${id}?${__url.searchParams || ""}`
+            : __url + `/${id}`;
 
-          await http.delete(_url, opt._httpConfig || httpConfig);
+          await http.delete(__url, opt._httpConfig || httpConfig);
           handleAction && handleAction("clear-cache", { document: id });
         } catch (message) {
-          if (message === CANCELED_REQUEST_MSG) continue;
+          if (!message || message === CANCELED_REQUEST_MSG) continue;
           else {
             errCount++;
             handleAction && handleAction("new", { document: item });

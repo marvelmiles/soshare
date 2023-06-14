@@ -156,12 +156,15 @@ export const getAll = async ({
 
     // verify && console.log(withMatchedDocs, randomize, exclude, " with match ");
 
-    vet && console.log(withMatchedDocs, randomize, exclude, " with match ");
+    // vet && console.log(withMatchedDocs, randomize, exclude, " with match ");
 
     (withMatchedDocs || randomize) &&
       (matchedDocs = dataKey
         ? ((await model.findOne(match)) || {})[dataKey]?.length || 0
         : await model.countDocuments(match));
+
+    // vet &&
+    //   console.log(match.$expr.$cond, withMatchedDocs, randomize, matchedDocs);
 
     const $addFields = { _id: { $toString: "$_id" }, id: "$_id" };
 
@@ -234,6 +237,7 @@ export const getAll = async ({
         });
       }
     }
+    // vet && console.log(pipelines[1].$match);
     result = await model.populate(await model.aggregate(pipelines), populate);
 
     if (dataKey && result[0]) result = result[0][dataKey];
@@ -243,7 +247,6 @@ export const getAll = async ({
       cursor = result[limit - 1].id;
       result.pop();
     }
-    // console.log(pipelines[0].$match);
     return new Promise(r => {
       setTimeout(
         () =>

@@ -3,6 +3,7 @@ import { checkVisibility } from "utils/validators";
 import { updateUser } from "context/slices/userSlice";
 import { useDispatch } from "react-redux";
 
+// functions that requires redux with no extra state or hooks
 const useCallbacks = (
   infiniteScrollRef,
   { stateCtx, currentUser = { user: {} } }
@@ -14,9 +15,9 @@ const useCallbacks = (
       const { document, uid, action, value } = options;
       const { setData, data } = infiniteScrollRef.current;
       const docId = document && (document.id || document);
-
       if (!stateCtx?.cachedData) stateCtx.cachedData = {};
       if (ref.current.isProc) return;
+      console.log(reason, " reason ");
       switch (reason) {
         case "new":
           ref.current.isProc = true;

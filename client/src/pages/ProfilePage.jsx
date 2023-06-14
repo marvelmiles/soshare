@@ -10,8 +10,8 @@ import { useSelector } from "react-redux";
 import Loading from "components/Loading";
 import { Stack } from "@mui/material";
 import User404 from "./404/User404";
-import { useDispatch } from "react-redux";
 
+import { useDispatch } from "react-redux";
 const ProfilePage = () => {
   let { userId } = useParams();
   const [searchParams] = useSearchParams();

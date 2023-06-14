@@ -23,9 +23,9 @@ export const getFeedMedias = async ({
   verify,
   refPath,
   isVisiting,
+  vet,
   ...rest
 }) => {
-  verify = false;
   try {
     req.query.randomize = req.query.randomize || "true";
 
@@ -37,19 +37,19 @@ export const getFeedMedias = async ({
       };
     }
     dataKey && refPath === undefined && (refPath = "_id");
-    verify &&
-      console.log(
-        req.params.id,
-        req.user?.id,
-        req.params.userId,
-        " REQ-RES-ID "
-      );
+    // vet &&
+    //   console.log(
+    //     req.params.id,
+    //     req.user?.id,
+    //     req.params.userId,
+    //     " REQ-RES-ID "
+    //   );
     match = await createVisibilityQuery({
       refPath,
       isVisiting,
       query: match,
       userId: req.params.userId,
-      searchUser: req.user ? req.user.id : "",
+      searchUser: req.user ? req.user.id : undefined,
       verify
     });
 
@@ -68,6 +68,7 @@ export const getFeedMedias = async ({
       query: req.query,
       userId: req.user?.id,
       verify,
+      vet,
       ...rest
     });
 

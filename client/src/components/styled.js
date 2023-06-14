@@ -233,3 +233,28 @@ export const zoom = keyframes`
     opacity:0
   }
   `;
+
+export const StyledAvatar = styled(Box)`
+  ${({
+    theme: {
+      palette: { divider, ...rest },
+      ...theme
+    }
+  }) => {
+    return `
+   width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  padding:2px;
+  border: 3px solid transparent;
+  border-color: ${divider};
+
+  & > .MuiAvatar-root,
+  & > img, & .styled-avatar-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%; 
+  }
+   `;
+  }}
+`;

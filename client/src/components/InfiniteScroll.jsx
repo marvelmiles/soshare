@@ -40,9 +40,8 @@ const InfiniteScroll = React.forwardRef(
       withCredentials = true,
       maxSize,
       maxSizeElement,
-      limit = 2,
+      limit = 20,
       scrollNodeRef,
-      withError = true,
       searchId,
       randomize,
       nodeKey,
@@ -57,7 +56,8 @@ const InfiniteScroll = React.forwardRef(
       withOverflowShowEndOnly = true,
       withOverflowShowNotifierOnly = true,
       excludeSep = ",",
-      withMatchedDocs
+      withMatchedDocs,
+      vetify
     },
     ref
   ) => {
@@ -113,15 +113,24 @@ const InfiniteScroll = React.forwardRef(
         });
     }, [scrollNodeRef, withOverflowShowEndOnly]);
 
+    const clearNotifierState = (clearPrev = true) => {
+      clearPrev && (stateRef.current.prevNotice = []);
+      if (stateRef.current.dataNoticeStartTaskId) {
+        clearTimeout(stateRef.current.dataNoticeStartTaskId);
+        clearTimeout(stateRef.current.dataNoticeEndTaskId);
+      }
+    };
+
     const closeNotifier = useCallback((resetDelay = 500, e) => {
       e && e.stopPropagation();
+      clearNotifierState();
       setNotifier(notifier => ({
         ...notifier,
         open: false
       }));
       let timerId = setTimeout(() => {
-        if (timerId) clearTimeout(timerId);
         setNotifier(notifier => ({ ...notifier, data: [] }));
+        if (timerId) clearTimeout(timerId);
       }, resetDelay);
     }, []);
 
@@ -258,6 +267,8 @@ const InfiniteScroll = React.forwardRef(
                       _data.paging.nextCursor !== undefined &&
                       Array.isArray(_data.data)
                     ) {
+                      vetify &&
+                        console.log(_data.paging, _withMatchedDocs, _randomize);
                       if (
                         !infinitePaging.matchedDocs &&
                         _data.paging.matchedDocs > -1
@@ -307,6 +318,7 @@ const InfiniteScroll = React.forwardRef(
                     });
                   }
                 } catch (msg) {
+                  console.log(msg, " msg ");
                   if (
                     stateRef.current.retryCount < stateRef.current.maxRetry &&
                     (withShowRetry === undefined ? true : withShowRetry)
@@ -314,9 +326,7 @@ const InfiniteScroll = React.forwardRef(
                     stateRef.current.retryCount++;
                     setShowRetry(true);
                   } else stateRef.current.preventFetch = true;
-
-                  (withCredentials || withError) && setSnackBar(msg);
-                  setLoading(false);
+                  msg && setSnackBar(msg);
                 } finally {
                   setLoading(false);
                   stateRef.current.isFetching = false;
@@ -351,9 +361,9 @@ const InfiniteScroll = React.forwardRef(
         setSnackBar,
         reachedMax,
         randomize,
-        withError,
         withShowRetry,
-        withMatchedDocs
+        withMatchedDocs,
+        vetify
       ]
     );
 
@@ -375,6 +385,7 @@ const InfiniteScroll = React.forwardRef(
             setObservedNode(nodeOrFunc);
             determineFlowing();
           }
+          // console.log(stateRef.current.dataChanged, " ob changed ");
         },
         setData: (prop, options = {}) => {
           let {
@@ -391,11 +402,9 @@ const InfiniteScroll = React.forwardRef(
                   ? 1
                   : 0
                 : numberOfEntries;
+            
             if (_data.length && numberOfEntries && notifierDelay > -1) {
-              if (stateRef.current.dataNoticeStartTaskId) {
-                clearTimeout(stateRef.current.dataNoticeStartTaskId);
-                clearTimeout(stateRef.current.dataNoticeEndTaskId);
-              }
+              clearNotifierState(false);
               stateRef.current.prevNotice = _data
                 .slice(0, numberOfEntries)
                 .concat(stateRef.current.prevNotice || []);
@@ -406,35 +415,32 @@ const InfiniteScroll = React.forwardRef(
                   open: true
                 }));
                 stateRef.current.prevNotice = [];
-
-                stateRef.current.dataNoticeEndTaskId = setTimeout(() => {
-                  setNotifier(notifier => ({
-                    ...notifier,
-                    open: false
-                  }));
-                }, notifierDuration);
+                stateRef.current.dataNoticeEndTaskId = setTimeout(
+                  closeNotifier,
+                  notifierDuration
+                );
               }, notifierDelay);
-            } else
-              setNotifier(notifier => ({
-                ...notifier,
-                open: false
-              }));
+            } else {
+              console.log(" dev comming ");
+              closeNotifier();
+            }
           };
-
-          const setState = _data => {
-            const dataSize = _data.data.length;
+          let nullify;
+          const setState = dataSize => {
             if (withStateDeterminant && dataSize < data.data.length) {
               const size = stateRef.current.infinitePaging.matchedDocs;
               size &&
                 (stateRef.current.infinitePaging.matchedDocs = dataSize
                   ? size - (data.data.length - dataSize)
                   : 0);
-              console.log(dataSize, size, data.data.length);
+
+              stateRef.current.infinitePaging.matchedDocs === dataSize &&
+                (nullify = true);
             }
 
             stateRef.current.preventFetch = preventFetch;
             stateRef.current.dataChanged = dataSize !== data.data.length;
-
+            // console.log(stateRef.current.dataChanged, " data changed ");
             exclude && (stateRef.current.exclude = exclude);
 
             stateRef.current.shallowUpdate = true;
@@ -447,7 +453,10 @@ const InfiniteScroll = React.forwardRef(
                 setShowEnd(false);
                 setObservedNode(null);
               }
-              setState(data, prev);
+              setState(data.data.length);
+
+              if (nullify && data.paging) data.paging.nextCursor = null;
+
               return data;
             });
           } else {
@@ -456,7 +465,8 @@ const InfiniteScroll = React.forwardRef(
               setShowEnd(false);
               setObservedNode(null);
             }
-            setState(prop);
+            setState(prop.data.length);
+            if (nullify && prop.data.paging) prop.data.paging.nextCursor = null;
             setData(prop);
           }
         }
@@ -478,21 +488,22 @@ const InfiniteScroll = React.forwardRef(
       stateRef.current.infinitePaging.matchedDocs === undefined ||
       (data.paging?.nextCursor === undefined && !data.data.length);
 
+    // vetify &&
+    //   console.log(
+    //     nullifyChildren,
+    //     stateRef.current.readyState,
+    //     stateRef.current.infinitePaging.matchedDocs,
+    //     data.paging?.nextCursor,
+    //     data.data.length,
+    //     " nulli "
+    //   );
+
     const isEnd =
-      data.paging?.nextCursor === null &&
       data.data.length &&
       !loading &&
       (stateRef.current.infinitePaging.matchedDocs
         ? data.data.length >= stateRef.current.infinitePaging.matchedDocs
-        : true);
-
-    console.log(
-      isEnd,
-      showEnd,
-      data,
-      stateRef.current.infinitePaging.matchedDocs,
-      loading
-    );
+        : data.paging?.nextCursor === null);
 
     useEffect(() => {
       fetchData();
@@ -536,6 +547,8 @@ const InfiniteScroll = React.forwardRef(
       : null;
     const fullHeight =
       nullifyChildren || (data.data.length ? false : centerOnEmpty);
+
+    const isFree = !loading && !isEnd;
 
     return (
       <Box
@@ -583,9 +596,10 @@ const InfiniteScroll = React.forwardRef(
             ...contentSx
           }}
         >
-          {stateRef.current.retryCount === stateRef.current.maxRetry ? (
+          {isFree &&
+          stateRef.current.retryCount === stateRef.current.maxRetry ? (
             <EmptyData nullifyBrand withReload onClick={handleRefetch} />
-          ) : showRetry && !data.data.length ? (
+          ) : isFree && showRetry && !data.data.length ? (
             <EmptyData
               sx={{
                 p: 3
@@ -621,7 +635,7 @@ const InfiniteScroll = React.forwardRef(
                 data.data.length ? "custom-more-loading" : "custom-loading"
               }
             />
-          ) : showRetry && data.data.length ? (
+          ) : isFree && showRetry && data.data.length ? (
             <EmptyData
               sx={{
                 height: "120px",

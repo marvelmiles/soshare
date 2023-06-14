@@ -540,6 +540,10 @@ const Navbar = ({ routePage = "homePage" }) => {
           <IconButton onClick={toggleTheme}>
             {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
           </IconButton>
+
+          <IconButton component={StyledLink} to="/shorts">
+            <SlideshowIcon />
+          </IconButton>
           {currentUser.id ? (
             <>
               <IconButton onClick={showNotifications}>
@@ -570,12 +574,12 @@ const Navbar = ({ routePage = "homePage" }) => {
                   <MessageIcon />
                 </StyledBadge>
               </IconButton>
+
               <IconButton onClick={showUserSettings}>
                 <ManageAccountsIcon />
               </IconButton>
             </>
           ) : null}
-
           {!openDrawer && selectElem}
         </Stack>
 
@@ -658,6 +662,11 @@ const Navbar = ({ routePage = "homePage" }) => {
               onClick: toggleTheme
             },
             {
+              title: "Shorts",
+              icon: SlideshowIcon,
+              to: "/shorts"
+            },
+            {
               title: currentUser.id ? "Signout" : "Signin",
               icon: currentUser.id ? LogoutIcon : LoginIcon,
               to: currentUser.id ? "/auth/signin" : loginPath
@@ -668,7 +677,7 @@ const Navbar = ({ routePage = "homePage" }) => {
                 key={i}
                 component={l.to ? Link : "li"}
                 to={l.to}
-                onClick={l.onClick}
+                onClick={l.to ? () => setOpenDrawer(false) : l.onClick}
               >
                 <ListItemIcon>
                   <StyledBadge
@@ -705,19 +714,21 @@ const Navbar = ({ routePage = "homePage" }) => {
         {openDrawer && selectElem}
         {searchElem}
       </SwipeableDrawer>
-      <Popover
-        open={popover.open}
-        anchorEl={popover.anchorEl}
-        PaperProps={{
-          sx: {
-            width: "100%",
-            maxWidth: 450
-          }
-        }}
-        onClose={closePopover}
-      >
-        {renderPopover()}
-      </Popover>
+      {currentUser.id ? (
+        <Popover
+          open={popover.open}
+          anchorEl={popover.anchorEl}
+          PaperProps={{
+            sx: {
+              width: "100%",
+              maxWidth: 420
+            }
+          }}
+          onClose={closePopover}
+        >
+          {renderPopover()}
+        </Popover>
+      ) : null}
     </>
   );
 };

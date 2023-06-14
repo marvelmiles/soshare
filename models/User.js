@@ -90,6 +90,8 @@ const schema = new mongoose.Schema(
             : doc.blacklistCount;
 
         if (ret.postCount < 0) ret.postCount = 0;
+
+        if (ret.shortCount < 0) ret.shortCount = 0;
       }
     }
   }

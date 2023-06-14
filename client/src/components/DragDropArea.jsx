@@ -94,19 +94,19 @@ function DragDropArea({
           : dragActive
           ? "primary.main"
           : "divider",
-        "& > *": {
-          display: "block",
-          height: "inherit",
-          minHeight: "inherit",
-          width: "inherit",
-          minWidth: "inherit",
-          border: "inherit",
-          borderColor: "transparent",
-          borderRadius: "inherit",
-          position: "absolute",
-          top: -5,
-          left: -5
-        },
+        // "& > *": {
+        //   display: "block",
+        //   height: "inherit",
+        //   minHeight: "inherit",
+        //   width: "inherit",
+        //   minWidth: "inherit",
+        //   border: "inherit",
+        //   borderColor: "transparent",
+        //   borderRadius: "inherit",
+        //   position: "absolute",
+        //   top: -5,
+        //   left: -5
+        // },
         ...sx
       }}
       className={`drag-drop-area ${dragActive ? "drag-active" : ""}`}

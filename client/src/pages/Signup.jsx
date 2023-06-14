@@ -31,7 +31,11 @@ const Signup = () => {
         py: 1
       }}
     >
-      <UserProfileForm sx={{ maxWidth: "576px" }} handleAction={_handleAction}>
+      <UserProfileForm
+        requiredOnly
+        sx={{ maxWidth: "576px" }}
+        handleAction={_handleAction}
+      >
         <Typography textAlign="center" mt={1}>
           Already have an account?{" "}
           <StyledLink

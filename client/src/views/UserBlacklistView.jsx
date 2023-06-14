@@ -80,6 +80,7 @@ const UserBlacklistView = ({
       url={`/users/blacklist`}
       ref={infiniteRef}
       key="infinite-user-blacklist"
+      vetify
     >
       {({ data: { data }, setObservedNode }) => {
         return data.length ? (
@@ -106,7 +107,7 @@ const UserBlacklistView = ({
             ))}
           </Stack>
         ) : (
-          <EmptyData />
+          <EmptyData label="Blacklist is empty" />
         );
       }}
     </InfiniteScroll>

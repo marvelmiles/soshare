@@ -1,7 +1,7 @@
 import React, { useEffect, useCallback, useState, useRef } from "react";
 import PropTypes from "prop-types";
 import useForm, { isLink } from "hooks/useForm";
-import { WidgetContainer, StyledLink } from "components/styled";
+import { WidgetContainer, StyledLink, StyledAvatar } from "components/styled";
 import { LoadingDot } from "components/Loading";
 import Box from "@mui/material/Box";
 import DragDropArea from "./DragDropArea";
@@ -35,7 +35,8 @@ const UserProfileForm = ({
         username: true,
         email: true,
         password: true
-      }
+      },
+  requiredOnly
 }) => {
   const stateRef = useRef({
     fileKey: `drag-drop-area-input-file-upload-${Date.now()}`
@@ -68,7 +69,7 @@ const UserProfileForm = ({
   const fluidSize = {
     xs: "50px",
     s200: "120px",
-    s280: "150px"
+    s280: "120px"
   };
   useEffect(() => {
     let url;
@@ -169,7 +170,6 @@ const UserProfileForm = ({
       sx={{
         width,
         maxHeight: "none",
-        transform: "scale(0.75)",
         ...sx
       }}
       onSubmit={onSubmit}
@@ -179,25 +179,28 @@ const UserProfileForm = ({
         sx={{
           textAlign: "center",
           mx: "auto",
-          height: "175px",
           mb: 2,
-          position: "relative",
-          ".drag-drop-area,.file-avatar": {
-            color: "primary.dark",
-            width: fluidSize,
-            height: fluidSize,
-            borderRadius: "50%",
-            cursor: "pointer",
-            mx: "auto"
-          }
+          position: "relative"
         }}
       >
         {readOnly ? (
-          <Avatar
-            src={placeholders?.photoUrl}
-            alt={`${placeholders?.username} avatar`}
-            title={`${placeholders?.username} avatar`}
-          />
+          <StyledAvatar
+            sx={{
+              width: fluidSize,
+              height: fluidSize,
+              mx: "auto"
+            }}
+          >
+            <Avatar
+              sx={{
+                svg: {
+                  cursor: "default"
+                }
+              }}
+              src={placeholders?.photoUrl}
+              title={`${placeholders?.username || "blank"} avatar`}
+            />
+          </StyledAvatar>
         ) : (
           <Box>
             <DragDropArea
@@ -209,39 +212,40 @@ const UserProfileForm = ({
               disabled={isSubmitting}
               inputKey={stateRef.current.fileKey}
               name="avatar"
+              component={StyledAvatar}
+              sx={{
+                width: fluidSize,
+                height: fluidSize,
+                mx: "auto"
+              }}
             >
               <div
-                className="file-avatar"
+                className="styled-avatar-avatar"
                 style={{
                   position: "relative"
                 }}
               >
                 <Avatar
                   src={photoUrl}
-                  alt={
-                    formData.avatar
-                      ? `${formData.avatar.name} photo`
-                      : `@${formData.username ||
-                          placeholders?.username ||
-                          "blank photo"}`
-                  }
                   title={
                     formData.avatar
                       ? `${formData.avatar.name} photo`
-                      : `@${formData.username || placeholders?.username}`
+                      : `@${((formData.avatar || placeholders?.photoUrl) &&
+                          (formData.username || placeholders?.username)) ||
+                          "avatar"}`
                   }
                   sx={{
-                    width: `calc(100% - 10px)`,
-                    height: "calc(100% - 10px)",
-                    m: "5px"
+                    width: "100%",
+                    height: "100%",
+                    borderRadius: "inherit"
                   }}
                 />
                 <IconButton
                   htmlFor={stateRef.current.fileKey}
                   sx={{
                     position: "absolute",
-                    bottom: "5px",
-                    right: "15px",
+                    bottom: "-10px",
+                    right: "10px",
                     backgroundColor: "background.alt",
                     "&:hover": {
                       backgroundColor: "action.altHover"
@@ -258,9 +262,15 @@ const UserProfileForm = ({
               <Button
                 disabled={isSubmitting}
                 onClick={handlePhotoReset}
+                variant="contained"
                 sx={{
                   mt: "6px",
-                  py: "4px"
+                  ml: "10px",
+                  py: "4px",
+                  backgroundColor: "common.hover",
+                  "&:hover": {
+                    backgroundColor: "common.lightHover"
+                  }
                 }}
                 variant="text"
               >
@@ -322,37 +332,43 @@ const UserProfileForm = ({
           {
             name: "displayName",
             placeholder: "Display name",
-            searchValue: "dname"
+            searchValue: "dname",
+            nullify: requiredOnly
           },
 
           {
             name: "occupation",
             placeholder: "Occupation",
-            searchValue: "job"
+            searchValue: "job",
+            nullify: requiredOnly
           },
           {
             name: "location",
             placeholder: "Country/City",
-            searchValue: "loc"
+            searchValue: "loc",
+            nullify: requiredOnly
           },
           {
             name: "socials",
             placeholder: "Twitter Link",
             searchValue: "twitter",
-            dataName: "twitter"
+            dataName: "twitter",
+            nullify: requiredOnly
           },
           {
             name: "socials",
             placeholder: "LinkedIn link",
             searchValue: "linkedin",
-            dataName: "linkedIn"
+            dataName: "linkedIn",
+            nullify: requiredOnly
           },
           {
             name: "bio",
             placeholder: "Write something about yourself",
             searchValue: "bio",
             multiline: true,
-            max: 250
+            max: 250,
+            nullify: requiredOnly
           }
         ].map((input, index) =>
           input.nullify ? null : (

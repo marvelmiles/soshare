@@ -2,7 +2,8 @@ import rootAxios, { AxiosError } from "axios";
 import {
   API_ENDPOINT,
   CANCELED_REQUEST_MSG,
-  HTTP_403_MSG
+  HTTP_403_MSG,
+  TOKEN_EXPIRED_MSG
 } from "context/config";
 
 let isRefreshing = false;
@@ -35,6 +36,7 @@ export const processQueue = (err, data) => {
 };
 
 export const getHttpErrMsg = err => {
+  console.log(err.response, err.message || err);
   let message = "Something went wrong. Check your network and try again.";
   if (err instanceof AxiosError) {
     switch (err.code?.toLowerCase()) {
@@ -53,6 +55,7 @@ export const getHttpErrMsg = err => {
   } else message = err.message || err;
 
   if (message.indexOf("Cast") > -1) message = "Something went wrong!";
+  if (message === TOKEN_EXPIRED_MSG) message = "";
   return message;
 };
 export const isTokenCancelled = rootAxios.isCancel;
@@ -131,29 +134,29 @@ http.interceptors.response.use(
     if (!(err instanceof AxiosError) || rootAxios.isCancel(err))
       return Promise.reject(getHttpErrMsg(err));
     const originalRequest = err.config;
+    console.log(originalRequest, " origi");
 
-    if (!originalRequest._refreshed) {
-      if (err.response?.status === 401) {
-        if (isRefreshing) {
-          return new Promise(function(resolve, reject) {
-            requestQueue.push({ resolve, reject, url: originalRequest.url });
-          })
-            .then(_ =>
-              http
-                .request(originalRequest)
-                .then(res => Promise.resolve(res))
-                .catch(err => refetchHasVisitor(err, originalRequest))
-            )
-            .catch(_err =>
-              _err === "visitor"
-                ? refetchHasVisitor(err, originalRequest)
-                : Promise.reject(err)
-            );
-        } else if (originalRequest.withCredentials)
-          return handleRefreshToken(originalRequest);
-      }
+    if (err.response?.status === 401) {
+      console.log(" in 401 ", isRefreshing);
+      if (isRefreshing) {
+        return new Promise(function(resolve, reject) {
+          requestQueue.push({ resolve, reject, url: originalRequest.url });
+        })
+          .then(_ =>
+            http
+              .request(originalRequest)
+              .then(res => Promise.resolve(res))
+              .catch(err => refetchHasVisitor(err, originalRequest))
+          )
+          .catch(_err =>
+            _err === "visitor"
+              ? refetchHasVisitor(err, originalRequest)
+              : Promise.reject(err)
+          );
+      } else if (originalRequest.withCredentials)
+        return handleRefreshToken(originalRequest);
     }
-    originalRequest._refreshed = undefined;
+
     originalRequest._refetchedHasVisitor = undefined;
     return Promise.reject(getHttpErrMsg(err));
   }

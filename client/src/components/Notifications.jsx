@@ -27,7 +27,6 @@ import ListItemAvatar from "@mui/material/ListItemAvatar";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import { useContext } from "context/store";
-import { alpha } from "@mui/material/styles";
 import { Link } from "react-router-dom";
 
 const Notifications = ({
@@ -47,7 +46,6 @@ const Notifications = ({
   const stateRef = useRef({
     registeredIds: {}
   });
-  const selectedColor = alpha(useTheme().palette.primary.main, "0.08");
   const _handleAction = useCallback((reason, options = {}) => {
     const { document, dataSize } = options;
     switch (reason) {
@@ -284,7 +282,7 @@ const Notifications = ({
                             borderBottomColor: "divider",
                             alignItems: "flex-start",
                             "&:hover": {
-                              backgroundColor: selectedColor
+                              backgroundColor: "common.selectedHover"
                             }
                           }}
                           onClick={markOne(
@@ -431,7 +429,7 @@ const Notifications = ({
       >
         <Button
           sx={{
-            backgroundColor: type === "unmarked" ? selectedColor : undefined
+            backgroundColor: type === "unmarked" ? "common.hover" : undefined
           }}
           onClick={e => handleTabSwitch("unmarked", e)}
         >
@@ -439,7 +437,7 @@ const Notifications = ({
         </Button>
         <Button
           sx={{
-            backgroundColor: type === "marked" ? selectedColor : undefined
+            backgroundColor: type === "marked" ? "common.hover" : undefined
           }}
           onClick={e => handleTabSwitch("marked", e)}
         >

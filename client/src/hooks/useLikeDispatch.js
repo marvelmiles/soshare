@@ -26,15 +26,16 @@ export default ({ handleAction, document = {}, docType }) => {
 
           await http.patch(url);
         } catch (message) {
+          message && setSnackBar(message);
           if (likedDoc) likes[cid] = true;
           else delete likes[cid];
           handleAction &&
             handleAction("update", { document: { id, likes, rootThread } });
-          setSnackBar(message);
         } finally {
           setIsProcessingLike(false);
         }
       } else {
+        console.log(" registered likes ");
         const _likes = {
           ...likes,
           [cid]: true
@@ -46,7 +47,6 @@ export default ({ handleAction, document = {}, docType }) => {
             docType,
             reason: "request",
             method: "patch",
-            done: true,
             document: {
               id,
               likes: _likes,

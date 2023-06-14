@@ -18,8 +18,8 @@ import useDeleteDispatch from "hooks/useDeleteDispatch";
 import useFollowDispatch from "hooks/useFollowDispatch";
 import EditIcon from "@mui/icons-material/Edit";
 import { Link } from "react-router-dom";
-import { useSelector } from "react-redux";
-
+import { useSelector, useDispatch } from "react-redux";
+import { updateUser } from "context/slices/userSlice";
 const MoreActions = ({
   document = {
     user: {}
@@ -47,6 +47,7 @@ const MoreActions = ({
       settings: currentUser.settings || {}
     };
   });
+  const dispatch = useDispatch();
   const { setSnackBar, setContext } = useContext();
 
   const { handleDelete } = useDeleteDispatch({
@@ -66,17 +67,25 @@ const MoreActions = ({
 
   const handleDontRecommend = useCallback(async () => {
     const url = `/users/recommendation/blacklist/${document.user.id}`;
+    const handleBlacklist = () => {
+      setContext(context => {
+        return {
+          ...context,
+          blacklistedUsers: {
+            ...context.blacklistedUsers,
+            [document.user.id]: true
+          }
+        };
+      });
+      dispatch(
+        updateUser({
+          blacklistCount: 1
+        })
+      );
+    };
     if (isLoggedIn) {
       try {
-        setContext(context => {
-          return {
-            ...context,
-            blacklistedUsers: {
-              ...context.blacklistedUsers,
-              [document.user.id]: true
-            }
-          };
-        });
+        handleBlacklist();
         await http.put(url);
       } catch (_) {
         setSnackBar(
@@ -91,12 +100,15 @@ const MoreActions = ({
           url,
           reason: "request",
           method: "put",
-          done: false
+          done: false,
+          onSuccess() {
+            handleBlacklist();
+          }
         }
       }));
       setSnackBar();
     }
-  }, [document, isLoggedIn, setContext, setSnackBar]);
+  }, [document, isLoggedIn, setContext, setSnackBar, dispatch]);
 
   const _handleAction = useCallback(
     reason => {

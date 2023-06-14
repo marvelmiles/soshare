@@ -52,14 +52,19 @@ const App = () => {
   const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
   const cid = useSelector(state => state.user?.currentUser?.id);
   const navigate = useNavigate();
-  const { state: locState, key } = useLocation();
+  const { state: locState, key, ...rest } = useLocation();
   const stateRef = useRef({
     isProcUrl: false
   });
 
-  useEffect(() => {
-    setSnackbar(prev => ({ ...prev, open: false }));
+  const cancelComposeRequest = useCallback(() => {
+    const id = setTimeout(() => {
+      setContext(prev => ({ ...prev, composeDoc: undefined }));
+      clearTimeout(id);
+    }, 0);
+  }, []);
 
+  useEffect(() => {
     if (cid) {
       socket = io.connect(API_ENDPOINT, {
         path: "/mernsocial",
@@ -102,55 +107,51 @@ const App = () => {
     socket.on("bare-connection", handleBareConnect);
     socket.on("connect_error", handleSocketErr);
 
-    return () => {
-      socket.disconnect();
-
-      socket
-        .removeEventListener("register-user", handleRegUser)
-        .removeEventListener("bare-connection", handleBareConnect)
-        .removeEventListener("connect_error", handleSocketErr);
-
-      // handleCancelRequest();
-    };
-  }, [cid, key]);
-
-  useEffect(() => {
     http.interceptors.response.use(
       res => res,
       err => {
         if (socket.connected || readyState !== "pending")
           switch (err) {
             case HTTP_403_MSG:
-              if (
-                cid &&
-                window.location.pathname.toLowerCase() !== "/auth/signin"
-              )
+              if (window.location.pathname.toLowerCase() !== "/auth/signin")
                 navigate(
                   createRelativeURL("view", "view=session-timeout", false)
                 );
+              err = "";
               break;
             default:
               break;
           }
-        return Promise.reject(getHttpErrMsg(err));
+
+        const t = getHttpErrMsg(err);
+        console.log(t, " app err ");
+        return Promise.reject(t);
       }
     );
-  }, [navigate, readyState, cid]);
+
+    return () => {
+      socket.disconnect();
+      socket
+        .removeEventListener("register-user", handleRegUser)
+        .removeEventListener("bare-connection", handleBareConnect)
+        .removeEventListener("connect_error", handleSocketErr);
+      setSnackbar(prev => ({ ...prev, open: false }));
+      setContext(context => ({
+        ...context,
+        composeDoc: context.composeDoc?.url ? context.composeDoc : undefined
+      }));
+      // handleCancelRequest();
+    };
+  }, [cid, navigate, readyState]);
 
   useEffect(() => {
     if (cid && context.composeDoc?.url) {
-      if (context.composeDoc.done) {
-        const id = setTimeout(() => {
-          setContext(prev => ({ ...prev, composeDoc: undefined }));
-          clearTimeout(id);
-        }, 0);
-      } else if (!stateRef.current.isProcUrl) {
+      console.log(context.composeDoc);
+      if (context.composeDoc.done) cancelComposeRequest();
+      else if (!stateRef.current.isProcUrl) {
+        console.log(" is proce... ");
         stateRef.current.isProcUrl = true;
-        console.log(context.composeDoc);
-        const _url = context.composeDoc.url;
-        http[context.composeDoc.method](
-          typeof _url === "function" ? _url(cid) : _url
-        )
+        http[context.composeDoc.method](context.composeDoc.url)
           .then(() => {
             setContext(prev => {
               if (!prev.composeDoc) return prev;
@@ -160,7 +161,7 @@ const App = () => {
                   ...prev.composeDoc,
                   done: true,
                   document: {
-                    ...prev.document,
+                    ...prev.composeDoc.document,
                     ...prev.composeDoc.onSuccess?.()
                   }
                 }
@@ -177,7 +178,7 @@ const App = () => {
                   ...prev.composeDoc,
                   done: true,
                   document: {
-                    ...prev.document,
+                    ...prev.composeDoc.document,
                     ...prev.composeDoc.onError?.()
                   }
                 }
@@ -189,7 +190,7 @@ const App = () => {
           });
       }
     }
-  }, [cid, context.composeDoc]);
+  }, [cid, context.composeDoc, cancelComposeRequest]);
 
   const setSnackBar = useCallback(
     (

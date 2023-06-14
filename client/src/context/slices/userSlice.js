@@ -19,8 +19,7 @@ const userSlice = createSlice({
   name: "user",
   reducers: {
     logoutUser(state) {
-      const isLoggedIn = !!state.currentUser;
-      if (isLoggedIn)
+      if (!!state.currentUser.id)
         http
           .patch(
             "/auth/signout",
@@ -71,6 +70,12 @@ const userSlice = createSlice({
           : 0;
         delete payload._blacklistCount;
       }
+
+      if (payload.blacklistCount) {
+        payload.blacklistCount =
+          state.currentUser.blacklistCount + payload._blacklistCount;
+      }
+
       state.currentUser = {
         ...state.currentUser,
         ...payload

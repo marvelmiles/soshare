@@ -373,6 +373,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                     }));
                   }}
                   sx={{ float: "right" }}
+                  disabled={!ctx.dataSize}
                 >
                   whitelist all
                 </Button>

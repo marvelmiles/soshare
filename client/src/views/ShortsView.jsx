@@ -109,7 +109,13 @@ const ShortsView = ({
   useEffect(() => {
     filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
   }, [blacklistedUsers, filterDocsByUserSet]);
-
+  composeDoc &&
+    console.log(
+      composeDoc?.url,
+      composeDoc?.document?.id,
+      composeDoc?.done,
+      " short "
+    );
   return (
     <InfiniteScroll
       key={"infinite-shorts-" + miniShort}
@@ -124,7 +130,7 @@ const ShortsView = ({
       }
       Component={miniShort ? WidgetContainer : undefined}
       notifierDelay={
-        !currentUser.id || currentUser.id !== composeDoc.document?.user?.id
+        !currentUser.id || currentUser.id !== composeDoc?.document?.user?.id
           ? undefined
           : -1
       }

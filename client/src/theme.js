@@ -1,3 +1,5 @@
+import { alpha } from "@mui/material/styles";
+
 export const themeSettings = mode => ({
   palette: {
     mode,
@@ -41,7 +43,9 @@ export const themeSettings = mode => ({
     common: {
       heart: "#FF1493",
       blend: "rgba(0,0,0,.4)",
-      blendHover: "rgb(0,0,0,.6)"
+      blendHover: "rgb(0,0,0,.6)",
+      hover: alpha("#2196f3", "0.08"),
+      lightHover: alpha("#2196f3", "0.04")
     }
   },
   components: {

@@ -101,7 +101,7 @@ const PostsView = ({
       }
       scrollNodeRef={scrollNodeRef}
       {...infiniteScrollProps}
-      handleAction={_handleAction}
+      // handleAction={_handleAction}
       key={"infinite-posts"}
       withCredentials={!!currentUser.id}
       readyState={

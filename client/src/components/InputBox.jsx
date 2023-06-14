@@ -281,7 +281,7 @@ const InputBox = ({
                 : `Your ${mediaRefName} has been uploaded!`,
             severity: "success"
           });
-
+          console.log(" done ");
           if (placeholders && !res[mediaRefName] && res.url) {
             res = {
               ...res,
@@ -307,7 +307,7 @@ const InputBox = ({
             setContext(context => {
               context.composeDoc = {
                 docType,
-                document,
+                document: res,
                 reason: placeholders ? "update" : "new"
               };
               return { ...context };
@@ -328,7 +328,7 @@ const InputBox = ({
           err += ` make sure all requirements are met or check connectivity`;
           msg = err;
         }
-        setSnackBar(msg);
+        msg && setSnackBar(msg);
         reset(true, { stateChanged: true });
         handleAction && handleAction("error", msg);
       }

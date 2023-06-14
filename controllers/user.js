@@ -58,6 +58,8 @@ export const getFollowers = async (req, res, next) => {
 
 export const follow = async (req, res, next) => {
   try {
+    console.log(" follow user ", req.user.id, req.params.userId);
+    if (!req.params.userId) throw createError("Invalid parameter. Check url");
     if (req.user.id === req.params.userId)
       throw createError("You can't follow yourself");
     const user = await User.findByIdAndUpdate(
@@ -171,8 +173,8 @@ export const suggestFollowers = async (req, res, next) => {
           $nin: following.concat(recommendationBlacklist, req.user.id)
         }
       },
-      query: req.query,
-      verify: true
+      query: req.query
+      // verify: true
       // vet: true
     };
     let result = await getAll(queryConfig);
@@ -385,18 +387,21 @@ export const getUserShorts = async (req, res, next) => {
 export const blacklistUserRecommendation = async (req, res, next) => {
   try {
     console.log(" black user ", req.params.userId);
-    // return res.json("Blacklisted successfully");
+    return res.json("Blacklisted successfully");
+    if (req.user.id === req.params.userId)
+      throw createError("You can't blacklist yourself");
 
-    await User.updateOne(
-      {
-        _id: req.user.id
-      },
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
       {
         $addToSet: {
           recommendationBlacklist: req.params.userId
         }
-      }
+      },
+      { new: true }
     );
+    const io = req.app.get("socketIo");
+    io && io.emit("update-user", user);
     res.json("Blacklisted successfully");
   } catch (err) {
     next(err);
@@ -405,6 +410,7 @@ export const blacklistUserRecommendation = async (req, res, next) => {
 
 export const deleteUserNotification = async (req, res, next) => {
   try {
+    console.log(" delete notification ");
     await Notification.deleteOne({
       _id: req.params.id
     });
@@ -415,18 +421,14 @@ export const deleteUserNotification = async (req, res, next) => {
 };
 
 export const getBlacklist = async (req, res, next) => {
-  try {
-    const result = await getAll({
-      match: {
-        _id: req.user.id
-      },
-      model: User,
-      dataKey: "recommendationBlacklist"
-    });
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
+  return getFeedMedias({
+    req,
+    res,
+    next,
+    model: User,
+    dataKey: "recommendationBlacklist",
+    vet: true
+  });
 };
 
 export const whitelistUsers = async (req, res, next) => {
@@ -435,18 +437,21 @@ export const whitelistUsers = async (req, res, next) => {
 
     if (list) {
       if (!Array.isArray(req.body))
-        throw createError("Invalid body expect an array of id", 409);
+        throw createError("Invalid body expect an array of id");
       if (req.body.length) {
-        await User.updateOne(
-          {
-            _id: req.user.id
-          },
+        const user = await User.findByIdAndUpdate(
+          req.user.id,
           {
             recommendationBlacklist: list.filter(
               _id => mapToObject(req.body)[_id] === undefined
             )
+          },
+          {
+            new: true
           }
         );
+        const io = req.app.get("socketIo");
+        io && io.emit("update-user", user);
       }
     }
     res.json("Whitelisted users successfully");

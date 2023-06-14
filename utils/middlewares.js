@@ -3,12 +3,11 @@ import { createError } from "../utils/error.js";
 
 export const verifyToken = (req, res = {}, next) => {
   const { applyRefresh } = res;
-  req.cookies.refresh_token = req.cookies.refresh_token
+  const rToken = req.cookies.refresh_token
     ? JSON.parse(req.cookies.refresh_token)
     : undefined;
-  const token = applyRefresh
-    ? req.cookies.refresh_token?.jwt
-    : req.cookies.access_token;
+
+  const token = applyRefresh ? rToken?.jwt : req.cookies.access_token;
   const status = applyRefresh ? 403 : 401;
   const throwErr = next === undefined;
   if (!token) {

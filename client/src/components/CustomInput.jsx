@@ -14,6 +14,12 @@ const CustomInput = ({
   sx,
   ...props
 }) => {
+  const spanSxOnInput = {
+    fontSize: "12px",
+    transform: "none",
+    top: "3.5px",
+    color: "primary.main"
+  };
   return (
     <div>
       <Box
@@ -31,6 +37,8 @@ const CustomInput = ({
           borderRadius: "5px",
           transition: "all 0.2s ease-out",
           mb: 1,
+          px: "4px",
+          gap: "4px",
           "&:focus-within": {
             borderColor: error
               ? {
@@ -44,12 +52,17 @@ const CustomInput = ({
             cursor: props.readOnly ? "normal" : "pointer",
             pl: startAdornment ? 0 : 1,
             pr: endAdornment ? 0 : 1,
+            minHeight: 0,
+            height: "auto",
+            "& *": {
+              fontSize: "12.5px"
+            },
             "& > div.custom-input-content": {
               display: "block",
               position: "relative",
-              padding: "28px 0",
+              padding: "20px  0",
               minHeight:
-                multiline && props.rows ? `${18 + 16 + 22 * props.rows}px` : "", // row=22 + label=16 + contheight=56 - top-fontsize
+                multiline && props.rows ? `${22 + 16 * props.rows}px` : "", // row=22 + textLabel=16
               "& > *": {
                 position: "absolute",
                 width: "100%",
@@ -59,10 +72,7 @@ const CustomInput = ({
                 outline: 0,
                 border: 0,
                 width: "100%",
-                bottom: 5,
-                caretColor: "text.primary",
                 color: "text.primary",
-                fontSize: 18,
                 [`&:focus${
                   props.value.length
                     ? props.readOnly
@@ -72,27 +82,18 @@ const CustomInput = ({
                     ? "&:not(:empty)"
                     : ""
                 }`]: {
-                  "& + span": {
-                    fontSize: "12px",
-                    transform: "none",
-                    top: "8px",
-                    color: "primary.main"
-                  }
+                  "& + span": spanSxOnInput
                 }
               },
 
               [INPUT_AUTOFILL_SELECTOR]: {
-                "& + span": {
-                  fontSize: "12px",
-                  transform: "none",
-                  top: "8px",
-                  color: "primary.main"
-                }
+                "& + span": spanSxOnInput
               },
               span: {
                 transition: "all 0.2s ease-out",
                 pointerEvents: "none",
-                top: "18px",
+                top: "50%",
+                transform: "translateY(-50%)",
                 color: "text.primary",
                 fontWeight: "normal",
                 "& > span": {
@@ -101,19 +102,15 @@ const CustomInput = ({
               }
             },
             "& > span": {
-              textAlign: "right",
-              float: "right"
+              float: "right",
+              mb: "3.5px"
             }
           },
           "& > div": {
-            px: 1
+            mt: "4px"
           },
           ...sx
         }}
-        // Jzkr2d
-        // 08025934773
-        // 09164130918s
-        // 07025326543
       >
         {startAdornment ? <div>{startAdornment}</div> : null}
         <label htmlFor={props.id} className="custom-input-container">

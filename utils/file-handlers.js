@@ -8,6 +8,7 @@ import { Readable } from "stream";
 import { getVideoDurationInSeconds } from "get-video-duration";
 
 export const deleteFile = filePath => {
+  if (!filePath) return;
   filePath = decodeURIComponent(path.basename(filePath));
   return storage
     .bucket(FIREBASE_BUCKET_NAME)

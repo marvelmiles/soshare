@@ -43,7 +43,7 @@ export default (config = {}) => {
         });
         _handleAction && _handleAction("clear-cache", whitelist);
       } catch (message) {
-        setSnackBar(message);
+        message && setSnackBar(message);
         if (message !== CANCELED_REQUEST_MSG)
           _handleAction && _handleAction("new", whitelist);
       } finally {
