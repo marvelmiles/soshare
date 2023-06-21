@@ -1,5 +1,3 @@
-// _app.jsx,http,jsx,req-res.js
-
 // justify the need of oop in contemporary data
 
 // what determine whether a data or query is atomic
