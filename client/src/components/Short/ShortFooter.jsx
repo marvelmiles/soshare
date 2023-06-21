@@ -10,12 +10,14 @@ import useFollowDispatch from "hooks/useFollowDispatch";
 import useDeleteDispatch from "hooks/useDeleteDispatch";
 import Skeleton from "@mui/material/Skeleton";
 import { Link } from "react-router-dom";
+
 CircularProgress.defaultProps = {
   size: 20,
   sx: {
     color: "primary.dark"
   }
 };
+
 const ShortFooter = ({
   miniShort,
   text = "",

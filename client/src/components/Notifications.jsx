@@ -11,7 +11,6 @@ import {
   List,
   ListItemButton,
   Box,
-  useTheme,
   Avatar
 } from "@mui/material";
 import CircleIcon from "@mui/icons-material/Circle";
@@ -195,9 +194,9 @@ const Notifications = ({
         }
         handleAction={_handleAction}
         sx={sx}
-        vet
+        withCredentials={!!cid}
       >
-        {({ setObservedNode, data: { data }, dataChanged }) => {
+        {({ setObservedNode, data: { data } }) => {
           return (
             <>
               <Stack

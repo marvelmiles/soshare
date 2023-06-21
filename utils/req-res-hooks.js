@@ -9,8 +9,6 @@ import {
 import { createError } from "./error.js";
 import User from "../models/User.js";
 import { deleteFile } from "./file-handlers.js";
-import { isObjectId } from "./validators.js";
-import { Types } from "mongoose";
 
 export const getFeedMedias = async ({
   req,
@@ -20,15 +18,14 @@ export const getFeedMedias = async ({
   match,
   dataKey,
   populate,
-  verify,
   refPath,
   isVisiting,
   vet,
   ...rest
 }) => {
   try {
-    req.query.randomize = req.query.randomize || "true";
-
+    req.query.randomize = "false";
+    req.query.withMatchedDocs = "true";
     if (req.cookies?.access_token) verifyToken(req);
 
     if (!match && req.params.documentId) {
@@ -37,28 +34,14 @@ export const getFeedMedias = async ({
       };
     }
     dataKey && refPath === undefined && (refPath = "_id");
-    // vet &&
-    //   console.log(
-    //     req.params.id,
-    //     req.user?.id,
-    //     req.params.userId,
-    //     " REQ-RES-ID "
-    //   );
+
     match = await createVisibilityQuery({
       refPath,
       isVisiting,
       query: match,
       userId: req.params.userId,
-      searchUser: req.user ? req.user.id : undefined,
-      verify
+      searchUser: req.user ? req.user.id : undefined
     });
-
-    // const result = {
-    //   data: [],
-    //   paging: {
-    //     nextCursor: null
-    //   }
-    // };
 
     const result = await getAll({
       model,
@@ -67,11 +50,8 @@ export const getFeedMedias = async ({
       match,
       query: req.query,
       userId: req.user?.id,
-      verify,
-      vet,
       ...rest
     });
-
     if (req.query.withThread === "true") {
       if (req.query.ro || req.query.threadPriorities) {
         for (let i = 0; i < result.data.length; i++) {
@@ -86,7 +66,6 @@ export const getFeedMedias = async ({
 
     res.json(result);
   } catch (err) {
-    // console.log(err.message, " feed medias ");
     next(err);
   }
 };
@@ -156,17 +135,9 @@ export const getDocument = async ({
     {
       path: "user"
     }
-  ],
-  verify
+  ]
 }) => {
   try {
-    // verify &&
-    //   console.log(
-    //     "getting doc ",
-    //     model.modelName,
-    //     req.params.id,
-    //     req.params.userId
-    //   );
     const _id = req.params.id || req.params.userId;
 
     if (req.cookies.access_token) verifyToken(req);
@@ -203,14 +174,13 @@ export const deleteDocument = async ({
   withCount = true
 }) => {
   try {
-    // console.log(req.query);
     const doc = await model.findById(req.params.id);
     if (!doc) return res.json(`Successfully deleted ${model.modelName}`);
     if (doc.user !== req.user.id)
       throw createError("Delete operation denied", 401);
-    // await model.deleteOne({
-    //   _id: req.params.id
-    // });
+    await model.deleteOne({
+      _id: req.params.id
+    });
 
     setTimeout(() => {
       res.json(`Successfully deleted ${model.modelName}`);
@@ -241,7 +211,6 @@ export const deleteDocument = async ({
       })();
     }, 10000);
   } catch (err) {
-    console.log(err.message, " err ");
     next(err);
   }
 };

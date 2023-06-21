@@ -1,5 +1,4 @@
 import Post from "../models/Post.js";
-import { createError } from "../utils/error.js";
 import User from "../models/User.js";
 import {
   dislikeMedia,
@@ -8,13 +7,11 @@ import {
   getDocument,
   deleteDocument
 } from "../utils/req-res-hooks.js";
-import { Types } from "mongoose";
 import { deleteFile } from "../utils/file-handlers.js";
 import { serializePostBody } from "../utils/serializers.js";
 
 export const createPost = async (req, res, next) => {
   try {
-    console.log(" create post,");
     req.body.user = req.user.id;
     serializePostBody(req);
     let post = await new Post(req.body).save();
@@ -44,8 +41,7 @@ export const getFeedPosts = async (req, res, next) => {
     model: Post,
     req,
     res,
-    next,
-    verify: true
+    next
   });
 };
 
@@ -63,7 +59,6 @@ export const getPost = async (req, res, next) => {
 
 export const updatePost = async (req, res, next) => {
   try {
-    console.log(req.body, " update post ");
     serializePostBody(req, false);
     let medias = (await Post.findOne({
       _id: req.params.id
@@ -84,7 +79,7 @@ export const updatePost = async (req, res, next) => {
     req.body.medias = Array.isArray(req.body.medias)
       ? req.body.medias.concat(medias)
       : medias;
-    console.log(req.body.medias.length);
+
     delete req.body.medias;
 
     const post = await Post.findOneAndUpdate(

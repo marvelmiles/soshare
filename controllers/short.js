@@ -26,7 +26,6 @@ export const createShort = async (req, res, next) => {
         }
       }
     );
-    console.log("creaitng short....");
     short.user = user;
     res.json(short);
     const io = req.app.get("socketIo");

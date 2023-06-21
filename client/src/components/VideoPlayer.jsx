@@ -11,7 +11,7 @@ import { useContext } from "context/store";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
-import mp4 from "components/video.mp4";
+// import mp4 from "components/video.mp4";
 
 const VideoPlayer = ({
   src,
@@ -63,11 +63,13 @@ const VideoPlayer = ({
         ...prop
       };
       if (videoRef.current.paused) {
+        const _muted = videoRef.current.muted;
         videoRef.current.muted = true;
         videoRef.current.pause();
         setTimeout(() => {
           if (!videoRef.current) return;
           videoRef.current.play().then(() => {
+            videoRef.current.muted = _muted;
             if (emitFn === false && !stateRef.current.hasPlayed) emitFn = true;
             stateRef.current.hasPlayed = true;
             enableIndicator && setIsPlaying(true);
@@ -111,12 +113,12 @@ const VideoPlayer = ({
   useEffect(() => {
     let url;
 
-    if (src) setVideoUrl(mp4 || src);
+    if (src) setVideoUrl(src);
     else if (nativeFile) {
       url = URL.createObjectURL(nativeFile);
       setVideoUrl(url);
     }
-
+    setValues({ seek: 0 });
     return () => url && URL.revokeObjectURL(url);
   }, [nativeFile, src]);
 
@@ -228,6 +230,7 @@ const VideoPlayer = ({
           }
           return onError && onError(error);
         }
+
         setLoading(false);
         onLoadedMetadata && onLoadedMetadata();
       };
@@ -376,10 +379,15 @@ const VideoPlayer = ({
         scrollSnapAlign: "start",
         borderRadius: "inherit",
         position: "relative",
+        top: 0,
+        left: 0,
         "& > video": {
           width: "100%",
           height: "100%",
           borderRadius: "inherit",
+          position: "absolute",
+          top: 0,
+          left: 0,
           objectFit: "cover"
         },
         ".custom-video-player-overlay": {

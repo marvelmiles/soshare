@@ -35,10 +35,11 @@ export const processQueue = (err, data) => {
   requestQueue = [];
 };
 
-export const getHttpErrMsg = err => {
-  console.log(err.response, err.message || err);
+export const getHttpErrMsg = (err, rejectAll) => {
+  console.log(err);
   let message = "Something went wrong. Check your network and try again.";
   if (err instanceof AxiosError) {
+    if (err.config) rejectAll = err.config.url === "/auth/reset-password";
     switch (err.code?.toLowerCase()) {
       case "auth/popup-closed-by-user":
         message = "Popup closed by you";
@@ -55,7 +56,8 @@ export const getHttpErrMsg = err => {
   } else message = err.message || err;
 
   if (message.indexOf("Cast") > -1) message = "Something went wrong!";
-  if (message === TOKEN_EXPIRED_MSG) message = "";
+  if (!rejectAll && message === TOKEN_EXPIRED_MSG) message = "";
+
   return message;
 };
 export const isTokenCancelled = rootAxios.isCancel;
@@ -133,11 +135,9 @@ http.interceptors.response.use(
   async err => {
     if (!(err instanceof AxiosError) || rootAxios.isCancel(err))
       return Promise.reject(getHttpErrMsg(err));
-    const originalRequest = err.config;
-    console.log(originalRequest, " origi");
 
+    const originalRequest = err.config;
     if (err.response?.status === 401) {
-      console.log(" in 401 ", isRefreshing);
       if (isRefreshing) {
         return new Promise(function(resolve, reject) {
           requestQueue.push({ resolve, reject, url: originalRequest.url });
@@ -153,7 +153,7 @@ http.interceptors.response.use(
               ? refetchHasVisitor(err, originalRequest)
               : Promise.reject(err)
           );
-      } else if (originalRequest.withCredentials)
+      } else if (originalRequest.withCredentials && !originalRequest._noRefresh)
         return handleRefreshToken(originalRequest);
     }
 

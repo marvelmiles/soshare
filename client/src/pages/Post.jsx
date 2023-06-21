@@ -187,7 +187,9 @@ const Post = () => {
                 user={post.user}
                 handleAction={_handleAction}
                 isRO={
-                  post.user?.id === cid || post.rootThread?.user?.id === cid
+                  cid
+                    ? post.user?.id === cid || post.rootThread?.user?.id === cid
+                    : undefined
                 }
                 rootUid={post.user.id}
                 key={post.id}

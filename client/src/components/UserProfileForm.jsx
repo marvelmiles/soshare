@@ -36,7 +36,8 @@ const UserProfileForm = ({
         email: true,
         password: true
       },
-  requiredOnly
+  requiredOnly,
+  method
 }) => {
   const stateRef = useRef({
     fileKey: `drag-drop-area-input-file-upload-${Date.now()}`
@@ -109,7 +110,7 @@ const UserProfileForm = ({
         let user;
 
         if (formData) {
-          user = await http[placeholders ? "put" : "post"](
+          user = await http[method || (placeholders ? "put" : "post")](
             placeholders ? "/users" : "/auth/signup",
             formData
           );
@@ -136,7 +137,7 @@ const UserProfileForm = ({
         });
       }
     },
-    [handleAction, handleSubmit, placeholders, reset, setSnackBar]
+    [handleAction, handleSubmit, placeholders, reset, setSnackBar, method]
   );
   const handlePhotoTransfer = file => {
     reset(
@@ -423,7 +424,17 @@ const UserProfileForm = ({
           sx={{ width: "100%", mt: 2 }}
           disabled={!stateChanged || isSubmitting}
         >
-          {isSubmitting ? <LoadingDot /> : placeholders ? "Update" : "Submit"}
+          {isSubmitting ? (
+            <LoadingDot />
+          ) : (method === "post" ? (
+              false
+            ) : (
+              placeholders
+            )) ? (
+            "Update"
+          ) : (
+            "Submit"
+          )}
         </Button>
       )}
       {children}

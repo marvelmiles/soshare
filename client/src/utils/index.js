@@ -33,12 +33,19 @@ export const handleScrollUp = e =>
   });
 
 export const addToSet = (arr = [], item, set = {}) => {
-  item = item && (item.id || item._id || JSON.stringify(item));
+  item =
+    item &&
+    (item.id ||
+      item._id ||
+      (typeof item === "string" ? item : JSON.stringify(item)));
   item && (set[item] = true);
   const items = [];
   item && items.push(item);
   for (const _item of arr) {
-    const id = _item.id || _item._id || JSON.stringify(item);
+    const id =
+      _item.id ||
+      _item._id ||
+      (typeof _item === "string" ? _item : JSON.stringify(_item));
     if (!set[id]) {
       items.push(_item);
       set[id] = true;

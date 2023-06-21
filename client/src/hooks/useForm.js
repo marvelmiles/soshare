@@ -85,7 +85,7 @@ const useForm = (config = {}) => {
     withRequired = true,
     inputsOnly = true
   } = config;
-  const [stateChanged, setStateChanged] = useState(false);
+  const [stateChanged, setStateChanged] = useState(!!placeholders);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState(placeholders);
   const [errors, setErrors] = useState({});
@@ -193,7 +193,10 @@ const useForm = (config = {}) => {
           };
 
           for (let key in inputsOnly
-            ? stateRef.current.inputs
+            ? {
+                ...stateRef.current.inputs,
+                ...required
+              }
             : {
                 ...formData,
                 ...required
@@ -248,8 +251,8 @@ const useForm = (config = {}) => {
   const handleChange = useCallback(
     (e, validate) => {
       e.stopPropagation();
-      const node = e.target;
-      const key = node.name;
+      const node = e.currentTarget || e.target;
+      const key = node.name || node.getAttribute("name") || node.dataset.name;
       const dataType = config.dataType?.[key];
       let {
         name: dataName,
@@ -263,7 +266,7 @@ const useForm = (config = {}) => {
           ? node.multiple
             ? node.files
             : node.files?.[0]
-          : node.value;
+          : node.value || node.innerText;
       const _required = required
         ? required === true ||
           {
@@ -357,7 +360,11 @@ const useForm = (config = {}) => {
                         const audio = new Audio(url);
                         const metadataListener = () => {
                           if (audio.duration > digit) {
-                            addError(`max duration exceeded`, errKey, index);
+                            addError(
+                              `maximum duration exceeded`,
+                              errKey,
+                              index
+                            );
                             if (strictStateCheck) setStateChanged(false);
                           } else
                             setErrors(errors => {
@@ -399,10 +406,10 @@ const useForm = (config = {}) => {
                     if (node.multiple) {
                       for (let prop in keyValue) {
                         if (Number(prop) >= 0 && keyValue[prop].size > digit)
-                          addError(`max upload exceeded`, errKey, prop);
+                          addError(`maximum upload exceeded`, errKey, prop);
                       }
                     } else if (keyValue.size > digit)
-                      addError(`max upload exceeded`, errKey);
+                      addError(`maximum upload exceeded`, errKey);
                   }
                 }
               };
@@ -428,7 +435,7 @@ const useForm = (config = {}) => {
           if (dataMin) {
             dataMin = Number(dataMin) || 0;
             if (keyValue.length < dataMin) {
-              addError(`minimum of ${dataMin}`, key);
+              addError(`minimum of ${dataMin} characters`, key);
               if (key === "password" && formData.confirmPassword)
                 addError(`password don't match`, "confirmPassword");
             }
@@ -486,10 +493,25 @@ const useForm = (config = {}) => {
         };
         if (value) {
           if (validateType) {
+            const withCb = typeof validate === "function";
             const _validate = !(!value && !_required);
+            let prop = {
+              key,
+              value,
+              dataName
+            };
             switch (node.dataset.controlled === "true" ? "" : key) {
               case "email":
-                if (_validate && !isEmail(value)) addError("Invalid Email");
+                if (_validate) {
+                  if (withCb) {
+                    if (isEmail(value)) validate(prop);
+                    else {
+                      prop.error = "Invalid Email address";
+                      validate(prop);
+                      addError("Invalid Email address");
+                    }
+                  } else if (!isEmail(value)) addError("Invalid Email address");
+                }
                 break;
               case "fullname":
                 if (_validate && !isFullName(value))
@@ -591,6 +613,8 @@ const useForm = (config = {}) => {
           : config.stateChanged !== true))) &&
       setErrors({});
     if (isObj) {
+      config.withInput =
+        config.withInput === undefined ? true : config.withInput;
       if (config.withInput)
         for (const key in formData) {
           stateRef.current.inputs[key] = 1;
@@ -600,7 +624,7 @@ const useForm = (config = {}) => {
   }, []);
 
   return {
-    formData: formData || {},
+    formData: formData || placeholders || {},
     errors,
     isSubmitting,
     stateChanged,

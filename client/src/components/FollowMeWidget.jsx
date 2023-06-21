@@ -9,7 +9,6 @@ import { useSelector, useDispatch } from "react-redux";
 import { useParams } from "react-router-dom";
 import InfiniteScroll from "components/InfiniteScroll";
 import useFollowDispatch from "hooks/useFollowDispatch";
-import Box from "@mui/material/Box";
 import useCallbacks from "hooks/useCallbacks";
 
 const FollowMeWidget = ({
@@ -145,6 +144,7 @@ const FollowMeWidget = ({
     const user = previewUser?.followUser;
     if (user) handleFollowingAction(!user.isFollowing)({ to: user });
   }, [handleFollowingAction, previewUser?.followUser]);
+  const loading = dataSize === undefined || dataSize < 0;
 
   return (
     <WidgetContainer
@@ -153,7 +153,7 @@ const FollowMeWidget = ({
       sx={{ position: "relative", p: 0 }}
       {...widgetProps}
     >
-      {dataSize > -1 ? (
+      {loading ? null : (
         <>
           {title || secondaryTitle ? (
             <div
@@ -176,15 +176,13 @@ const FollowMeWidget = ({
             </div>
           ) : null}
         </>
-      ) : null}
+      )}
       <InfiniteScroll
+        shallowLoading={loading}
         key={"follome-widget-" + priority}
         ref={infiniteScrollRef}
         sx={{
-          px: 2,
-          ".data-scrollable-content": {
-            // marginTop: dataSize > -1 ? "0px" : "-50px"
-          }
+          px: 2
         }}
         url={stateRef.current.url}
         searchParams={searchParams}
@@ -228,7 +226,9 @@ const FollowMeWidget = ({
                   }
                   onBtnClick={e => toggleFollow(e, u, isFollowing)}
                   disabled={isProcessingFollow}
-                  isOwner={currentUser.id ? u.id === currentUser.id : false}
+                  isOwner={
+                    currentUser.id ? u.id === currentUser.id : u.id === userId
+                  }
                 />
               );
             });

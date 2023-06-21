@@ -26,10 +26,8 @@ export const createVisibilityQuery = async ({
   allowDefaultCase = false,
   fallbackVisibility = "everyone",
   isVisiting,
-  refPath = "user",
-  verify
+  refPath = "user"
 }) => {
-  verify && console.log(userId, searchUser, " oop ");
   if (!userId && searchUser) {
     userId = searchUser;
     searchUser = undefined;

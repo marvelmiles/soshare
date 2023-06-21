@@ -75,12 +75,12 @@ const UserBlacklistView = ({
   return (
     <InfiniteScroll
       scrollNodeRef={scrollNodeRef}
+      withCredentials={!!cid}
       {...infiniteScrollProps}
       handleAction={_handleAction}
       url={`/users/blacklist`}
       ref={infiniteRef}
       key="infinite-user-blacklist"
-      vetify
     >
       {({ data: { data }, setObservedNode }) => {
         return data.length ? (

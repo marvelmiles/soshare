@@ -35,7 +35,6 @@ export default ({ handleAction, document = {}, docType }) => {
           setIsProcessingLike(false);
         }
       } else {
-        console.log(" registered likes ");
         const _likes = {
           ...likes,
           [cid]: true

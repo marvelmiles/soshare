@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import IconButton from "@mui/material/IconButton";
@@ -20,6 +20,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import { Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { updateUser } from "context/slices/userSlice";
+
 const MoreActions = ({
   document = {
     user: {}

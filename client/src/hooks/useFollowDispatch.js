@@ -71,7 +71,6 @@ export default (options = {}) => {
           stateRef.current.isProc = false;
         }
       } else {
-        console.log(docId, " doc id ");
         setContext(prev => ({
           ...prev,
           composeDoc: {

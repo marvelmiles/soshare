@@ -14,9 +14,7 @@ export const deleteFile = filePath => {
     .bucket(FIREBASE_BUCKET_NAME)
     .file(filePath)
     .delete()
-    .then(() => {
-      console.log("eleted file success");
-    })
+    .then(() => {})
     .catch(err => {
       console.error(
         `[Error Deleting ${filePath}]: ${err.message} at ${new Date()}.`
@@ -35,7 +33,6 @@ export const uploadFile = (config = {}) => {
   };
   return [
     (req, res, next) => {
-      console.log("with multer ");
       return multer({
         storage: new multer.memoryStorage()
       })[config.single ? "single" : "array"](
@@ -45,8 +42,6 @@ export const uploadFile = (config = {}) => {
     },
     async (req, res, next) => {
       try {
-        console.log(" with file ", !!req.files, !!req.file);
-        // throw new Error("test error ");
         config.maxDur = req.query.maxDur;
         config.maxSize = req.query.maxSize;
         if (req.file) req.file = await uploadToFirebase(req.file, config);
@@ -133,12 +128,11 @@ export const uploadToFirebase = (file, config = {}) => {
     config.maxDurLimit = config.maxDurLimit || 43200;
     config.maxDur = Number(config.maxDur) || config.maxDurLimit;
     config.maxDur > config.maxDurLimit && (config.maxDur = config.maxDurLimit);
-    // console.log(" prop file set ");
+
     const handleError = err => {
       reject(createError(err));
     };
     const uploadFile = file => {
-      // console.log("uploadng file ");
       const filename =
         `${config.dirPath ? config.dirPath + "/" : ""}` +
         Date.now() +
@@ -162,7 +156,7 @@ export const uploadToFirebase = (file, config = {}) => {
           })
           .catch(handleError);
       };
-      // console.log(!!file.buffer, !!file.stream, " strema ");
+
       const outstream = fileRef.createWriteStream(streamConfig);
       if (file.stream) {
         file.stream.pipe(outstream);

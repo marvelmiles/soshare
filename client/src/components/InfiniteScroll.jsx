@@ -32,22 +32,21 @@ const InfiniteScroll = React.forwardRef(
       defaultShowEnd = false,
       endElement,
       notifierDuration = 30000,
-      notifierDelay = 500,
+      notifierDelay = 5000,
       Component,
       componentProps,
       httpConfig,
       dataKey,
-      withCredentials = true,
+      withCredentials,
       maxSize,
       maxSizeElement,
-      limit = 20,
+      limit = 2,
       scrollNodeRef,
       searchId,
       randomize,
       nodeKey,
-      validatePublicDatum,
       NotifierComponent = DataNotifier,
-      exclude,
+      exclude = "",
       className = "",
       withShowRetry = true,
       notifierProps,
@@ -57,7 +56,7 @@ const InfiniteScroll = React.forwardRef(
       withOverflowShowNotifierOnly = true,
       excludeSep = ",",
       withMatchedDocs,
-      vetify
+      shallowLoading
     },
     ref
   ) => {
@@ -76,6 +75,10 @@ const InfiniteScroll = React.forwardRef(
     const containerRef = useRef();
     const { setSnackBar } = useContext();
     const stateRef = useRef({
+      limit,
+      randomize,
+      withMatchedDocs,
+      withShowRetry,
       intersection: intersectionProp
         ? undefined
         : {
@@ -83,7 +86,7 @@ const InfiniteScroll = React.forwardRef(
             threshold: 0.3,
             nodeKey
           },
-      exclude: { ...exclude },
+      exclude,
       infinitePaging: {},
       prevNotice: [],
       retryCount: 0,
@@ -113,62 +116,52 @@ const InfiniteScroll = React.forwardRef(
         });
     }, [scrollNodeRef, withOverflowShowEndOnly]);
 
-    const clearNotifierState = (clearPrev = true) => {
-      clearPrev && (stateRef.current.prevNotice = []);
-      if (stateRef.current.dataNoticeStartTaskId) {
-        clearTimeout(stateRef.current.dataNoticeStartTaskId);
-        clearTimeout(stateRef.current.dataNoticeEndTaskId);
-      }
-    };
-
-    const closeNotifier = useCallback((resetDelay = 500, e) => {
-      e && e.stopPropagation();
-      clearNotifierState();
-      setNotifier(notifier => ({
-        ...notifier,
-        open: false
-      }));
-      let timerId = setTimeout(() => {
-        setNotifier(notifier => ({ ...notifier, data: [] }));
-        if (timerId) clearTimeout(timerId);
-      }, resetDelay);
-    }, []);
-
     const fetchData = useCallback(
-      retry => {
+      (retry, fetchConfig) => {
         setData(data => {
           if (readyState !== "ready") return data;
-          const dataChanged = intersectionKey !== data.paging?.nextCursor;
+          const sep = stateRef.current.sep;
+          if (fetchConfig)
+            stateRef.current = {
+              ...stateRef.current,
+              ...fetchConfig,
+              infinitePaging: {
+                ...stateRef.current.infinitePaging,
+                ...fetchConfig.infinitePaging
+              }
+            };
+
           const infinitePaging = stateRef.current.infinitePaging;
           const shouldSearch =
             searchId && searchId !== stateRef.current.searchId;
           const shouldFetch =
             retry ||
-            infinitePaging.matchedDocs === undefined ||
             (!stateRef.current.isFetching &&
-              !stateRef.current.preventFetch &&
-              !reachedMax &&
-              (shouldSearch
-                ? true
-                : infinitePaging.matchedDocs
-                ? data.data.length < infinitePaging.matchedDocs &&
-                  intersectionKey
-                : data.paging?.nextCursor === undefined ||
-                  (intersectionKey && data.paging.nextCursor !== null)));
+              (infinitePaging.matchedDocs === undefined ||
+                (!reachedMax &&
+                  (shouldSearch
+                    ? true
+                    : infinitePaging.matchedDocs
+                    ? data.data.length < infinitePaging.matchedDocs &&
+                      intersectionKey
+                    : intersectionKey && data.paging.nextCursor !== null))));
 
-          stateRef.current.preventFetch = false;
-
-          if (retry) stateRef.current.retryCount++;
           if (shouldFetch) {
+            let {
+              randomize,
+              limit,
+              withMatchedDocs,
+              withShowRetry
+            } = stateRef.current;
             setLoading(true);
-            let withFetch = true;
-            let withEq = true;
-            let _randomize =
+            let withFetch = true,
+              withEq = true,
+              defaultCursor = "";
+
+            randomize =
               randomize === undefined ? !intersectionKey : !!randomize;
-            let _limit = limit,
-              defaultCursor = "",
-              _withMatchedDocs =
-                withMatchedDocs === undefined ? "" : withMatchedDocs;
+            withMatchedDocs =
+              withMatchedDocs === undefined ? "" : withMatchedDocs;
 
             if (shouldSearch) {
               stateRef.current.searchId = searchId;
@@ -176,8 +169,8 @@ const InfiniteScroll = React.forwardRef(
                 d => d.id === searchId || d === searchId
               );
               if (index === -1) {
-                _withMatchedDocs = true;
-                _randomize = false;
+                withMatchedDocs = true;
+                randomize = false;
                 withEq = true;
                 data.data = [];
                 defaultCursor = searchId;
@@ -192,7 +185,7 @@ const InfiniteScroll = React.forwardRef(
                   );
 
                 if (intersectionKey) {
-                  _randomize = false;
+                  randomize = false;
                   withEq = false;
                 }
 
@@ -202,12 +195,12 @@ const InfiniteScroll = React.forwardRef(
                     : infinitePaging.matchedDocs
                     ? data.data.length === infinitePaging.matchedDocs
                     : true) ||
-                  (_limit =
-                    data.data.length > _limit
-                      ? _limit || Infinity
-                      : _limit > data.data.length
-                      ? _limit - data.data.length
-                      : _limit) === 0
+                  (limit =
+                    data.data.length > limit
+                      ? limit || Infinity
+                      : limit > data.data.length
+                      ? limit - data.data.length
+                      : limit) === 0
                 ) {
                   data.paging.nextCursor = null;
                   withFetch = false;
@@ -224,39 +217,23 @@ const InfiniteScroll = React.forwardRef(
               (async () => {
                 try {
                   stateRef.current.isFetching = true;
-                  const exclude = stateRef.current.exclude;
-                  const isEString = typeof exclude === "string";
-                  const sep = stateRef.current.sep;
-
-                  const _url =
+                  let _data = await http.get(
                     url +
-                    `?limit=${_limit || ""}&cursor=${data.paging?.nextCursor ||
-                      defaultCursor}&withEq=${withEq}&randomize=${_randomize}&withMatchedDocs=${_withMatchedDocs}&exclude=${
-                      exclude
-                        ? isEString
-                          ? `${data.data.length ? sep : ""}${exclude}`
-                          : (() => {
-                              let str = "";
-                              for (const key in exclude) {
-                                str += `${str.length ? sep : ""}${key}`;
-                              }
-                              return str;
-                            })()
-                        : ""
-                    }&${
-                      searchParams
-                        ? searchParams
-                        : dataKey
-                        ? `select=${dataKey}`
-                        : ""
-                    }`;
-                  let _data = await http.get(_url, {
-                    withCredentials,
-                    ...httpConfig
-                  });
-
-                  dataKey && (_data = _data[dataKey]);
-
+                      `?limit=${limit}&cursor=${data.paging?.nextCursor ||
+                        defaultCursor}&withEq=${withEq}&randomize=${randomize}&withMatchedDocs=${withMatchedDocs}&exclude=${
+                        stateRef.current.exclude
+                      }&${
+                        searchParams
+                          ? searchParams
+                          : dataKey
+                          ? `select=${dataKey}`
+                          : ""
+                      }`,
+                    {
+                      withCredentials,
+                      ...httpConfig
+                    }
+                  );
                   stateRef.current.dataChanged =
                     !data.paging?.nextCursor ||
                     data.paging.nextCursor !== _data.paging.nextCursor ||
@@ -267,8 +244,6 @@ const InfiniteScroll = React.forwardRef(
                       _data.paging.nextCursor !== undefined &&
                       Array.isArray(_data.data)
                     ) {
-                      vetify &&
-                        console.log(_data.paging, _withMatchedDocs, _randomize);
                       if (
                         !infinitePaging.matchedDocs &&
                         _data.paging.matchedDocs > -1
@@ -278,25 +253,21 @@ const InfiniteScroll = React.forwardRef(
                         infinitePaging.matchedDocs = _data.paging.matchedDocs;
                       }
                     } else return;
-                    let isProc = false;
-                    setData(data => {
-                      if (isProc) return _data;
-                      isProc = true;
-                      const set = exclude
-                        ? isEString
-                          ? (() => {
-                              const set = {};
-                              exclude.split(sep).forEach(item => {
-                                return (set[
-                                  item.id || item._id || JSON.stringify(item)
-                                ] = true);
-                              });
 
-                              return set;
-                            })()
-                          : exclude
-                        : undefined;
-                      _data = {
+                    // state fn merege _data with current data before http resolves
+                    const exclude = stateRef.current.exclude;
+                    setData(data => {
+                      const set = exclude
+                        ? (() => {
+                            const set = {};
+                            exclude.split(sep).forEach(item => {
+                              return (set[item] = true);
+                            });
+                            return set;
+                          })()
+                        : {};
+
+                      data = {
                         ..._data,
                         data: (stateRef.current.withDefaultData
                           ? []
@@ -311,22 +282,29 @@ const InfiniteScroll = React.forwardRef(
                           )
                         )
                       };
-                      stateRef.current.exclude = set;
+                      let e = "";
+                      if (set)
+                        for (const key in set) {
+                          e += `${e.length ? sep + key : key}`;
+                        }
+                      stateRef.current.exclude = e;
                       stateRef.current.shallowUpdate = false;
                       stateRef.current.withDefaultData = undefined;
-                      return _data;
+                      return data;
                     });
                   }
                 } catch (msg) {
-                  console.log(msg, " msg ");
-                  if (
-                    stateRef.current.retryCount < stateRef.current.maxRetry &&
-                    (withShowRetry === undefined ? true : withShowRetry)
-                  ) {
-                    stateRef.current.retryCount++;
-                    setShowRetry(true);
-                  } else stateRef.current.preventFetch = true;
-                  msg && setSnackBar(msg);
+                  if (msg) {
+                    if (
+                      stateRef.current.retryCount < stateRef.current.maxRetry &&
+                      (withShowRetry === undefined ? true : withShowRetry)
+                    ) {
+                      stateRef.current.retryCount++;
+                      setShowRetry(true);
+                    } else stateRef.current.isFetching = true;
+                    window.location.pathname.toLowerCase() !== "/auth/signin" &&
+                      setSnackBar(msg);
+                  }
                 } finally {
                   setLoading(false);
                   stateRef.current.isFetching = false;
@@ -334,38 +312,62 @@ const InfiniteScroll = React.forwardRef(
               })();
             }
           }
-          if (withCredentials === false) {
-            // get only public data during session timeout
-            // or user isn't logged in
-            data.data = data.data.filter(
-              typeof validatePublicDatum === "function"
-                ? validatePublicDatum
-                : item =>
-                    item.visibility ? item.visibility === "everyone" : true
-            );
+
+          if (withCredentials ? false : !httpConfig?.withCredentials) {
+            const valid = [];
+            let e = stateRef.current.exclude;
+            for (const item of data.data) {
+              if (item.visibility && item.visibility !== "everyone") {
+                const id =
+                  item.id ||
+                  item._id ||
+                  (typeof item === "string" ? item : JSON.stringify(item));
+                e += `${e.length ? sep + id : id}`;
+                continue;
+              }
+              valid.push(item);
+            }
+            stateRef.current.exclude = e;
+            data.data = valid;
           }
-          return dataChanged ? { ...data } : data;
+
+          return { ...data };
         });
       },
       [
         readyState,
+        intersectionKey,
+        reachedMax,
+        searchId,
+        searchParams,
         url,
+        dataKey,
         withCredentials,
         httpConfig,
-        dataKey,
-        limit,
-        searchParams,
-        intersectionKey,
-        searchId,
-        validatePublicDatum,
-        setSnackBar,
-        reachedMax,
-        randomize,
-        withShowRetry,
-        withMatchedDocs,
-        vetify
+        setSnackBar
       ]
     );
+
+    const clearNotifierState = (clearPrev = true) => {
+      clearPrev && (stateRef.current.prevNotice = []);
+      if (stateRef.current.dataNoticeStartTaskId) {
+        clearTimeout(stateRef.current.dataNoticeStartTaskId);
+        clearTimeout(stateRef.current.dataNoticeEndTaskId);
+      }
+    };
+
+    const closeNotifier = useCallback((resetDelay = 500, clearPrev, e) => {
+      e && e.stopPropagation();
+      clearNotifierState(clearPrev);
+      setNotifier(notifier => ({
+        ...notifier,
+        open: false
+      }));
+      let timerId = setTimeout(() => {
+        setNotifier(notifier => ({ ...notifier, data: [] }));
+        if (timerId) clearTimeout(timerId);
+      }, resetDelay);
+    }, []);
 
     const propMemo = useMemo(
       () => ({
@@ -385,7 +387,6 @@ const InfiniteScroll = React.forwardRef(
             setObservedNode(nodeOrFunc);
             determineFlowing();
           }
-          // console.log(stateRef.current.dataChanged, " ob changed ");
         },
         setData: (prop, options = {}) => {
           let {
@@ -402,7 +403,7 @@ const InfiniteScroll = React.forwardRef(
                   ? 1
                   : 0
                 : numberOfEntries;
-            
+
             if (_data.length && numberOfEntries && notifierDelay > -1) {
               clearNotifierState(false);
               stateRef.current.prevNotice = _data
@@ -416,14 +417,11 @@ const InfiniteScroll = React.forwardRef(
                 }));
                 stateRef.current.prevNotice = [];
                 stateRef.current.dataNoticeEndTaskId = setTimeout(
-                  closeNotifier,
+                  () => closeNotifier(undefined, false),
                   notifierDuration
                 );
               }, notifierDelay);
-            } else {
-              console.log(" dev comming ");
-              closeNotifier();
-            }
+            } else closeNotifier(undefined, false);
           };
           let nullify;
           const setState = dataSize => {
@@ -438,10 +436,10 @@ const InfiniteScroll = React.forwardRef(
                 (nullify = true);
             }
 
-            stateRef.current.preventFetch = preventFetch;
             stateRef.current.dataChanged = dataSize !== data.data.length;
-            // console.log(stateRef.current.dataChanged, " data changed ");
-            exclude && (stateRef.current.exclude = exclude);
+            preventFetch !== undefined &&
+              (stateRef.current.isFetching = preventFetch);
+            exclude !== undefined && (stateRef.current.exclude = exclude);
 
             stateRef.current.shallowUpdate = true;
           };
@@ -484,19 +482,10 @@ const InfiniteScroll = React.forwardRef(
     );
 
     const nullifyChildren =
+      shallowLoading ||
       stateRef.current.readyState === "pending" ||
       stateRef.current.infinitePaging.matchedDocs === undefined ||
       (data.paging?.nextCursor === undefined && !data.data.length);
-
-    // vetify &&
-    //   console.log(
-    //     nullifyChildren,
-    //     stateRef.current.readyState,
-    //     stateRef.current.infinitePaging.matchedDocs,
-    //     data.paging?.nextCursor,
-    //     data.data.length,
-    //     " nulli "
-    //   );
 
     const isEnd =
       data.data.length &&
@@ -548,7 +537,7 @@ const InfiniteScroll = React.forwardRef(
     const fullHeight =
       nullifyChildren || (data.data.length ? false : centerOnEmpty);
 
-    const isFree = !loading && !isEnd;
+    const shouldRefresh = !loading && !isEnd;
 
     return (
       <Box
@@ -558,7 +547,6 @@ const InfiniteScroll = React.forwardRef(
         component={Component}
         {...componentProps}
         sx={{
-          border: "1px solid green",
           height: "inherit",
           minHeight: "inherit",
           position: "relative",
@@ -592,14 +580,13 @@ const InfiniteScroll = React.forwardRef(
           className="data-scrollable-content"
           style={{
             flex: "none",
-            // border: "1px solid yellow",
             ...contentSx
           }}
         >
-          {isFree &&
+          {shouldRefresh &&
           stateRef.current.retryCount === stateRef.current.maxRetry ? (
             <EmptyData nullifyBrand withReload onClick={handleRefetch} />
-          ) : isFree && showRetry && !data.data.length ? (
+          ) : shouldRefresh && showRetry && !data.data.length ? (
             <EmptyData
               sx={{
                 p: 3
@@ -607,35 +594,17 @@ const InfiniteScroll = React.forwardRef(
               onClick={handleRefetch}
             />
           ) : nullifyChildren ? null : (
-            children({
-              ...propMemo
-              // data: {
-              //   data: [],
-              //   paging: {
-              //     nextCursor: null
-              //   }
-              // }
-              // data: {
-              //   ...data,
-              //   data: (() => {
-              //     const arr = [];
-              //     for (let i = 0; i < 40; i++) {
-              //       arr.push(data.data[i] || data.data[0]);
-              //     }
-              //     return arr;
-              //   })()
-              // }
-            })
+            children(propMemo)
           )}
         </div>
         <div>
-          {loading ? (
+          {loading || shallowLoading ? (
             <Loading
               className={
                 data.data.length ? "custom-more-loading" : "custom-loading"
               }
             />
-          ) : isFree && showRetry && data.data.length ? (
+          ) : shouldRefresh && showRetry && data.data.length ? (
             <EmptyData
               sx={{
                 height: "120px",

@@ -6,12 +6,9 @@ import {
   sendAndUpdateNotification,
   getRoomSockets
 } from "../utils/index.js";
-import { createVisibilityQuery } from "../utils/serializers.js";
 import { deleteFile } from "../utils/file-handlers.js";
 import Notification from "../models/Notification.js";
-import mongoose, { Types } from "mongoose";
 import Short from "../models/Short.js";
-import { verifyToken } from "../utils/middlewares.js";
 import { isObject } from "../utils/validators.js";
 import bcrypt from "bcrypt";
 import { getDocument, getFeedMedias } from "../utils/req-res-hooks.js";
@@ -23,7 +20,6 @@ export const getUser = (req, res, next) =>
     res,
     next,
     model: User
-    // verify: true
   });
 
 export const getFollowing = async (req, res, next) => {
@@ -32,27 +28,23 @@ export const getFollowing = async (req, res, next) => {
     res,
     next,
     model: User,
-    dataKey: "following"
-    // verify: true
+    dataKey: "following",
+    match: {
+      _id: req.params.userId
+    }
   });
 };
 
 export const getFollowers = async (req, res, next) => {
-  // req.query.randomize = "false";
-  // req.query.withMatchedDocs = "true";
-  // // console.clear();
-  // return res.json({
-  //   paging: {
-  //     nextCursor: null,
-  //     data: []
-  //   }
-  // });
   return getFeedMedias({
     req,
     res,
     next,
     model: User,
-    dataKey: "followers"
+    dataKey: "followers",
+    match: {
+      _id: req.params.userId
+    }
   });
 };
 
@@ -155,7 +147,6 @@ export const getUserPosts = async (req, res, next) => {
     res,
     next,
     model: Post,
-    // verify: true,
     isVisiting: true
   });
 };
@@ -174,8 +165,6 @@ export const suggestFollowers = async (req, res, next) => {
         }
       },
       query: req.query
-      // verify: true
-      // vet: true
     };
     let result = await getAll(queryConfig);
     res.json(result);
@@ -293,11 +282,11 @@ export const getUserNotifications = async (req, res, next) => {
       })
     );
   } catch (err) {
+    console.log(err.message, " noti ");
     next(err);
   }
 };
 
-// trying to avoid multiple api call for a similar purpose
 export const getUnseenAlerts = async (req, res, next) => {
   try {
     const query = {
@@ -426,8 +415,7 @@ export const getBlacklist = async (req, res, next) => {
     res,
     next,
     model: User,
-    dataKey: "recommendationBlacklist",
-    vet: true
+    dataKey: "recommendationBlacklist"
   });
 };
 

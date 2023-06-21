@@ -44,9 +44,7 @@ export const search = async (req, res, next) => {
                   }
                 ]
               }
-            }),
-            verify: true,
-            vet: true
+            })
           });
           continue;
         case "users":

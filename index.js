@@ -16,7 +16,6 @@ import shortRoutes from "./routes/short.js";
 import miscRoutes from "./routes/misc.js";
 import commentRoutes from "./routes/comment.js";
 import cookieParser from "cookie-parser";
-import { users, posts } from "./data.js";
 import { CLIENT_ENDPOINT } from "./config.js";
 import socket from "./socket.js";
 import { createError } from "./utils/error.js";
@@ -65,7 +64,7 @@ app.get("/", function(req, res) {
 app.use((err, req, res, next) => {
   if (res.headersSent) {
     console.warn(
-      "[SERVER_ERROR]: HEADER_SENT :",
+      "[SERVER_ERROR: HEADER SENT]",
       req.headers.origin,
       req.originalUrl,
       " at ",
@@ -75,7 +74,6 @@ app.use((err, req, res, next) => {
     err = err.status ? err : createError(err);
     if (err) res.status(err.status).json(err.message);
   }
-  console.log(!!req.file, " with err file ");
   if (req.file) deleteFile(req.file.publicUrl);
   if (req.files)
     for (const { publicUrl } of req.files) {
@@ -100,5 +98,9 @@ mongoose
     // Post.insertMany(posts);
   })
   .catch(error =>
-    console.log(`${error.message} did not connect at ${new Date()}`)
+    console.log(
+      `[SERVER_ERROR: DB_CONNECT_ERR] ${
+        error.message
+      } did not connect at ${new Date()}`
+    )
   );

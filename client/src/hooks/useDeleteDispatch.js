@@ -25,7 +25,7 @@ export default (config = {}) => {
         const id = item.id || item;
         try {
           let __url = _url || url;
-          __url = _url.url
+          __url = __url.url
             ? __url.url + `/${id}?${__url.searchParams || ""}`
             : __url + `/${id}`;
 

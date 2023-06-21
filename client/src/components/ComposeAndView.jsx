@@ -13,20 +13,15 @@ import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import PostsView from "views/PostsView";
 import ShortsView from "views/ShortsView";
-import {
-  useLocation,
-  useSearchParams,
-  Navigate,
-  useNavigate
-} from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
 import FollowMeWidget from "components/FollowMeWidget";
 import Comments from "components/Comments";
-import KeyboardBackspaceIcon from "@mui/icons-material/KeyboardBackspace";
 import { LoadingDot } from "components/Loading";
 import UserBlacklistView from "views/UserBlacklistView";
 import { handleCancelRequest } from "api/http";
 import SessionTimeout from "./SessionTimeout";
+
 Dialog.defaultProps = {
   open: false
 };
@@ -45,13 +40,13 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
     comment: true,
     ...openFor
   };
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   const stateRef = useRef({
     commentHolder: {},
     dType: ""
   });
   const [ctx, setCtx] = useState({});
-  const { setContext, locState } = useContext();
+  const { setContext, locState, prevPath = "" } = useContext();
   const cid = searchParams.get("cid") || "";
   const scrollNodeRef = useRef();
   const navigate = useNavigate();
@@ -60,22 +55,23 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
   let compose = (searchParams.get("compose") || "").toLowerCase();
 
   const closeDialog = useCallback(
-    (e, dialogType) => {
+    (e, dialogType, done) => {
       e && e.stopPropagation();
+      stateRef.current.commentHolder = {};
       stateRef.current.dType = "";
       if (stateRef.current.path) handleCancelRequest(stateRef.current.path);
       setCtx({});
       dialogType = e ? e.currentTarget.dataset.dialogType : dialogType;
-
-      if (dialogType) searchParams.delete(dialogType);
-      else {
-        searchParams.delete("view");
-        searchParams.delete("compose");
-      }
-      searchParams.delete("wc");
-      setSearchParams(searchParams);
+      const prop =
+        done || !locState?.outInputs
+          ? { state: null }
+          : {
+              state: locState
+            };
+      if (prevPath) navigate(-1, prop);
+      else navigate(window.location.pathname, prop);
     },
-    [searchParams, setSearchParams]
+    [navigate, prevPath, locState]
   );
 
   const _handleAction = useCallback(
@@ -88,7 +84,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           context.composeDoc = res;
           return { ...context };
         });
-        closeDialog(undefined, "compose");
+        closeDialog(undefined, "compose", true);
       };
       switch (reason) {
         case "error":
@@ -121,18 +117,6 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
   }, [closeDialog]);
 
   const renderDialog = key => {
-    if (!key) return;
-    const goBackElem = (
-      <IconButton
-        title="Go back"
-        onClick={e => {
-          e.stopPropagation();
-          navigate(-1);
-        }}
-      >
-        <KeyboardBackspaceIcon />
-      </IconButton>
-    );
     switch (key) {
       case "create-post":
       case "create-short":
@@ -141,7 +125,6 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           <>
             <DialogTitle component={Stack}>
               <Stack>
-                {goBackElem}
                 {ctx.processing ? (
                   <Typography variant="h5" fontWeight="bold">
                     <LoadingDot />
@@ -218,40 +201,30 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           </>
         );
       case "comment":
-        if (locState.composeDoc.id !== stateRef.current.commentHolder.document)
+        if (stateRef.current.commentHolder.document !== locState.document.id) {
           stateRef.current.commentHolder = {
-            document: locState.composeDoc.id
+            document: locState.document.id,
+            ...(locState.outInputs
+              ? locState.outInputs[locState.document.id]
+              : undefined)
           };
+        }
 
         return (
           <>
-            <DialogTitle
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                borderBottom: "1px solid currentColor",
-                borderColor: "divider"
-              }}
-            >
-              <Stack>
-                {goBackElem} {ctx.processing ? <LoadingDot /> : null}
-              </Stack>
-              <Typography color="primary.main">{34} views</Typography>
-            </DialogTitle>
             <DialogContent sx={{ p: 0 }} ref={scrollNodeRef}>
-              <PostWidget post={locState.composeDoc} enableSnippet />
+              <PostWidget post={locState.document} enableSnippet />
               <InputBox
+                inputClassName="fff"
                 withPlaceholders={false}
                 submitInputsOnly={false}
                 resetData={false}
                 method="post"
                 accept=".jpg,.jpeg,.png,.gif"
                 url={`/comments/new/${locState.docType || "post"}?ro=${
-                  locState.composeDoc.user.id
+                  locState.document.user.id
                 }`}
                 placeholder="Send your opinion"
-                actionText="Reply"
                 mediaRefName="media"
                 multiple={false}
                 message={{
@@ -338,7 +311,6 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
       case "comments":
         return (
           <>
-            <DialogTitle>{goBackElem}</DialogTitle>
             <DialogContent
               sx={{
                 p: 0,

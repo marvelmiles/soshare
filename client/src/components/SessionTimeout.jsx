@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
-import { logoutUser } from "context/slices/userSlice";
+import { signoutUser } from "context/slices/userSlice";
 import { Box, Typography, Button, Stack } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
@@ -11,7 +11,7 @@ const SessionTimeout = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   useEffect(() => {
-    dispatch(logoutUser());
+    dispatch(signoutUser());
   }, [dispatch]);
   return (
     <Box>

@@ -14,7 +14,6 @@ import { useSelector } from "react-redux";
 import {
   useNavigate,
   Link,
-  useLocation,
   useSearchParams,
   useParams
 } from "react-router-dom";
@@ -50,6 +49,7 @@ import { mapValidItems } from "utils";
 import Box from "@mui/material/Box";
 import UserSettings from "components/UserSettings";
 import { useMediaQuery } from "@mui/material";
+import { signoutUser } from "context/slices/userSlice";
 
 Popover.defaultProps = {
   open: false,
@@ -60,7 +60,7 @@ const Navbar = ({ routePage = "homePage" }) => {
   const {
     palette: { mode }
   } = useTheme();
-  const { socket, setSnackBar } = useContext();
+  const { socket, setSnackBar, prevPath } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const stateRef = useRef({
     notifications: {
@@ -80,7 +80,6 @@ const Navbar = ({ routePage = "homePage" }) => {
   const [searchParams] = useSearchParams();
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const navigate = useNavigate();
-  const noHistory = useLocation().key === "default";
 
   useEffect(() => {
     (async () => {
@@ -91,9 +90,7 @@ const Navbar = ({ routePage = "homePage" }) => {
               withCredentials: true
             })) || {}
           );
-      } catch (message) {
-        setSnackBar(message);
-      }
+      } catch (_) {}
     })();
   }, [setSnackBar, currentUser.id]);
 
@@ -154,9 +151,9 @@ const Navbar = ({ routePage = "homePage" }) => {
     setPopover(prev => ({ ...prev, open: false }));
   }, [isMd]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     dispatch(toggleThemeMode());
-  };
+  }, [dispatch]);
   const handleDrawer = open => e => {
     if (e && e.type === "keydown" && (e.key === "Tab" || e.key === "Shift"))
       return;
@@ -256,7 +253,13 @@ const Navbar = ({ routePage = "homePage" }) => {
     setOpenUserSelect(true);
   };
 
-  const loginPath = `/auth/signin?redirect=${encodeURIComponent(
+  const handleSignOut = () => {
+    dispatch(signoutUser());
+    setOpenDrawer(false);
+    navigate("/");
+  };
+
+  const signinPath = `/auth/signin?redirect=${encodeURIComponent(
     createRelativeURL()
   )}`;
 
@@ -390,8 +393,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           sx={{
             py: "16px"
           }}
-          component={StyledLink}
-          to={"/auth/signin"}
+          onClick={handleSignOut}
         >
           <LogoutIcon />
           <Typography>Signout</Typography>
@@ -401,7 +403,7 @@ const Navbar = ({ routePage = "homePage" }) => {
   ) : (
     <IconButton
       component={Link}
-      to={loginPath}
+      to={signinPath}
       sx={{
         display: {
           xs: "none",
@@ -489,7 +491,7 @@ const Navbar = ({ routePage = "homePage" }) => {
 
   const handleGoBack = e => {
     e.stopPropagation();
-    navigate(-1);
+    navigate(-1, { state: null, replace: true });
   };
 
   return (
@@ -513,11 +515,11 @@ const Navbar = ({ routePage = "homePage" }) => {
             md: 1
           }}
         >
-          {noHistory ? null : (
+          {prevPath ? (
             <IconButton title="Go back" onClick={handleGoBack}>
               <KeyboardBackspaceIcon />
             </IconButton>
-          )}
+          ) : null}
           <BrandIcon
             sx={{
               display: {
@@ -669,7 +671,11 @@ const Navbar = ({ routePage = "homePage" }) => {
             {
               title: currentUser.id ? "Signout" : "Signin",
               icon: currentUser.id ? LogoutIcon : LoginIcon,
-              to: currentUser.id ? "/auth/signin" : loginPath
+              onClick: currentUser.id
+                ? handleSignOut
+                : () => {
+                    navigate(signinPath);
+                  }
             }
           ].map((l, i) =>
             l.nullify ? null : (

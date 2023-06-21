@@ -156,7 +156,6 @@ export const StyledMenuItem = styled(MenuItem, {
         return true;
     }
   }
-  // component: Link
 })(() => {
   return {
     "&.Mui-selected": {
@@ -172,7 +171,6 @@ export const StyledBadge = styled(Badge)(({ theme }) => ({
     border: `2px solid ${theme.palette.background.paper}`,
     padding: "0 4px",
     color: theme.palette.primary.contrastText
-    // fontWeight: ""
   }
 }));
 

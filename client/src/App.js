@@ -1,25 +1,14 @@
-import React, {
-  useMemo,
-  useState,
-  useEffect,
-  useCallback,
-  useRef
-} from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
-import {
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  GlobalStyles
-} from "@mui/material";
-import { themeSettings, INPUT_AUTOFILL_SELECTOR } from "theme";
+import { ThemeProvider, CssBaseline, GlobalStyles } from "@mui/material";
+import { createTheme, INPUT_AUTOFILL_SELECTOR } from "theme";
 import { useSelector } from "react-redux";
 import HomePage from "pages/HomePage";
 import ProfilePage from "pages/ProfilePage";
 import Signin from "pages/Signin";
 import Signup from "pages/Signup";
 import { Provider } from "context/store";
-import { Snackbar, useMediaQuery, Button, Typography } from "@mui/material";
+import { Snackbar, useMediaQuery } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import CloseIcon from "@mui/icons-material/Close";
 import io from "socket.io-client";
@@ -41,6 +30,9 @@ import BrandIcon from "components/BrandIcon";
 import EmptyData from "components/EmptyData";
 import contextState from "context/contextState";
 import { StyledLink } from "components/styled";
+import { TOKEN_EXPIRED_MSG } from "context/config";
+import { setThemeMode } from "context/slices/configSlice";
+import { useDispatch } from "react-redux";
 
 let socket;
 
@@ -48,16 +40,22 @@ const App = () => {
   const [snackbar, setSnackbar] = useState({});
   const [context, setContext] = useState(contextState);
   const [readyState, setReadyState] = useState("pending");
-  const mode = useMediaQuery("(prefers-color-scheme: dark)") ? "dark" : "light";
-  const theme = useMemo(() => createTheme(themeSettings(mode)), [mode]);
+  const configMode = useSelector(state => state.config.mode);
+  const systemMode = useMediaQuery("(prefers-color-scheme: dark)")
+    ? "dark"
+    : "light";
+  const [theme, setTheme] = useState(createTheme(systemMode));
   const cid = useSelector(state => state.user?.currentUser?.id);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { state: locState, key, ...rest } = useLocation();
+  const { state: locState } = useLocation();
   const stateRef = useRef({
-    isProcUrl: false
+    isProcUrl: false,
+    prevPath: "",
+    currentPath: ""
   });
-
-  const cancelComposeRequest = useCallback(() => {
+  stateRef.current.locState = locState;
+  const resetComposeDoc = useCallback(() => {
     const id = setTimeout(() => {
       setContext(prev => ({ ...prev, composeDoc: undefined }));
       clearTimeout(id);
@@ -65,6 +63,7 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    const stateCtx = stateRef.current;
     if (cid) {
       socket = io.connect(API_ENDPOINT, {
         path: "/mernsocial",
@@ -78,18 +77,15 @@ const App = () => {
     const handleRegUser = () =>
       socket.emit("register-user", cid, () => setReadyState("ready"));
 
-    const handleBareConnect = () => {
-      console.log(" socket connectd ");
-      setReadyState("ready");
-    };
+    const handleBareConnect = () => setReadyState("ready");
 
     let handlingErr;
     const handleSocketErr = error => {
-      console.log(" err ", error.message);
       if (handlingErr) return;
       handlingErr = true;
       switch (error.message) {
-        case "Token expired or isn't valid":
+        case TOKEN_EXPIRED_MSG:
+          setReadyState("403");
           handleRefreshToken()
             .then(() => socket.connect())
             .catch(() => setReadyState("403"))
@@ -110,46 +106,54 @@ const App = () => {
     http.interceptors.response.use(
       res => res,
       err => {
-        if (socket.connected || readyState !== "pending")
-          switch (err) {
-            case HTTP_403_MSG:
-              if (window.location.pathname.toLowerCase() !== "/auth/signin")
-                navigate(
-                  createRelativeURL("view", "view=session-timeout", false)
-                );
-              err = "";
-              break;
-            default:
-              break;
-          }
-
-        const t = getHttpErrMsg(err);
-        console.log(t, " app err ");
-        return Promise.reject(t);
+        switch (err) {
+          case HTTP_403_MSG:
+            if (
+              window.location.pathname.toLowerCase() !== "/auth/signin" &&
+              window.location.search.indexOf("session-timeout") === -1
+            )
+              navigate(
+                createRelativeURL("view", "view=session-timeout", false)
+              );
+            err = "";
+            break;
+          default:
+            break;
+        }
+        return Promise.reject(getHttpErrMsg(err));
       }
     );
 
+    const path = createRelativeURL();
+    if (stateCtx.currentPath !== path) {
+      if (stateCtx.currentPath.indexOf("auth") > -1) {
+        stateRef.current.prevPath = "";
+        stateRef.current.hasAuthPath = true;
+      } else if (stateRef.current.hasAuthPath) {
+        stateRef.current.prevPath = "";
+        stateRef.current.hasAuthPath = false;
+      } else stateCtx.prevPath = stateCtx.currentPath;
+      stateCtx.currentPath = path.toLowerCase();
+    }
+    setSnackbar(prev => ({ ...prev, open: false }));
+    setContext(context => ({
+      ...context,
+      composeDoc: context.composeDoc?.url ? context.composeDoc : undefined
+    }));
     return () => {
       socket.disconnect();
       socket
         .removeEventListener("register-user", handleRegUser)
         .removeEventListener("bare-connection", handleBareConnect)
         .removeEventListener("connect_error", handleSocketErr);
-      setSnackbar(prev => ({ ...prev, open: false }));
-      setContext(context => ({
-        ...context,
-        composeDoc: context.composeDoc?.url ? context.composeDoc : undefined
-      }));
-      // handleCancelRequest();
+      handleCancelRequest();
     };
-  }, [cid, navigate, readyState]);
+  }, [cid, navigate]);
 
   useEffect(() => {
     if (cid && context.composeDoc?.url) {
-      console.log(context.composeDoc);
-      if (context.composeDoc.done) cancelComposeRequest();
+      if (context.composeDoc.done) resetComposeDoc();
       else if (!stateRef.current.isProcUrl) {
-        console.log(" is proce... ");
         stateRef.current.isProcUrl = true;
         http[context.composeDoc.method](context.composeDoc.url)
           .then(() => {
@@ -168,8 +172,7 @@ const App = () => {
               };
             });
           })
-          .catch(msg => {
-            console.log(msg, " user will manually like ");
+          .catch(_ => {
             setContext(prev => {
               if (!prev.composeDoc) return prev;
               return {
@@ -190,28 +193,57 @@ const App = () => {
           });
       }
     }
-  }, [cid, context.composeDoc, cancelComposeRequest]);
+  }, [cid, context.composeDoc, resetComposeDoc]);
+
+  useEffect(() => {
+    setTheme(createTheme(configMode));
+  }, [configMode]);
+
+  useEffect(() => {
+    dispatch(setThemeMode(systemMode));
+    setTheme(createTheme(systemMode));
+  }, [dispatch, systemMode]);
 
   const setSnackBar = useCallback(
     (
       snackbar = {
-        message: (
-          <div>
-            You need to{" "}
-            <StyledLink
-              style={{ textDecoration: "underline" }}
-              to={`/auth/signin?redirect=${encodeURIComponent(
-                createRelativeURL()
-              )}`}
-              state={locState}
-            >
-              login!
-            </StyledLink>
-          </div>
-        ),
         autoHideDuration: 10000
+      },
+      outInput
+    ) => {
+      if (!snackbar.message) {
+        const stateProp =
+          stateRef.current.locState || outInput
+            ? {
+                ...stateRef.current.locState,
+                outInputs: cid
+                  ? undefined
+                  : {
+                      ...stateRef.current.locState?.outInputs,
+                      ...outInput
+                    }
+              }
+            : undefined;
+        // outInput &&
+        //   navigate("/?compose=comment", {
+        //     state: stateProp
+        // });
+        if (typeof snackbar !== "string" && !snackbar.message)
+          snackbar.message = (
+            <div>
+              You need to{" "}
+              <StyledLink
+                style={{ textDecoration: "underline" }}
+                to={`/auth/signin?redirect=${encodeURIComponent(
+                  createRelativeURL()
+                )}`}
+                state={stateProp}
+              >
+                login!
+              </StyledLink>
+            </div>
+          );
       }
-    ) =>
       setSnackbar({
         open: true,
         ...(snackbar.message
@@ -219,8 +251,9 @@ const App = () => {
           : {
               message: snackbar
             })
-      }),
-    [locState]
+      });
+    },
+    [cid]
   );
   const closeSnackBar = () =>
     setSnackbar({
@@ -281,8 +314,11 @@ const App = () => {
           context,
           locState,
           readyState,
+          prevPath: stateRef.current.prevPath ? stateRef.current.prevPath : "",
+          currentPath: stateRef.current.currentPath,
           setContext,
-          setReadyState
+          setReadyState,
+          closeSnackBar
         }}
       >
         {{
@@ -294,26 +330,30 @@ const App = () => {
             <Route path="/auth">
               <Route path="signin" element={<Signin />} />
               <Route path="signup" element={<Signup />} />
+              <Route path="verification-mail" element={<VerificationMail />} />
+              <Route
+                path="reset-password/:token/:userId"
+                element={<ResetPwd setSnackBar={setSnackBar} />}
+              />
               <Route path="*" element={<Auth404 />} />
             </Route>
             <Route path="u/:userId" element={<ProfilePage />} />
             <Route path="search" element={<Search />} />
             <Route path="shorts" element={<ShortsPage />} />
-            <Route path="verification-mail" element={<VerificationMail />} />
-            <Route
-              path="reset-password"
-              element={<ResetPwd setSnackBar={setSnackBar} />}
-            />
             <Route path=":kind/:id" element={<Post />} />
             <Route path="*" element={<Page404 />} />
           </Routes>
         )}
       </Provider>
-
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={snackbar.autoHideDuration || 5000}
-        onClose={closeSnackBar}
+        autoHideDuration={
+          snackbar.autoHideDuration ||
+          (snackbar.severity === "success" ? 5000 : 10000)
+        }
+        onClose={
+          snackbar.onClose === undefined ? closeSnackBar : snackbar.onClose
+        }
         sx={{ maxWidth: "500px" }}
       >
         <Alert

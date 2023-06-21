@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useState } from "react";
 import http from "api/http";
 import { useContext } from "context/store";
 import { CANCELED_REQUEST_MSG } from "context/config";

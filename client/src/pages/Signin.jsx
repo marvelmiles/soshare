@@ -7,7 +7,7 @@ import Checkbox from "@mui/material/Checkbox";
 import { signInWithPopupTimeout } from "api/firebase";
 import http from "api/http";
 import { useDispatch } from "react-redux";
-import { loginUser, logoutUser } from "context/slices/userSlice";
+import { loginUser, signoutUser } from "context/slices/userSlice";
 import { useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
 import { useSearchParams } from "react-router-dom";
@@ -50,7 +50,7 @@ const Signin = () => {
   const redirect = searchParams.get("redirect");
 
   useEffect(() => {
-    dispatch(logoutUser());
+    dispatch(signoutUser());
   }, [dispatch]);
 
   const handleLogin = async e => {
@@ -80,9 +80,10 @@ const Signin = () => {
           break;
       }
       dispatch(loginUser(user));
-      navigate(redirect || "/", {
+      const prop = {
         state: locState
-      });
+      };
+      navigate(redirect || "/", prop);
     } catch (message) {
       if (message.code) {
         if (message.code === "auth/popup-closed-by-user")

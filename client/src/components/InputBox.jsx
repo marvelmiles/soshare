@@ -65,10 +65,10 @@ const InputBox = ({
   withPlaceholders = true,
   fileId,
   submitInputsOnly,
-  docType = "post"
+  inputClassName = ""
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const { setSnackBar, setContext } = useContext();
+  const { setSnackBar } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const [moreActionPopover, setMoreActionPopover] = useState({});
   const {
@@ -115,7 +115,6 @@ const InputBox = ({
       color: "primary.main"
     }
   };
-
   const deleteMedia = useCallback(
     _multiple => {
       if (formData[mediaRefName]) {
@@ -257,10 +256,14 @@ const InputBox = ({
           e.stopPropagation();
           e.preventDefault();
         }
-        if (!currentUser.id) return setSnackBar();
-
+        if (!currentUser.id) {
+          const docId =
+            placeholders && (placeholders.document.id || placeholders.document);
+          return setSnackBar(undefined, docId && { [docId]: formData });
+        }
         const stateCtx = stateRef.current;
         const _formData = handleSubmit();
+
         if (_formData) {
           let _url =
             url +
@@ -281,7 +284,6 @@ const InputBox = ({
                 : `Your ${mediaRefName} has been uploaded!`,
             severity: "success"
           });
-          console.log(" done ");
           if (placeholders && !res[mediaRefName] && res.url) {
             res = {
               ...res,
@@ -303,20 +305,9 @@ const InputBox = ({
 
           if (handleAction)
             handleAction(placeholders ? "update" : "new", { document: res });
-          else
-            setContext(context => {
-              context.composeDoc = {
-                docType,
-                document: res,
-                reason: placeholders ? "update" : "new"
-              };
-              return { ...context };
-            });
-        } else errors[mediaRefName] && setSnackBar(errors[mediaRefName]);
+        }
       } catch (msg) {
-        msg = message
-          ? message.error || msg.message || msg
-          : msg.message || msg;
+        msg = message ? message.error || msg : msg;
         if (Array.isArray(msg)) {
           let err;
           err = `Failed to upload`;
@@ -335,7 +326,6 @@ const InputBox = ({
     },
     [
       currentUser.id,
-      errors,
       formData,
       handleAction,
       handleSubmit,
@@ -348,9 +338,7 @@ const InputBox = ({
       resetData,
       setSnackBar,
       url,
-      withPlaceholders,
-      setContext,
-      docType
+      withPlaceholders
     ]
   );
   const showMoreTools = ({ currentTarget }) =>
@@ -407,7 +395,7 @@ const InputBox = ({
         setSnackBar(
           `We're sorry to inform you that we were unable to preview your file due to an issue with the network or the file itself. It appears that the file may be corrupted or damaged or your browser have no support for it!`
         );
-      else setSnackBar(`Maximum duration or upload size exceeded!`);
+      else setSnackBar(err.message || err);
     }
   }, [errors, mediaRefName, setSnackBar]);
 
@@ -418,7 +406,6 @@ const InputBox = ({
     if (currentUser.settings.hideDelMediasDialog) deleteMedia(true);
     else showDelDialog("delete-temp", true);
   };
-
   return (
     <>
       <WidgetContainer
@@ -455,16 +442,7 @@ const InputBox = ({
             />
             <Box
               sx={{
-                flex: 1,
-                textarea: {
-                  width: "100%",
-                  p: 1,
-                  pt: 2,
-                  m: 0,
-                  border: "none",
-                  outline: "none",
-                  backgroundColor: "transparent"
-                }
+                flex: 1
               }}
             >
               <Stack
@@ -483,7 +461,6 @@ const InputBox = ({
                     borderRadius: 24,
                     p: 0,
                     m: 0,
-                    // flex: 1,
                     color: "primary.main",
                     "&:hover,&:focus": {
                       background: "none"
@@ -508,7 +485,7 @@ const InputBox = ({
                   }}
                   onChange={({ target: { value } }) => {
                     formData.visibility = value;
-                    reset(formData, { stateChanged: true });
+                    reset({ ...formData }, { stateChanged: true });
                   }}
                 >
                   <MenuItem value="everyone">Everyone</MenuItem>
@@ -538,13 +515,24 @@ const InputBox = ({
                     placeholder={placeholder}
                     component="textarea"
                     sx={{
-                      color: "primary.contrastText",
-                      fontSize: boldFont ? "24px" : "16px",
+                      color: "text.primary",
+                      fontSize: boldFont ? "20px" : "16px",
+                      width: "100%",
+                      m: 0,
+                      border: "none",
+                      outline: "none",
+                      backgroundColor: "transparent",
+                      minHeight: "60px",
+                      maxHeight: "60px",
+                      overflow: "auto",
+                      whiteSpace: "pre-wrap",
+                      mt: 1,
                       "&::placeholder": {
-                        color: "primary.contrastText"
+                        color: "text.secondary"
                       }
                     }}
                     data-max={max}
+                    className={`inputbox-textarea ${inputClassName}`}
                   />
                   <Typography style={{ float: "right" }}>
                     {(formData.text || "").length || 0} / {max}
@@ -689,7 +677,11 @@ const InputBox = ({
                 disabled={disabled || !stateChanged}
                 variant="contained"
               >
-                {actionText ? actionText : placeholders ? "Update" : "Soshare"}
+                {actionText
+                  ? actionText
+                  : method === "put"
+                  ? "Update"
+                  : "Soshare"}
               </Button>
             </Stack>
           </Stack>

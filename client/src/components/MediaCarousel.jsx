@@ -51,7 +51,7 @@ const MediaCarousel = forwardRef(
     {
       medias = [],
       display = "block",
-      height = "300px",
+      height = "220px",
       borderRadius = "12px",
       actionBar,
       showIndicator = true,
@@ -139,7 +139,12 @@ const MediaCarousel = forwardRef(
                     height,
                     borderRadius: "inherit",
                     top: 0,
-                    backgroundColor: "common.white"
+                    backgroundColor: "common.white",
+                    position: "relative",
+                    overflow: "hidden",
+                    "& > *": {
+                      position: "absolute"
+                    }
                   }
                 }}
               >
@@ -180,11 +185,6 @@ const MediaCarousel = forwardRef(
                       mimetype={m.mimetype || m.type}
                       nativeFile={isFile && m}
                       src={m.url}
-                      styles={{
-                        footer: {
-                          bottom: 5
-                        }
-                      }}
                       {...videoPlayerProps}
                       key={m.id}
                       backdrops={backdrops}

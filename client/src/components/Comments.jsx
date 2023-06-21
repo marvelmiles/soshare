@@ -1,6 +1,5 @@
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, { useRef, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
-import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import PostWidget from "components/PostWidget";
 import InfiniteScroll from "./InfiniteScroll";
@@ -12,6 +11,7 @@ import { Link } from "react-router-dom";
 import { checkVisibility } from "utils/validators";
 import EmptyData from "components/EmptyData";
 import Loading from "components/Loading";
+import { StyledLink } from "components/styled";
 
 // decided to use index-based rendering
 // scability and real-time updates
@@ -20,24 +20,18 @@ import Loading from "components/Loading";
 const Comments = ({
   documentId,
   limit,
-  autoFetchReplies = true,
-  context = {},
   handleAction,
   defaultShowEnd = true,
   docType,
-  user,
-  defaultData,
   isRO,
-  sx,
   maxSizeElement,
   maxSize,
   rootUid = "",
-  maxThread = 2,
+  maxThread = 3,
   searchParams = `ro=${rootUid}&maxThread=${maxThread || ""}&withThread=true`,
-  scrollNodeRef = null,
-  infiniteProps
+  scrollNodeRef = null
 }) => {
-  const currentUser = useSelector(state => state.user.currentUser || {});
+  const currentUser = useSelector(state => state.user.currentUser);
   const {
     socket,
     context: { blacklistedUsers, filterDocsByUserSet, composeDoc },
@@ -47,15 +41,15 @@ const Comments = ({
     url: `/comments/feed/${documentId}`,
     registeredIds: {},
     pending: {},
-    notiferDelay: -1
+    notiferDelay: -1,
+    searchParams
   });
   const infiniteScrollRef = useRef();
   const appendComment = useCallback(
-    comment => {
+    (comment, shallowAppend) => {
       const data = infiniteScrollRef.current?.data;
       const stateCtx = stateRef.current;
       const docId = comment.document.id;
-
       if (
         blacklistedUsers[comment.user.id] ||
         stateCtx.registeredIds[comment.id] >= -1 ||
@@ -66,18 +60,24 @@ const Comments = ({
         !checkVisibility(comment, currentUser)
       )
         return;
-
       stateCtx.registeredIds[comment.id] = -1;
 
       stateRef.current.notifierDelay =
-        comment.user.id === currentUser?.id ? -1 : undefined;
-
+        comment.user.id === currentUser.id ? -1 : undefined;
+      const shallowProp = shallowAppend
+        ? {
+            preventFetch: false
+          }
+        : undefined;
       if (docId === documentId) {
         stateCtx.registeredIds[comment.id] = data.data.length;
-        infiniteScrollRef.current.setData({
-          ...data,
-          data: [comment, ...data.data]
-        });
+        infiniteScrollRef.current.setData(
+          {
+            ...data,
+            data: [comment, ...data.data]
+          },
+          shallowProp
+        );
         handleAction &&
           handleAction("update", {
             document: comment.document
@@ -87,24 +87,31 @@ const Comments = ({
         let rootComment = data.data[rIndex];
         if (rootComment) {
           if (docId === rootComment.id) {
+            delete stateCtx.registeredIds[(rootComment.threads[0]?.id)];
             rootComment = comment.document;
             stateCtx.registeredIds[comment.id] = 0;
             rootComment.threads[0] = comment;
           } else {
             const dIndex = stateCtx.registeredIds[docId];
-            rootComment.threads[dIndex] = comment.document;
-            if (rootComment.threads.length < maxThread) {
-              rootComment.threads = rootComment.threads.slice(0, dIndex + 1);
-              stateCtx.registeredIds[comment.id] = rootComment.threads.length;
-              rootComment.threads.push(comment);
-              stateRef.current.maxThread = dIndex + 1;
+            const endIndex = dIndex + 1;
+            for (let i = endIndex; i < rootComment.threads.length; i++) {
+              delete stateCtx.registeredIds[rootComment.threads[i].id];
             }
+            rootComment.threads[dIndex] = comment.document;
+            rootComment.threads = rootComment.threads.slice(0, endIndex);
+            stateCtx.registeredIds[comment.id] = rootComment.threads.length;
+
+            if (dIndex + 1 !== maxThread)
+              rootComment.threads[endIndex] = comment;
           }
+          data.data[rIndex] = rootComment;
+          infiniteScrollRef.current.setData(
+            {
+              ...data
+            },
+            shallowProp
+          );
         }
-        data.data[rIndex] = rootComment;
-        infiniteScrollRef.current.setData({
-          ...data
-        });
       }
     },
     [currentUser, documentId, handleAction, maxThread, blacklistedUsers]
@@ -125,15 +132,16 @@ const Comments = ({
         (document.comments = removeFirstItemFromArray(uid, document.comments));
 
       const deleteFromReg = ({ id }) => delete stateCtx.registeredIds[id];
-
+      let filterConfig;
       if (docId === documentId) {
         data.data.splice(index, 1).forEach(deleteFromReg);
         handleAction && handleAction("update", { document });
       } else {
         const rIndex = stateCtx.registeredIds[rootThread];
-        let rootComment = data.data[rIndex];
+        let rootComment = data.data[rIndex],
+          dIndex;
         const handleAnomaly = () => {
-          // running just incase of multiple traffic collision maybe
+          // invoke just incase of multiple traffic collision maybe :(
           // based on dev and test it doesn't happen
         };
         if (rootComment) {
@@ -141,7 +149,7 @@ const Comments = ({
             rootComment.threads.forEach(deleteFromReg);
             rootComment.threads = [];
           } else {
-            const dIndex = stateCtx.registeredIds[docId];
+            dIndex = stateCtx.registeredIds[docId];
             if (dIndex > -1 && rootComment.threads[dIndex].id === docId) {
               if (typeof document.document === "string") {
                 const _dIndex = stateCtx.registeredIds[document.document];
@@ -156,13 +164,22 @@ const Comments = ({
             } else handleAnomaly();
           }
         } else handleAnomaly();
-
+        if (
+          rootComment.threads[dIndex] &&
+          rootComment.threads[dIndex].comments.length
+        )
+          filterConfig = {
+            preventFetch: true
+          };
         data.data[rIndex] = rootComment;
       }
 
-      infiniteScrollRef.current.setData({
-        ...data
-      });
+      infiniteScrollRef.current.setData(
+        {
+          ...data
+        },
+        filterConfig
+      );
     },
     [documentId, handleAction, isRO]
   );
@@ -226,17 +243,18 @@ const Comments = ({
   useEffect(() => {
     const handleFilter = comment => removeComment(comment, false);
 
-    const handleUpdate = comment =>
+    const handleUpdate = comment => {
       _handleAction("update", {
         document: comment
       });
+    };
 
-    const handleAppend = (comment, replace) => {
+    const handleAppend = (comment, shallowAppend) => {
       if (Array.isArray(comment)) {
         for (const _comment of comment) {
-          appendComment(_comment, replace);
+          appendComment(_comment, shallowAppend);
         }
-      } else appendComment(comment, replace);
+      } else appendComment(comment, shallowAppend);
     };
 
     socket.on("comment", handleAppend);
@@ -259,12 +277,6 @@ const Comments = ({
         default:
           break;
       }
-      if (composeDoc.url ? composeDoc.done : true) {
-        const id = setTimeout(() => {
-          setContext(prev => ({ ...prev, composeDoc: undefined }));
-          clearTimeout(id);
-        }, 0);
-      }
     }
   }, [composeDoc, _handleAction, setContext]);
 
@@ -276,47 +288,6 @@ const Comments = ({
       stateRef.current
     );
   }, [filterDocsByUserSet, blacklistedUsers]);
-
-  // if (infiniteScrollRef.current?.data.data.length && stateCtx) {
-  //   if (!stateCtx[documentId]) stateCtx[documentId] = {};
-  //   stateCtx[documentId].childData = infiniteScrollRef.current.data;
-  // }
-  const getThreadOwners = c => {
-    return "";
-    if (!c || c.user.id === currentUser.id) return;
-    let str = c.threads.length
-      ? "Replying to "
-      : `Replying to ${user.username || c.document.user.username}`;
-    let shown = 0;
-    // for (const thread of c.threads) {
-    //   const {
-    //     user: { username, id },
-    //     document: {
-    //       user: { username: run, id: rid }
-    //     }
-    //   } = thread;
-
-    //   if (str.length > 140) {
-    //     str += ` ${c.threads.length - shown} others.`;
-    //     break;
-    //   }
-    //   shown++;
-    //   str += ` ${username} and ${run}`;
-    // }
-    return str;
-  };
-
-  const renderSecAction = id => {
-    return (
-      <Button
-        onClick={e => e.stopPropagation()}
-        component={Link}
-        to={`?view=comments&cid=${id}`}
-      >
-        show replies
-      </Button>
-    );
-  };
 
   return (
     <>
@@ -347,110 +318,154 @@ const Comments = ({
           key={documentId + "-comment-input-box"}
         />
       ) : null}
-      {autoFetchReplies === true ? (
-        <InfiniteScroll
-          key={documentId + "comments"}
-          className="comments"
-          ref={infiniteScrollRef}
-          searchParams={searchParams}
-          limit={limit}
-          url={stateRef.current.url}
-          defaultShowEnd={defaultShowEnd}
-          httpConfig={
-            isRO && {
-              withCredentials: true
-            }
-          }
-          maxSizeElement={maxSizeElement}
-          maxSize={maxSize}
-          scrollNodeRef={scrollNodeRef}
-          notifierDelay={stateRef.current.notifierDelay}
-          notifierProps={{
-            position: "fixed"
-          }}
-        >
-          {({ data: { data, paging }, setObservedNode }) => {
+
+      <InfiniteScroll
+        key={documentId + "comments"}
+        className="comments"
+        ref={infiniteScrollRef}
+        searchParams={stateRef.current.searchParams}
+        limit={limit}
+        url={stateRef.current.url}
+        defaultShowEnd={defaultShowEnd}
+        maxSizeElement={maxSizeElement}
+        maxSize={maxSize}
+        scrollNodeRef={scrollNodeRef}
+        notifierDelay={stateRef.current.notifierDelay}
+        notifierProps={{
+          position: "fixed"
+        }}
+        withCredentials={isRO}
+      >
+        {({ data: { data }, setObservedNode }) => {
+          const getThreadOwners = (comment, i) => {
+            const maxReplyTo = 3; // zero based index = 4
+            const hasIndex = i < maxReplyTo;
+            const reminder = i < maxReplyTo ? 0 : i - maxReplyTo;
+
             return (
-              <>
-                {data.length ? (
-                  data.map((comment, i) => {
-                    if (!comment) return null;
-
-                    if (blacklistedUsers[comment.user.id])
-                      delete stateRef.current.registeredIds[comment.id];
-                    else stateRef.current.registeredIds[comment.id] = i;
-
-                    return (
-                      <div
-                        key={comment.id}
-                        ref={
-                          i === data.length - 1
-                            ? node => node && setObservedNode(node)
-                            : null
-                        }
+              <span>
+                Replying to
+                {(() =>
+                  [comment]
+                    .concat(comment.threads.slice(0, hasIndex ? i : maxReplyTo))
+                    .map(({ user: { username, id } }, i) => (
+                      <span key={i}>
+                        {" "}
+                        <StyledLink to={`/u/${id}`}>
+                          @{username}
+                        </StyledLink>{" "}
+                      </span>
+                    )))()}
+                {reminder > 0 ? (
+                  <span>
+                    and{" "}
+                    {reminder > 1 ? (
+                      `${reminder} others.`
+                    ) : (
+                      <StyledLink
+                        to={`/u/${comment.threads[maxReplyTo].user.id}`}
                       >
-                        <PostWidget
-                          showThread={!!comment.threads.length}
-                          docType="comment"
-                          post={comment}
-                          handleAction={_handleAction}
-                          caption={getThreadOwners(comment)}
-                          isRO={isRO}
-                          secondaryAction={renderSecAction(comment.id)}
-                          searchParams={searchParams}
-                          withDialog={false}
-                        />
-                        {comment.threads.length
-                          ? comment.threads?.map((_c, i) => {
-                              const limit = Number(maxThread) || 100;
-                              const params = `ro=${rootUid}&maxThread=${
-                                stateRef.current.maxThread
-                                  ? limit - stateRef.current.maxThread
-                                  : limit - 1
-                              }&withThread=true`;
-
-                              if (blacklistedUsers[_c.user.id])
-                                delete stateRef.current.registeredIds[_c.id];
-                              else stateRef.current.registeredIds[_c.id] = i;
-
-                              return _c ? (
-                                <PostWidget
-                                  key={_c.id}
-                                  showThread={i !== comment.threads.length - 1}
-                                  searchParams={params}
-                                  post={_c}
-                                  docType="comment"
-                                  handleAction={_handleAction}
-                                  caption={getThreadOwners(_c)}
-                                  isRO={isRO}
-                                  sx={{
-                                    pt: 0
-                                  }}
-                                  secondaryAction={renderSecAction(_c.id)}
-                                  withDialog={false}
-                                />
-                              ) : null;
-                            })
-                          : null}
-                        {stateRef.current.pending[comment.id] ? (
-                          <Loading />
-                        ) : null}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <EmptyData
-                    sx={{
-                      flex: 1
-                    }}
-                    label="Looks like there are no comments yet. Be the first to soshare!"
-                  />
-                )}
-              </>
+                        @{comment.threads[maxReplyTo].user.username}
+                      </StyledLink>
+                    )}
+                  </span>
+                ) : null}
+              </span>
             );
-          }}
-        </InfiniteScroll>
-      ) : null}
+          };
+
+          const renderSecAction = id => {
+            return (
+              <Button
+                onClick={e => e.stopPropagation()}
+                component={Link}
+                to={`?view=comments&cid=${id}`}
+              >
+                show replies
+              </Button>
+            );
+          };
+
+          return (
+            <>
+              {data.length ? (
+                data.map((comment, i) => {
+                  if (!comment) return null;
+
+                  if (blacklistedUsers[comment.user.id])
+                    delete stateRef.current.registeredIds[comment.id];
+                  else stateRef.current.registeredIds[comment.id] = i;
+
+                  return (
+                    <div
+                      key={comment.id}
+                      ref={
+                        i === data.length - 1
+                          ? node => node && setObservedNode(node)
+                          : null
+                      }
+                    >
+                      <PostWidget
+                        showThread={!!comment.threads.length}
+                        docType="comment"
+                        post={comment}
+                        handleAction={_handleAction}
+                        isRO={isRO}
+                        secondaryAction={
+                          comment.comments.length
+                            ? renderSecAction(comment.id)
+                            : undefined
+                        }
+                        searchParams={searchParams}
+                        withDialog={false}
+                      />
+                      {comment.threads.length
+                        ? comment.threads?.map((_c, i) => {
+                            if (blacklistedUsers[_c.user.id])
+                              delete stateRef.current.registeredIds[_c.id];
+                            else stateRef.current.registeredIds[_c.id] = i;
+
+                            return _c ? (
+                              <PostWidget
+                                key={_c.id}
+                                showThread={i !== comment.threads.length - 1}
+                                searchParams={searchParams}
+                                post={_c}
+                                docType="comment"
+                                handleAction={_handleAction}
+                                caption={getThreadOwners(comment, i)}
+                                isRO={isRO}
+                                sx={{
+                                  pt: 0
+                                }}
+                                secondaryAction={
+                                  _c.comments.length
+                                    ? renderSecAction(_c.id)
+                                    : undefined
+                                }
+                                withDialog={false}
+                              />
+                            ) : null;
+                          })
+                        : null}
+                      {stateRef.current.pending[comment.id] ? (
+                        <Loading />
+                      ) : null}
+                    </div>
+                  );
+                })
+              ) : (
+                <EmptyData
+                  sx={{
+                    flex: 1
+                  }}
+                  label="Looks like there are no comments yet. Be the first to soshare!"
+                />
+              )}
+            </>
+          );
+        }}
+      </InfiniteScroll>
     </>
   );
 };

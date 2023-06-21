@@ -4,10 +4,7 @@ import { updateUser } from "context/slices/userSlice";
 import { useDispatch } from "react-redux";
 
 // functions that requires redux with no extra state or hooks
-const useCallbacks = (
-  infiniteScrollRef,
-  { stateCtx, currentUser = { user: {} } }
-) => {
+const useCallbacks = (infiniteScrollRef, { currentUser = { user: {} } }) => {
   const dispatch = useDispatch();
 
   const ref = useRef({
@@ -15,26 +12,21 @@ const useCallbacks = (
       const { document, uid, action, value } = options;
       const { setData, data } = infiniteScrollRef.current;
       const docId = document && (document.id || document);
-      if (!stateCtx?.cachedData) stateCtx.cachedData = {};
       if (ref.current.isProc) return;
-      console.log(reason, " reason ");
       switch (reason) {
         case "new":
           ref.current.isProc = true;
           let _data = data.data.slice();
-          if (stateCtx.cachedData[docId]) {
-            _data.splice(
-              stateCtx.cachedData[docId].index,
-              0,
-              stateCtx.cachedData[docId].data
-            );
-            delete stateCtx.cachedData[docId];
-          } else {
-            (document.visibility
-              ? checkVisibility(document, currentUser)
-              : true) && (_data = [document, ...data.data]);
-          }
-          setData({ ...data, data: _data });
+          (document.visibility
+            ? checkVisibility(document, currentUser)
+            : true) && (_data = [document, ...data.data]);
+
+          setData(
+            { ...data, data: _data },
+            {
+              numberOfEntries: document.user.id === currentUser.id ? 0 : 1
+            }
+          );
 
           break;
         case "filter":
@@ -59,11 +51,10 @@ const useCallbacks = (
           break;
         case "update":
           ref.current.isProc = true;
-
           setData({
             ...data,
             data: data.data.map(s =>
-              s.id === docId || s.user.id === uid ? { ...s, ...document } : s
+              s.id === docId || s.user?.id === uid ? { ...s, ...document } : s
             )
           });
           break;

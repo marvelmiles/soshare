@@ -28,7 +28,8 @@ const PostsView = ({
       blacklistedPosts,
       blacklistedUsers,
       filterDocsByUserSet
-    }
+    },
+    locState
   } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const infiniteScrollRef = useRef();
@@ -85,7 +86,7 @@ const PostsView = ({
 
   return (
     <InfiniteScroll
-      exclude={blacklistedPosts}
+      exclude={Object.keys(blacklistedPosts).join(",")}
       root={document.documentElement}
       Component={WidgetContainer}
       componentProps={{
@@ -101,13 +102,12 @@ const PostsView = ({
       }
       scrollNodeRef={scrollNodeRef}
       {...infiniteScrollProps}
-      // handleAction={_handleAction}
       key={"infinite-posts"}
       withCredentials={!!currentUser.id}
       readyState={
         composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
       }
-      searchId={composeDoc?.url && composeDoc.document?.id}
+      searchId={composeDoc?.url ? composeDoc.document?.idp : undefined}
     >
       {({ data: { data, paging }, setObservedNode }) => {
         return paging?.nextCursor !== undefined || data.length ? (

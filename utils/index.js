@@ -1,15 +1,10 @@
 import jwt from "jsonwebtoken";
 import Notification from "../models/Notification.js";
 import crypto from "crypto";
-import mongoose, { Types } from "mongoose";
 import { isObject } from "./validators.js";
 import Comment from "../models/Comment.js";
-import { shuffleArray } from "../utils/normalizers.js";
-import User from "../models/User.js";
-import Short from "../models/Short.js";
-import Post from "../models/Post.js";
-import { v4 as uuidv4 } from "uuid";
-import bson, { ObjectId } from "bson";
+import bcrypt from "bcrypt";
+
 export const setTokens = async (res, id, rememberMe, accessOnly) => {
   rememberMe = rememberMe === "true";
   const shortT = new Date();
@@ -63,17 +58,13 @@ export const setTokens = async (res, id, rememberMe, accessOnly) => {
     );
 };
 
-// Rm duplicate: group by _id and project a new root of the first document
-// only which will verify no document is returned twice.
 export const getAll = async ({
   query = {},
   model,
   match = {},
   dataKey,
   populate,
-  sort = {},
-  verify,
-  vet
+  sort = {}
 }) => {
   try {
     let {
@@ -92,15 +83,7 @@ export const getAll = async ({
     withEq = withEq === "true";
     withMatchedDocs = withMatchedDocs === "true";
     randomize = randomize === "true";
-
-    // verify && console.log(cursor, exclude, " curosr  ");
-
-    vet && console.log(cursor, exclude, " curosr  ");
-
     exclude = exclude ? exclude.split(",") : [];
-    // verify && console.log(exclude);
-
-    vet && console.log(exclude);
 
     if (match._id?.$nin) {
       exclude = exclude.concat(match._id.$nin);
@@ -154,17 +137,10 @@ export const getAll = async ({
       value && (match._id.$eq = value);
     }
 
-    // verify && console.log(withMatchedDocs, randomize, exclude, " with match ");
-
-    // vet && console.log(withMatchedDocs, randomize, exclude, " with match ");
-
     (withMatchedDocs || randomize) &&
       (matchedDocs = dataKey
         ? ((await model.findOne(match)) || {})[dataKey]?.length || 0
         : await model.countDocuments(match));
-
-    // vet &&
-    //   console.log(match.$expr.$cond, withMatchedDocs, randomize, matchedDocs);
 
     const $addFields = { _id: { $toString: "$_id" }, id: "$_id" };
 
@@ -237,7 +213,7 @@ export const getAll = async ({
         });
       }
     }
-    // vet && console.log(pipelines[1].$match);
+
     result = await model.populate(await model.aggregate(pipelines), populate);
 
     if (dataKey && result[0]) result = result[0][dataKey];
@@ -262,7 +238,6 @@ export const getAll = async ({
       );
     });
   } catch (err) {
-    verify && console.log(err.message, " get  all ");
     throw err;
   }
 };
@@ -403,7 +378,7 @@ export const sendAndUpdateNotification = async ({
   } catch (err) {
     match && (match.users = [from]);
     console.error(
-      `[Error Sending Notification]: Match data: ${
+      `[SERVER_ERROR: Notification]: Match data: ${
         err.message
       }: ${JSON.stringify(match)} at ${new Date()}.`
     );
@@ -442,7 +417,7 @@ export const handleMiscDelete = async (docId, io, withComment = true) => {
     await Notification.deleteMany(docQuery);
   } catch (err) {
     console.error(
-      `[Error misc delete]: id: ${doocId}. ${err.message} at ${new Date()}.`
+      `[Error: Misc Delete]: id: ${doocId}. ${err.message} at ${new Date()}.`
     );
   }
 };
@@ -455,9 +430,9 @@ export const getRoomSockets = (io, roomId) => {
   return ids;
 };
 
-export const getThreadsByRelevance = async (docId, query = {}, model) => {
-  let { ro, threadPriorities = "ro,most comment", maxThread = "2" } = query;
-  maxThread = Number(maxThread) || 2;
+export const getThreadsByRelevance = async (docId, query = {}, model, v) => {
+  let { ro, threadPriorities = "ro,most comment", maxThread = "3" } = query;
+  maxThread = Number(maxThread) || 3;
   maxThread = maxThread === Infinity ? await model.countDocuments() : maxThread;
   threadPriorities = threadPriorities.split(",");
 
@@ -520,3 +495,6 @@ export const getThreadsByRelevance = async (docId, query = {}, model) => {
   }
   return threads;
 };
+
+export const hashToken = async (token, rounds = 10) =>
+  await bcrypt.hash(token, await bcrypt.genSalt(rounds));

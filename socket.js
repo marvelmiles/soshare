@@ -1,6 +1,6 @@
 import { Server } from "socket.io";
 import { createServer } from "http";
-import { CLIENT_ENDPOINT } from "./config.js";
+import { CLIENT_ENDPOINT, TOKEN_EXPIRED_MSG } from "./config.js";
 import cookie from "cookie";
 import { verifyToken } from "./utils/middlewares.js";
 import { createError } from "./utils/error.js";
@@ -21,15 +21,13 @@ export default (app, port = process.env.PORT || 8800) => {
     //     markedUsers: {}
     //   }
     // );
-    // const posts = await Short.find({
+    // const posts = await Post.find({
     //   // user: "647bfecf807e097cf56a64a1"
     // });
-    // for (let i = 0; i < posts.length / 2; i++) {
-    //   const post = posts[Math.floor(Math.random() * posts.length)];
+    // for (let i = 0; i < posts.length; i++) {
+    //   const post = posts[i];
     //   await post.updateOne({
-    //     user: "6436e0e74bdec4961bc0680b",
-    //     comments: [],
-    //     likes: {}
+    //     text: post.text?.replace("/\\r\\n|\\r/gi", "\n")
     //   });
     // }
     // await Post.updateMany(
@@ -95,26 +93,23 @@ export default (app, port = process.env.PORT || 8800) => {
 
   io.use((socket, next) => {
     const cookies = cookie.parse(socket.request.headers.cookie || "");
-    console.log(!!cookies);
     try {
       if (cookies) {
-        verifyToken({
-          cookies
-        });
+        verifyToken(
+          {
+            cookies
+          },
+          undefined,
+          next
+        );
         socket.handshake.withCookies = true;
       }
-      console.log(" cook ", !!cookies);
       next();
     } catch (err) {
       if (socket.handshake.userId) socket.disconnect();
-      const withCredentials = !!socket.request;
-      console.log(!!cookies.access_token);
       next(
-        cookies.access_token
-          ? createError(
-              cookies ? `Token expired or isn't valid` : err.message,
-              err.status || 401
-            )
+        cookies.access_token || cookies.refresh_token
+          ? createError(err.message, err.status || 401)
           : undefined
       );
     }
@@ -138,7 +133,6 @@ export default (app, port = process.env.PORT || 8800) => {
       delete socket.handshake.suggestFollowersTime;
       delete socket.handshake.suggestFollowersInterval;
     };
-    console.log(socket.handshake.withCookies);
     if (socket.handshake.withCookies) {
       !socket.handshake.userId && io.emit("register-user");
       socket.on("register-user", handleRegUser);
@@ -148,7 +142,6 @@ export default (app, port = process.env.PORT || 8800) => {
 
     socket.on("disconnect", () => {
       console.clear();
-
       socket.removeAllListeners();
 
       socket.leave(socket.handshake.userId);

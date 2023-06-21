@@ -7,7 +7,6 @@ import http from "api/http";
 import ShortFooter from "./ShortFooter";
 import ShortSidebar from "./ShortSidebar";
 import { useNavigate } from "react-router-dom";
-import { useContext } from "context/store";
 import Typography from "@mui/material/Typography";
 
 const Short = React.forwardRef(
@@ -26,7 +25,6 @@ const Short = React.forwardRef(
     },
     ref
   ) => {
-    const { setContext } = useContext();
     const cid = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
     const stateRef = useRef({
@@ -83,7 +81,7 @@ const Short = React.forwardRef(
               }
             : {
                 xs: "100%",
-                s320: "280px"
+                s320: "320px"
               },
           mb: miniShort ? 1 : 0,
           mx: miniShort ? "" : "auto"

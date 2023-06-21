@@ -18,7 +18,7 @@ const userSlice = createSlice({
   initialState,
   name: "user",
   reducers: {
-    logoutUser(state) {
+    signoutUser(state) {
       if (!!state.currentUser.id)
         http
           .patch(
@@ -100,7 +100,7 @@ const userSlice = createSlice({
 });
 
 export const {
-  logoutUser,
+  signoutUser,
   loginUser,
   updatePreviewUser,
   updateUser,

@@ -17,7 +17,6 @@ import {
 
 export const addComment = async (req, res, next) => {
   try {
-    console.log(req.body, " comment ");
     if (!req.body.document)
       throw createError(
         "Invalid body expect document key value pair of type string"
@@ -79,10 +78,12 @@ export const addComment = async (req, res, next) => {
     ];
     comment = await comment.populate(docPopulate);
     const io = req.app.get("socketIo");
-    if (io) io.emit("comment", comment);
+    if (io) {
+      io.emit("comment", comment);
+      io.emit(`update-${comment.docType}`, comment.document);
+    }
     res.json(comment);
-    console.log(" notif comment ");
-    await sendAndUpdateNotification({
+    sendAndUpdateNotification({
       req,
       docPopulate,
       type: "comment",
@@ -99,6 +100,7 @@ export const getComment = async (req, res, next) => {
 
 export const getComments = async (req, res, next) => {
   req.query.shuffle = req.query.shuffle || "false";
+
   const docPopulate = [
     {
       path: "user"
@@ -127,7 +129,6 @@ export const getComments = async (req, res, next) => {
 
 export const deleteComment = async (req, res, next) => {
   try {
-    console.log("deleting commend ", req.query.ro);
     const docPopulate = [
       {
         path: "user"
@@ -187,6 +188,7 @@ export const deleteComment = async (req, res, next) => {
     if (io) {
       io.emit(`filter-comment`, comment);
       io.emit(`update-${model.modelName}`, comment.document);
+
       if (
         comment.rootThread &&
         req.query.withThread === "true" &&
@@ -195,7 +197,8 @@ export const deleteComment = async (req, res, next) => {
         const threads = await getThreadsByRelevance(
           comment.rootThread,
           req.query,
-          model
+          model,
+          true
         );
         if (threads.length) io.emit("comment", threads, true);
       }

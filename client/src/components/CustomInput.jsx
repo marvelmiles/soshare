@@ -11,6 +11,7 @@ const CustomInput = ({
   startAdornment,
   multiline,
   label,
+  value = "",
   sx,
   ...props
 }) => {
@@ -21,7 +22,12 @@ const CustomInput = ({
     color: "primary.main"
   };
   return (
-    <div>
+    <Box
+      sx={{
+        my: 1,
+        ...sx
+      }}
+    >
       <Box
         sx={{
           display: "flex",
@@ -36,7 +42,6 @@ const CustomInput = ({
             : "divider",
           borderRadius: "5px",
           transition: "all 0.2s ease-out",
-          mb: 1,
           px: "4px",
           gap: "4px",
           "&:focus-within": {
@@ -68,13 +73,17 @@ const CustomInput = ({
                 width: "100%",
                 display: "block"
               },
+
+              [INPUT_AUTOFILL_SELECTOR]: {
+                "& + span": spanSxOnInput
+              },
               ".custom-input": {
                 outline: 0,
                 border: 0,
                 width: "100%",
                 color: "text.primary",
                 [`&:focus${
-                  props.value.length
+                  value.length
                     ? props.readOnly
                       ? ",&:not(.custom-input-invalidate)"
                       : ",&:valid"
@@ -86,19 +95,16 @@ const CustomInput = ({
                 }
               },
 
-              [INPUT_AUTOFILL_SELECTOR]: {
-                "& + span": spanSxOnInput
-              },
               span: {
                 transition: "all 0.2s ease-out",
                 pointerEvents: "none",
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "text.primary",
                 fontWeight: "normal",
                 "& > span": {
                   color: "error.dark"
-                }
+                },
+                top: "55%",
+                transform: "translateY(-50%)",
+                ...(value.length ? spanSxOnInput : undefined)
               }
             },
             "& > span": {
@@ -107,9 +113,14 @@ const CustomInput = ({
             }
           },
           "& > div": {
-            mt: "4px"
-          },
-          ...sx
+            mt: "4px",
+            "& svg:not(.input-svg-container svg)": {
+              color: "text.primary"
+            },
+            "& *": {
+              m: 0
+            }
+          }
         }}
       >
         {startAdornment ? <div>{startAdornment}</div> : null}
@@ -118,11 +129,16 @@ const CustomInput = ({
             {multiline ? (
               <textarea
                 rows={1}
+                value={value}
                 {...props}
                 className={`custom-input ${props.className || ""}`}
               />
             ) : (
-              <input {...props} className={`custom-input ${props.className}`} />
+              <input
+                value={value}
+                {...props}
+                className={`custom-input ${props.className || ""}`}
+              />
             )}
             <Typography component="span" variant="h5">
               {label} {required ? <span>*</span> : null}
@@ -130,14 +146,13 @@ const CustomInput = ({
           </div>
           {props["data-max"] ? (
             <Typography component="span" variant="caption">
-              {props.value.length} / {props["data-max"]}
+              {value.length} / {props["data-max"]}
             </Typography>
           ) : null}
         </label>
         {endAdornment ? <div>{endAdornment}</div> : null}
       </Box>
-
-      {typeof error === "string" ? (
+      {error !== "required" && typeof error === "string" ? (
         <Typography
           color={
             error
@@ -147,18 +162,12 @@ const CustomInput = ({
                 }[error] || "error.dark"
               : "transparent"
           }
-          variant="subtitle2"
-          sx={{
-            mt: "-8px"
-          }}
+          variant="caption"
         >
-          {{
-            required: `Field is required`,
-            [`minimum of ${props["data-min"]}`]: `minimum of 8 characters`
-          }[error] || error}
+          {error}
         </Typography>
       ) : null}
-    </div>
+    </Box>
   );
 };
 

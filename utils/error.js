@@ -1,13 +1,4 @@
 export const createError = (message, status) => {
-  // console.log(
-  //   message.message || message,
-  //   "----",
-  //   message.code,
-  //   "---",
-  //   message.name,
-  //   " err handler "
-  // );
-
   if (message.status) return message;
 
   const err = new Error();
@@ -24,12 +15,10 @@ export const createError = (message, status) => {
       err.status = status || 400;
       break;
     case "casterror":
-      // console.error(`[CAST ERROR]: ${message.message}`);
       err.message = message.message
         .replaceAll(/_id+/g, "id")
         .slice(0, message.message.indexOf(`" for model`));
       err.status = 400;
-      // console.log(err.message);
       break;
     case "customerror":
       err.message = message.message || message;

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useSelector } from "react-redux";
 import PropTypes from "prop-types";
 import {
@@ -11,12 +11,12 @@ import MediaCarousel from "components/MediaCarousel";
 import ChatBubbleOutlineOutlinedIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlined";
 import FavoriteOutlinedIcon from "@mui/icons-material/FavoriteOutlined";
-import { useContext } from "context/store";
 import { useNavigate } from "react-router-dom";
 import MoreActions from "components/MoreActions";
 import moment from "moment";
 import useLikeDispatch from "hooks/useLikeDispatch";
-
+import { useLocation } from "react-router-dom";
+import { createRelativeURL } from "api/http";
 const PostWidget = React.forwardRef(
   (
     {
@@ -41,7 +41,7 @@ const PostWidget = React.forwardRef(
     const [showAll, setShowAll] = useState(false);
     const id = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
-
+    const locState = useLocation().state;
     const stateRef = useRef({
       moreUrls: {
         delPath: {
@@ -50,13 +50,20 @@ const PostWidget = React.forwardRef(
         }
       }
     });
+    const inputTextRef = useRef();
+
+    useEffect(() => {
+      const textNode = inputTextRef.current;
+      textNode.style.height = "auto";
+      textNode.style.height = textNode.scrollHeight + "px";
+    }, [showAll]);
 
     const { handleLikeToggle } = useLikeDispatch({
       handleAction,
       docType,
       document: post
     });
-    const { setSnackBar } = useContext();
+
     const likeCount = Object.keys(post.likes || {}).length;
     const isOwner = post.user.id === id;
 
@@ -90,9 +97,10 @@ const PostWidget = React.forwardRef(
       return str;
     })();
 
+    const noNavigate = enableSnippet || disableNavigation;
+
     return (
       <>
-        {post.id}
         <Box sx={{ position: "relative" }}>
           {dialogContent ? (
             <Typography
@@ -114,7 +122,7 @@ const PostWidget = React.forwardRef(
           <WidgetContainer
             plainWidget={plainWidget}
             onClick={
-              enableSnippet || disableNavigation
+              noNavigate
                 ? undefined
                 : e => {
                     e.preventDefault();
@@ -132,7 +140,7 @@ const PostWidget = React.forwardRef(
               height: "auto",
               minHeight: "0",
               maxHeight: "none",
-              cursor: disableNavigation ? "" : "pointer",
+              cursor: noNavigate ? "default" : "pointer",
               backgroundColor: "transparent !important",
               mb: 0,
               pb: 1,
@@ -153,9 +161,8 @@ const PostWidget = React.forwardRef(
                   transform: {
                     xs: "translateX(10px)",
                     s280: "translateX(15px)"
-                  }, // half the avatar size
+                  },
                   bottom: "0px"
-                  // zIndex: 1
                 }
               }),
               ...sx
@@ -194,7 +201,7 @@ const PostWidget = React.forwardRef(
                     <StyledTypography
                       variant="caption"
                       textEllipsis
-                      color="primary.contrastText"
+                      color="text.secondary"
                       sx={{
                         ml: "3px",
                         fontWeight: "500"
@@ -236,46 +243,54 @@ const PostWidget = React.forwardRef(
                   {caption}
                 </Typography>
               ) : null}
-              <Box
-                sx={{
-                  my: 1,
-                  wordBreak: "break-word",
-                  color: "text.primary"
-                }}
-              >
-                {post.text ? (
-                  <Typography variant="h5" sx={{ display: "inline" }}>
-                    {post.text}
-                  </Typography>
-                ) : null}
-                {showAll && post.moreText ? (
-                  <Typography variant="h5" sx={{ display: "inline" }}>
-                    {post.moreText}
-                  </Typography>
-                ) : null}
-                {post.moreText ? (
-                  enableSnippet ? (
-                    <Typography component="span">...</Typography>
-                  ) : (
-                    <StyledTypography
-                      variant="link"
-                      sx={{ ml: 1 }}
+
+              {post.text ? (
+                <Typography
+                  ref={inputTextRef}
+                  variant="h5"
+                  component="div"
+                  sx={{
+                    resize: "none",
+                    width: "100%",
+                    color: "text.primary",
+                    height: "auto",
+                    maxHeight: "none",
+                    overflow: "hidden",
+                    whiteSpace: "pre-line",
+                    mb: 1
+                  }}
+                >
+                  <div>
+                    <span>
+                      {enableSnippet ? post.text.slice(0, 80) : post.text}
+                    </span>
+                    <span>
+                      {enableSnippet ? "..." : showAll ? post.moreText : null}
+                    </span>
+                  </div>
+                  {post.moreText && !enableSnippet ? (
+                    <Typography
+                      sx={{
+                        width: "auto",
+                        minWidth: "0",
+                        display: "inline-block",
+                        "&:hover": {
+                          textDecoration: "underline"
+                        }
+                      }}
                       onClick={e => {
                         e.preventDefault();
                         e.stopPropagation();
                         setShowAll(!showAll);
                       }}
                     >
-                      {showAll ? "Show less" : "Show more"}
-                    </StyledTypography>
-                  )
-                ) : null}
-              </Box>
-              {(post.medias ? (
-                post.medias.length
-              ) : (
-                post.media
-              )) ? (
+                      {showAll ? "show less" : "show more"}
+                    </Typography>
+                  ) : null}
+                </Typography>
+              ) : null}
+
+              {post.medias?.length || post.media ? (
                 <MediaCarousel medias={post.medias || [post.media]} />
               ) : null}
               {hideToolbox || enableSnippet ? null : (
@@ -293,18 +308,23 @@ const PostWidget = React.forwardRef(
                           <FavoriteBorderOutlinedIcon />
                         )}
                       </IconButton>
-                      <Typography>{{}[likeCount] || likeCount}</Typography>
+                      <Typography>{likeCount}</Typography>
                     </Stack>
                     <Stack
                       gap="4px"
                       onClick={e => {
                         e.stopPropagation();
-                        navigate(`?compose=comment`, {
-                          state: {
-                            composeDoc: post,
-                            docType
+                        navigate(
+                          createRelativeURL(undefined, `compose=comment`),
+                          {
+                            state: {
+                              ...locState,
+                              document: post,
+                              docType,
+                              reason: "comment"
+                            }
                           }
-                        });
+                        );
                       }}
                     >
                       <IconButton>
