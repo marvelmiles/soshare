@@ -6,3 +6,5 @@
 // relational database (database in general)
 
 // what is blob and clob
+
+//in class if you look from top-bottom = specialization vic-versa=

@@ -213,10 +213,19 @@ const UserWidget = ({ width, user }) => {
       {cUser.bio ? (
         <Typography
           variant="caption"
-          component="p"
+          component="div"
           color="text.secondary"
           fontWeight="500"
-          sx={{ mt: "1rem", pl: "0px" }}
+          sx={{
+            resize: "none",
+            width: "100%",
+            height: "auto",
+            maxHeight: "none",
+            overflow: "hidden",
+            whiteSpace: "pre-line",
+            mt: "1rem",
+            pl: "0px"
+          }}
         >
           {cUser.bio}
         </Typography>
@@ -251,7 +260,9 @@ const UserWidget = ({ width, user }) => {
           Social Profiles
         </Typography>
         <Stack sx={styles.textValue}>
-          <MailOutlineIcon />
+          <div title={"Email"}>
+            <MailOutlineIcon sx={{ cursor: "default" }} />
+          </div>
           <div style={{ minWidth: "100px", flex: 1 }}>
             <Typography
               fontWeight="500"
@@ -259,7 +270,7 @@ const UserWidget = ({ width, user }) => {
                 color: "text.secondary"
               }}
             >
-              {cUser.email}
+              {cUser.email}Culpa eiusmod tempor ea id ad.
             </Typography>
             <Typography>Mail Service</Typography>
           </div>
@@ -270,8 +281,16 @@ const UserWidget = ({ width, user }) => {
             <Stack sx={styles.textValue} key={i}>
               {
                 {
-                  twitter: <TwitterIcon />,
-                  linkedIn: <LinkedInIcon />
+                  twitter: (
+                    <div title={l}>
+                      <TwitterIcon sx={{ cursor: "default" }} />
+                    </div>
+                  ),
+                  linkedIn: (
+                    <div title={l}>
+                      <LinkedInIcon sx={{ cursor: "default" }} />
+                    </div>
+                  )
                 }[l]
               }
               <div style={{ minWidth: "100px", flex: 1 }}>
@@ -289,7 +308,7 @@ const UserWidget = ({ width, user }) => {
                     }
                   }}
                 >
-                  {url}
+                  {url}Culpa eiusmod tempor ea id ad.
                 </Typography>
                 <Typography>
                   {

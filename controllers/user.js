@@ -50,7 +50,6 @@ export const getFollowers = async (req, res, next) => {
 
 export const follow = async (req, res, next) => {
   try {
-    console.log(" follow user ", req.user.id, req.params.userId);
     if (!req.params.userId) throw createError("Invalid parameter. Check url");
     if (req.user.id === req.params.userId)
       throw createError("You can't follow yourself");
@@ -92,7 +91,6 @@ export const follow = async (req, res, next) => {
       type: "follow"
     });
   } catch (err) {
-    console.log(err.message, " follow ");
     next(err);
   }
 };
@@ -136,7 +134,6 @@ export const unfollow = async (req, res, next) => {
       filter: true
     });
   } catch (err) {
-    console.log(err.message, " unfollow");
     next(err);
   }
 };
@@ -282,7 +279,6 @@ export const getUserNotifications = async (req, res, next) => {
       })
     );
   } catch (err) {
-    console.log(err.message, " noti ");
     next(err);
   }
 };
@@ -375,7 +371,6 @@ export const getUserShorts = async (req, res, next) => {
 
 export const blacklistUserRecommendation = async (req, res, next) => {
   try {
-    console.log(" black user ", req.params.userId);
     return res.json("Blacklisted successfully");
     if (req.user.id === req.params.userId)
       throw createError("You can't blacklist yourself");
@@ -399,7 +394,6 @@ export const blacklistUserRecommendation = async (req, res, next) => {
 
 export const deleteUserNotification = async (req, res, next) => {
   try {
-    console.log(" delete notification ");
     await Notification.deleteOne({
       _id: req.params.id
     });

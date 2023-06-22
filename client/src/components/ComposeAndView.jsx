@@ -284,11 +284,9 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           <>
             <DialogContent ref={scrollNodeRef}>
               <FollowMeWidget
+                widgetProps={{ plainWidget: true }}
                 infiniteScrollProps={{
-                  scrollNodeRef,
-                  componentProps: {
-                    plainWidget: true
-                  }
+                  scrollNodeRef
                 }}
                 key={view}
                 url={

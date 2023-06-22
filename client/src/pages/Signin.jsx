@@ -107,7 +107,17 @@ const Signin = () => {
             onChange={handleChange}
             error={!!(errors.placeholder || errors.all)}
             sx={{ my: 2 }}
-            startAdornment={<AccountBoxIcon sx={{ cursor: "unset" }} />}
+            startAdornment={
+              <IconButton
+                sx={{
+                  "&:hover": {
+                    background: "none"
+                  }
+                }}
+              >
+                <AccountBoxIcon sx={{ cursor: "unset" }} />
+              </IconButton>
+            }
           />
           <CustomInput
             type={showPwd ? "text" : "password"}
@@ -118,7 +128,17 @@ const Signin = () => {
             error={errors.password}
             data-validate-type={"false"}
             data-min={8}
-            startAdornment={<LockIcon sx={{ cursor: "unset" }} />}
+            startAdornment={
+              <IconButton
+                sx={{
+                  "&:hover": {
+                    background: "none"
+                  }
+                }}
+              >
+                <LockIcon sx={{ cursor: "unset" }} />
+              </IconButton>
+            }
             endAdornment={
               <IconButton onClick={() => setShowPwd(!showPwd)}>
                 {showPwd ? <VisibilityOffIcon /> : <VisibilityIcon />}

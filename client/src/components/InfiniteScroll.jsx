@@ -255,7 +255,7 @@ const InfiniteScroll = React.forwardRef(
                     } else return;
 
                     // state fn merege _data with current data before http resolves
-                    const exclude = stateRef.current.exclude;
+                    const exclude = stateRef.current.exclude || "";
                     setData(data => {
                       const set = exclude
                         ? (() => {

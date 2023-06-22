@@ -24,7 +24,7 @@ const useCallbacks = (infiniteScrollRef, { currentUser = { user: {} } }) => {
           setData(
             { ...data, data: _data },
             {
-              numberOfEntries: document.user.id === currentUser.id ? 0 : 1
+              numberOfEntries: document.user?.id === currentUser.id ? 0 : 1
             }
           );
 

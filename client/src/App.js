@@ -45,7 +45,7 @@ const App = () => {
     ? "dark"
     : "light";
   const [theme, setTheme] = useState(createTheme(systemMode));
-  const cid = useSelector(state => state.user?.currentUser?.id);
+  const cid = useSelector(state => state.user.currentUser.id);
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const { state: locState } = useLocation();
@@ -85,11 +85,11 @@ const App = () => {
       handlingErr = true;
       switch (error.message) {
         case TOKEN_EXPIRED_MSG:
-          setReadyState("403");
           handleRefreshToken()
             .then(() => socket.connect())
-            .catch(() => setReadyState("403"))
+            .catch(() => navigate("/auth/signin"))
             .finally(() => {
+              setReadyState("ready");
               handlingErr = undefined;
             });
           break;
@@ -109,6 +109,7 @@ const App = () => {
         switch (err) {
           case HTTP_403_MSG:
             if (
+              cid &&
               window.location.pathname.toLowerCase() !== "/auth/signin" &&
               window.location.search.indexOf("session-timeout") === -1
             )
@@ -141,11 +142,13 @@ const App = () => {
       composeDoc: context.composeDoc?.url ? context.composeDoc : undefined
     }));
     return () => {
-      socket.disconnect();
-      socket
-        .removeEventListener("register-user", handleRegUser)
-        .removeEventListener("bare-connection", handleBareConnect)
-        .removeEventListener("connect_error", handleSocketErr);
+      if (socket)
+        socket
+          .disconnect()
+          .removeEventListener("register-user", handleRegUser)
+          .removeEventListener("bare-connection", handleBareConnect)
+          .removeEventListener("connect_error", handleSocketErr);
+
       handleCancelRequest();
     };
   }, [cid, navigate]);
@@ -224,10 +227,10 @@ const App = () => {
                     }
               }
             : undefined;
-        // outInput &&
-        //   navigate("/?compose=comment", {
-        //     state: stateProp
-        // });
+        outInput &&
+          navigate("/?compose=comment", {
+            state: stateProp
+          });
         if (typeof snackbar !== "string" && !snackbar.message)
           snackbar.message = (
             <div>
@@ -253,14 +256,13 @@ const App = () => {
             })
       });
     },
-    [cid]
+    [cid, navigate]
   );
   const closeSnackBar = () =>
     setSnackbar({
       ...snackbar,
       open: false
     });
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -321,29 +323,35 @@ const App = () => {
           closeSnackBar
         }}
       >
-        {{
-          reject: <EmptyData maxWidth="400px" withReload />,
-          pending: <BrandIcon hasLoader />
-        }[socket ? "pendig" : readyState] || (
-          <Routes path="/">
-            <Route index element={<HomePage />} />
-            <Route path="/auth">
-              <Route path="signin" element={<Signin />} />
-              <Route path="signup" element={<Signup />} />
-              <Route path="verification-mail" element={<VerificationMail />} />
-              <Route
-                path="reset-password/:token/:userId"
-                element={<ResetPwd setSnackBar={setSnackBar} />}
-              />
-              <Route path="*" element={<Auth404 />} />
-            </Route>
-            <Route path="u/:userId" element={<ProfilePage />} />
-            <Route path="search" element={<Search />} />
-            <Route path="shorts" element={<ShortsPage />} />
-            <Route path=":kind/:id" element={<Post />} />
-            <Route path="*" element={<Page404 />} />
-          </Routes>
-        )}
+        {
+          {
+            reject: <EmptyData maxWidth="400px" withReload />,
+            pending: <BrandIcon hasLoader />,
+            ready: (
+              <Routes path="/">
+                <Route index element={<HomePage />} />
+                <Route path="/auth">
+                  <Route path="signin" element={<Signin />} />
+                  <Route path="signup" element={<Signup />} />
+                  <Route
+                    path="verification-mail"
+                    element={<VerificationMail />}
+                  />
+                  <Route
+                    path="reset-password/:token/:userId"
+                    element={<ResetPwd setSnackBar={setSnackBar} />}
+                  />
+                  <Route path="*" element={<Auth404 />} />
+                </Route>
+                <Route path="u/:userId" element={<ProfilePage />} />
+                <Route path="search" element={<Search />} />
+                <Route path="shorts" element={<ShortsPage />} />
+                <Route path=":kind/:id" element={<Post />} />
+                <Route path="*" element={<Page404 />} />
+              </Routes>
+            )
+          }[readyState]
+        }
       </Provider>
       <Snackbar
         open={snackbar.open}

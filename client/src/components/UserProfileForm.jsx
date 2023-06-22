@@ -19,6 +19,9 @@ import http from "api/http";
 import Avatar from "@mui/material/Avatar";
 import AddAPhotoIcon from "@mui/icons-material/AddAPhoto";
 import CustomInput from "./CustomInput";
+import { debounce } from "@mui/material";
+
+const withUpdatePreviewUser = debounce(cb => cb(), 500);
 
 const UserProfileForm = ({
   width,
@@ -74,24 +77,25 @@ const UserProfileForm = ({
   };
   useEffect(() => {
     let url;
-    const node = document.activeElement;
-    const key = node.name;
-    const name = node.dataset.name;
-    if (errors[key] || errors[name]) {
-      if (node.nodeName === "INPUT") {
-        dispatch(deleteFromPreviewUser({ [key]: name }));
+    withUpdatePreviewUser(() => {
+      const node = document.activeElement;
+      const key = node.name;
+      const name = node.dataset.name;
+      if (errors[key] || errors[name]) {
+        if (node.nodeName === "INPUT") {
+          dispatch(deleteFromPreviewUser({ [key]: name }));
+        }
+      } else if (stateChanged) {
+        url = formData.avatar ? URL.createObjectURL(formData.avatar) : "";
+
+        dispatch(
+          updatePreviewUser({
+            ...formData,
+            photoUrl: url
+          })
+        );
       }
-    } else if (stateChanged) {
-      url = formData.avatar ? URL.createObjectURL(formData.avatar) : "";
-
-      dispatch(
-        updatePreviewUser({
-          ...formData,
-          photoUrl: url
-        })
-      );
-    }
-
+    });
     return () => url && URL.revokeObjectURL(url);
   }, [dispatch, stateChanged, formData, errors]);
 
@@ -296,7 +300,7 @@ const UserProfileForm = ({
           flexWrap: "wrap",
           alignItems: "flex-start",
           "& > *": {
-            minWidth: {
+            width: {
               xs: "100%",
               sm: "48%"
             }
@@ -384,7 +388,16 @@ const UserProfileForm = ({
               data-name={input.dataName}
               data-min={input.min}
               data-max={input.max}
-              rows={2}
+              sx={
+                input.multiline
+                  ? {
+                      ".custom-input": {
+                        mt: 2
+                      }
+                    }
+                  : undefined
+              }
+              rows={input.multiline ? 2 : undefined}
               error={
                 (input.dataName
                   ? errors[input.name]?.[input.dataName]

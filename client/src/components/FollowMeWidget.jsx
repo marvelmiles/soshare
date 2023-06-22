@@ -71,8 +71,7 @@ const FollowMeWidget = ({
   const handleFollowingAction = useCallback(
     toFollow => ({ to, from = { id: currentUser.id } }) => {
       const isFrm = from.id === userId;
-      const isTo = to.id === userId;
-      console.log(from.id, userId, to.id, isFrm, isTo);
+      const isTo = to.id === userId; 
       const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
       if (isTo || isFrm) {
         if (stateRef.current[key]) return;
@@ -90,8 +89,6 @@ const FollowMeWidget = ({
         stateRef.current[
           (toFollow ? "unfollowId" : "followId") + to.id + from.id
         ] = undefined;
-      } else {
-        console.log(isTo, isFrm, " not a memeber ");
       }
     },
     [_handleAction, priority, userId, currentUser.id]

@@ -92,7 +92,9 @@ export default (app, port = process.env.PORT || 8800) => {
   app.set("socketIo", io);
 
   io.use((socket, next) => {
-    const cookies = cookie.parse(socket.request.headers.cookie || "");
+    const cookies = socket.request.headers.cookie
+      ? cookie.parse(socket.request.headers.cookie)
+      : undefined;
     try {
       if (cookies) {
         verifyToken(
@@ -107,11 +109,7 @@ export default (app, port = process.env.PORT || 8800) => {
       next();
     } catch (err) {
       if (socket.handshake.userId) socket.disconnect();
-      next(
-        cookies.access_token || cookies.refresh_token
-          ? createError(err.message, err.status || 401)
-          : undefined
-      );
+      next(cookies ? createError(err.message, err.status || 401) : undefined);
     }
   });
   io.on("connection", socket => {
@@ -141,7 +139,7 @@ export default (app, port = process.env.PORT || 8800) => {
     socket.on("disconnect-suggest-followers-task", stopSuggestFollowersTask);
 
     socket.on("disconnect", () => {
-      console.clear();
+      // console.clear();
       socket.removeAllListeners();
 
       socket.leave(socket.handshake.userId);

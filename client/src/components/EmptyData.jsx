@@ -54,7 +54,7 @@ const EmptyData = ({
             sx={{ mt: 1 }}
             onClick={onClick || reloadBrowser}
           >
-            Try again
+            Reload
           </Button>
         </div>
       ) : onClick ? (
@@ -67,7 +67,7 @@ const EmptyData = ({
             sx={{ mt: 1, color: "primary.main" }}
             onClick={onClick}
           >
-            Reload
+            Retry
           </Button>
         </div>
       ) : (
