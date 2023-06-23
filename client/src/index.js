@@ -6,8 +6,9 @@ import store, { persistor } from "context/store";
 import { PersistGate } from "redux-persist/integration/react";
 import { BrowserRouter } from "react-router-dom";
 import Loading from "components/Loading";
+import "./scripts/pre-react.js";
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
+const root = ReactDOM.createRoot(document.getElementById("react-root"));
 root.render(
   <React.StrictMode>
     <Provider store={store}>

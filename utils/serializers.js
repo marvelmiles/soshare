@@ -84,7 +84,19 @@ export const createVisibilityQuery = async ({
         }
       };
     }
-  } else query.visibility = fallbackVisibility;
+  } else {
+    query.$expr = {
+      $cond: {
+        if: {
+          $eq: [{ $ifNull: ["$visibility", null] }, null]
+        },
+        then: true,
+        else: {
+          $eq: ["$visibility", fallbackVisibility]
+        }
+      }
+    };
+  }
 
   return query;
 };

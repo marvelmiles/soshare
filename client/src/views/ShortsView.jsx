@@ -12,18 +12,15 @@ import useCallbacks from "hooks/useCallbacks";
 const ShortsView = ({
   title,
   miniShort = true,
-  plainWidget,
   infiniteScrollProps,
   url = "/shorts",
   loop,
   sx,
   mx,
-  centerEmptyText,
   scrollNodeRef,
-  privateUid
+  privateUid,
+  componentProps
 }) => {
-  plainWidget = plainWidget === undefined ? !miniShort : plainWidget;
-  centerEmptyText = plainWidget ? true : centerEmptyText;
   const currentUser = useSelector(state => state.user.currentUser || {});
   const {
     socket,
@@ -114,14 +111,15 @@ const ShortsView = ({
     <InfiniteScroll
       key={"infinite-shorts-" + miniShort}
       url={stateRef.current.url}
-      sx={sx}
-      componentProps={
+      sx={
         miniShort
           ? {
-              plainWidget
+              minHeight: undefined,
+              ...sx
             }
-          : undefined
+          : sx
       }
+      componentProps={componentProps}
       Component={miniShort ? WidgetContainer : undefined}
       notifierDelay={
         !currentUser.id || currentUser.id !== composeDoc?.document?.user?.id
@@ -136,9 +134,14 @@ const ShortsView = ({
       readyState={
         composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
       }
-      searchId={composeDoc?.url && composeDoc.document?.id}
+      searchId={
+        composeDoc?.docType === "short"
+          ? (composeDoc.url && composeDoc.document?.id) ||
+            (composeDoc.reason === "search" && composeDoc.document.id)
+          : undefined
+      }
     >
-      {({ data: { data, paging }, setObservedNode }) => {
+      {({ data: { data }, setObservedNode }) => {
         return data.length ? (
           <>
             {title && miniShort && (
@@ -155,18 +158,23 @@ const ShortsView = ({
             )}
 
             <Stack
-              justifyContent="normal"
+              justifyContent={"normal"}
               alignItems="flex-start"
               sx={
                 miniShort
                   ? {
-                      flexWrap: "wrap",
-                      gap: "16px"
+                      flexWrap: "wrap"
                     }
                   : {
                       flexDirection: "column",
-                      p: 1,
-                      gap: "8px"
+                      gap: {
+                        xs: 0,
+                        md: 2
+                      },
+                      py: {
+                        xs: 0,
+                        md: 1
+                      }
                     }
               }
             >
@@ -175,6 +183,7 @@ const ShortsView = ({
                   <Short
                     id={s.id}
                     key={i + miniShort}
+                    stateCtx={stateRef.current}
                     ref={
                       i === data.length - 1
                         ? node => setObservedNode(node)
@@ -185,7 +194,6 @@ const ShortsView = ({
                     handleAction={_handleAction}
                     miniShort={miniShort}
                     mx={mx}
-                    paging={paging}
                   />
                 );
               })}

@@ -9,6 +9,7 @@ export const StyledLink = styled(Link, {
     switch (prop) {
       case "textEllipsis":
       case "hoverDecoration":
+      case "sx":
         return false;
       default:
         return true;
@@ -113,30 +114,43 @@ export const WidgetContainer = styled(Box, {
         return true;
     }
   }
-})(({ theme: { palette: { background: { alt } } }, plainWidget }) => {
-  return {
-    width: "100%",
-    minHeight: "300px",
-    borderRadius: "8px",
-    padding: "16px",
-    backgroundColor: alt,
-    marginBottom: "24px",
-    maxHeight: "450px",
-    overflow: "auto",
-    position: "relative",
+})(
+  ({
+    theme: {
+      palette: {
+        background: { alt }
+      }
+    },
+    plainWidget,
+    sx,
+    ty,
+    ...rest
+  }) => {
+    ty && console.log(sx, rest);
+    return {
+      width: "100%",
+      minHeight: "300px",
+      borderRadius: "8px",
+      padding: "16px",
+      backgroundColor: alt,
+      marginBottom: "24px",
+      maxHeight: "450px",
+      overflow: "auto",
+      position: "relative",
 
-    ...(plainWidget && {
-      overflow: "none",
-      marginInline: "auto",
-      maxHeight: "none",
-      borderRadius: "0",
-      marginBottom: 0,
-      backgroundColor: "transparent",
-      height: "inherit",
-      minHeight: "inherit"
-    })
-  };
-});
+      ...(plainWidget && {
+        overflow: "none",
+        marginInline: "auto",
+        maxHeight: "none",
+        borderRadius: "0",
+        marginBottom: 0,
+        backgroundColor: "transparent",
+        height: "inherit",
+        minHeight: "inherit"
+      })
+    };
+  }
+);
 
 export const Image = styled("img")`
   width: 100%;

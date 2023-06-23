@@ -19,7 +19,6 @@ export const search = async (req, res, next) => {
         };
 
     if (req.cookies.access_token) verifyToken(req);
-    req.query.limit = "40";
     for (let key of (req.query.select || "posts users shorts").split(" ")) {
       switch (key) {
         case "posts":
@@ -79,8 +78,7 @@ export const search = async (req, res, next) => {
                     occupation: search
                   }
                 ]
-              },
-              withFallbackVisibility: false
+              }
             })
           });
           continue;
@@ -116,9 +114,9 @@ export const search = async (req, res, next) => {
           continue;
       }
     }
-
     res.json(result);
   } catch (err) {
+    console.log(err.message);
     next(err);
   }
 };

@@ -13,228 +13,252 @@ import Button from "@mui/material/Button";
 import Skeleton from "@mui/material/Skeleton";
 // import mp4 from "components/video.mp4";
 
-const VideoPlayer = ({
-  src,
-  autoPlayOnMouseOver = true,
-  hideTimeline,
-  hideControls,
-  onClick,
-  autoPlay,
-  withIntersection,
-  onPlay,
-  onPause,
-  onTimeUpdate,
-  onError,
-  hoverPlayDuration = 30000,
-  timeUpdateDuration = 30000,
-  hoverPlayDelay = 0,
-  playingThreshold = 0.4,
-  pause,
-  onLoadedMetadata,
-  mimetype,
-  footerSx,
-  nativeFile,
-  withKeyEvents,
-  sx,
-  onReload,
-  backdrops = {},
-  enableIndicator = true,
-  ...props
-}) => {
-  const { setSnackBar } = useContext();
-  const [loading, setLoading] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(undefined);
-  const [values, setValues] = useState({ seek: 0 });
-  const videoRef = useRef();
-  const stateRef = useRef({});
-  const [backdrop, setBackdrop] = useState("");
-  const { isIntersecting } = useViewIntersection(
-    !loading && withIntersection && videoRef
-  );
-  const [videoUrl, setVideoUrl] = useState();
-  const blend = useTheme().palette.common.blend;
-  const handlePlay = useCallback(
-    (prop = {}) => {
-      if (!videoRef.current) return;
-      let { enableIndicator, emitFn, delay } = {
-        enableIndicator: false,
-        emitFn: false,
-        delay: 0,
-        ...prop
-      };
-      if (videoRef.current.paused) {
-        const _muted = videoRef.current.muted;
-        videoRef.current.muted = true;
-        videoRef.current.pause();
-        setTimeout(() => {
-          if (!videoRef.current) return;
-          videoRef.current.play().then(() => {
-            videoRef.current.muted = _muted;
-            if (emitFn === false && !stateRef.current.hasPlayed) emitFn = true;
-            stateRef.current.hasPlayed = true;
-            enableIndicator && setIsPlaying(true);
-            onPlay && emitFn && onPlay();
-          });
-        }, delay);
-      }
+const VideoPlayer = React.forwardRef(
+  (
+    {
+      src,
+      autoPlayOnMouseOver = true,
+      hideTimeline,
+      hideControls,
+      onClick,
+      autoPlay,
+      withIntersection,
+      onPlay,
+      onPause,
+      onTimeUpdate,
+      onError,
+      hoverPlayDuration = 30000,
+      timeUpdateDuration = 30000,
+      hoverPlayDelay = 0,
+      playingThreshold = 0.4,
+      pause,
+      onLoadedMetadata,
+      mimetype,
+      footerSx,
+      nativeFile,
+      withKeyEvents,
+      sx,
+      onReload,
+      backdrops = {},
+      enableIndicator = true,
+      intersectionProps,
+      ...props
     },
-    [onPlay]
-  );
-  const handlePause = useCallback(
-    (prop = {}) => {
-      let { enableIndicator = false, emitFn = false } = prop;
-      if (!videoRef.current) return;
-      if (!videoRef.current.paused) {
-        if (emitFn === false && !stateRef.current.hasPlayed) emitFn = true;
-        videoRef.current.pause();
-        enableIndicator && setIsPlaying(false);
-        onPause && emitFn && onPause();
-      }
-    },
-    [onPause]
-  );
-  const handleClick = useCallback(
-    e => {
-      e.stopPropagation();
-      const playProp = {
-        enableIndicator
-      };
-      if (videoRef.current.paused) {
-        handlePlay(playProp);
-      } else {
-        handlePause(playProp);
-      }
-      stateRef.current.userClicked = true;
-      onClick && onClick(e);
-    },
-    [enableIndicator, handlePause, handlePlay, onClick]
-  );
-
-  useEffect(() => {
-    let url;
-
-    if (src) setVideoUrl(src);
-    else if (nativeFile) {
-      url = URL.createObjectURL(nativeFile);
-      setVideoUrl(url);
-    }
-    setValues({ seek: 0 });
-    return () => url && URL.revokeObjectURL(url);
-  }, [nativeFile, src]);
-
-  useEffect(() => {
-    let onTimeupdate,
-      onMouseEnter,
-      onMouseLeave,
-      handleError,
-      handleLoadedMetadata;
-    const video = videoRef.current;
-    const state = stateRef.current;
-    if (videoUrl && video) {
-      onTimeupdate = () => {
-        const dur = video.duration;
-        let dur_min = Math.floor(dur / 60);
-        let dur_sec = Math.floor(dur % 60);
-        const cTime = video.currentTime;
-        let cTime_min = Math.floor(cTime / 60);
-        let cTime_sec = Math.floor(cTime % 60);
-        const durMiliTime = Math.floor(dur * 1000);
-        const cMiliTime = Math.floor(cTime * 1000);
-        if (pause) video.pause();
-        const durationReached = (duration, threshold = playingThreshold) => {
-          let maxDur = duration;
-          if (dur_min < 1) maxDur = threshold * durMiliTime;
-          return cMiliTime >= maxDur;
-        };
-        if (
-          hoverPlayDelay &&
-          state.hoverPlaying &&
-          durationReached(hoverPlayDuration)
-        )
-          video.currentTime = 0;
-
-        if (onTimeUpdate) {
-          if (timeUpdateDuration) {
-            if (!state.timeReached && durationReached(timeUpdateDuration)) {
-              state.timeReached = true;
-              onTimeUpdate();
-            }
-          } else onTimeUpdate();
-        }
-        const prop = {
-          duration: {
-            min: dur_min,
-            sec: dur_sec
-          },
-          cTime: {
-            min: cTime_min,
-            sec: cTime_sec
-          },
-          seek: Math.floor((cTime / dur) * 100)
-        };
-
-        setValues(prop);
-      };
-
-      if (hoverPlayDelay) {
-        onMouseEnter = e => {
-          e.stopPropagation();
-          if (!state.hasMouseHovered && !state.userClicked && video.paused) {
-            state.moueHoverTimer = setTimeout(() => {
-              state.hoverPlaying = true;
-              handlePlay();
-            }, hoverPlayDelay);
+    ref
+  ) => {
+    const { setSnackBar } = useContext();
+    const [loading, setLoading] = useState(true);
+    const [isPlaying, setIsPlaying] = useState(undefined);
+    const [values, setValues] = useState({ seek: 0 });
+    const videoRef = useRef();
+    const stateRef = useRef({
+      intersectionProps: withIntersection
+        ? {
+            threshold: 0.4,
+            ...intersectionProps
           }
-          state.hasMouseHovered = true;
+        : undefined
+    });
+    const [backdrop, setBackdrop] = useState("");
+    const { isIntersecting } = useViewIntersection(
+      !loading && withIntersection && videoRef,
+      stateRef.current.intersectionProps
+    );
+    const [videoUrl, setVideoUrl] = useState();
+    const blend = useTheme().palette.common.blend;
+    const handlePlay = useCallback(
+      (prop = {}) => {
+        if (!videoRef.current) return;
+        let { enableIndicator, emitFn, delay = 0, ...rest } = {
+          enableIndicator: false,
+          emitFn: true,
+          delay: 0,
+          delay: 500,
+          ...prop
         };
-        onMouseLeave = e => {
-          e.stopPropagation();
-          if (state.moueHoverTimer) {
-            clearTimeout(state.moueHoverTimer);
-            state.moueHoverTimer = undefined;
-            if (!state.userClicked) {
-              video.currentTime = 0;
-              handlePause();
-            }
-          }
-          state.hasMouseHovered = false;
-        };
-        video.addEventListener("mouseenter", onMouseEnter, false);
-        video.addEventListener("mouseleave", onMouseLeave, false);
-      }
-
-      if (withIntersection) {
-        if (isIntersecting) {
-          state.hasMouseHovered = true;
-          handlePlay({
-            emitFn: true,
-            delay: 100
-          });
-        } else {
-          state.userClicked = false;
-          handlePause();
+        if (videoRef.current.paused) {
+          const id = setTimeout(() => {
+            if (!videoRef.current) return;
+            videoRef.current
+              .play()
+              .then(() => {
+                stateRef.current.hasPlayed = true;
+                enableIndicator && setIsPlaying(true);
+                onPlay && emitFn && onPlay(videoRef.current, rest || {});
+                clearTimeout(id);
+              })
+              .catch(onError ? onError : err => console.log(err));
+          }, delay);
         }
-      }
+      },
+      [onPlay, onError]
+    );
+    const handlePause = useCallback(
+      (prop = {}) => {
+        let { enableIndicator = false, emitFn = false, ...rest } = prop;
+        if (!videoRef.current) return;
+        stateRef.current.autoPlay = false;
+        if (!videoRef.current.paused) {
+          if (emitFn === false && !stateRef.current.hasPlayed) emitFn = true;
+          videoRef.current.pause();
+          enableIndicator && setIsPlaying(false);
+          onPause && emitFn && onPause(videoRef.current, rest || {});
+        }
+      },
+      [onPause]
+    );
+    const handleClick = useCallback(
+      e => {
+        e.stopPropagation();
+        const playProp = {
+          enableIndicator
+        };
+        if (videoRef.current.paused) handlePlay(playProp);
+        else handlePause(playProp);
 
-      handleLoadedMetadata = () => {
-        if (video.canPlayType(mimetype) === "") {
-          const error = {
-            message:
-              "Your browser is unable to process this video due to an unsupported format",
-            code: "MIMETYPE_ERROR",
-            severity: 1
+        stateRef.current.userClicked = true;
+        onClick && onClick(e);
+      },
+      [enableIndicator, handlePause, handlePlay, onClick]
+    );
+
+    useEffect(() => {
+      let url;
+
+      if (src) setVideoUrl(src);
+      else if (nativeFile) {
+        url = URL.createObjectURL(nativeFile);
+        setVideoUrl(url);
+      }
+      setValues({ seek: 0 });
+      return () => url && URL.revokeObjectURL(url);
+    }, [nativeFile, src]);
+
+    useEffect(() => {
+      let handleTimeUpdate,
+        onMouseEnter,
+        onMouseLeave,
+        handleError,
+        handleLoadedMetadata;
+      const video = videoRef.current;
+      const state = stateRef.current;
+      if (videoUrl && video) {
+        if (ref)
+          ref.current = {
+            video
           };
-          if (backdrops[error.code]) {
-            setLoading(false);
-            setBackdrop(error.message);
+        handleTimeUpdate = () => {
+          const dur = video.duration;
+          let dur_min = Math.floor(dur / 60);
+          let dur_sec = Math.floor(dur % 60);
+          const cTime = video.currentTime;
+          let cTime_min = Math.floor(cTime / 60);
+          let cTime_sec = Math.floor(cTime % 60);
+          const durMiliTime = Math.floor(dur * 1000);
+          const cMiliTime = Math.floor(cTime * 1000);
+          if (pause) video.pause();
+          const durationReached = (duration, threshold = playingThreshold) => {
+            let maxDur = duration;
+            if (dur_min < 1) maxDur = threshold * durMiliTime;
+            return cMiliTime >= maxDur;
+          };
+          if (
+            hoverPlayDelay &&
+            state.hoverPlaying &&
+            durationReached(hoverPlayDuration)
+          )
+            video.currentTime = 0;
+
+          if (onTimeUpdate) {
+            if (timeUpdateDuration) {
+              if (!state.timeReached && durationReached(timeUpdateDuration)) {
+                state.timeReached = true;
+                onTimeUpdate(videoRef.current);
+              }
+            } else onTimeUpdate(videoRef.current);
           }
-          return onError && onError(error);
+          const prop = {
+            duration: {
+              min: dur_min,
+              sec: dur_sec
+            },
+            cTime: {
+              min: cTime_min,
+              sec: cTime_sec
+            },
+            seek: Math.floor((cTime / dur) * 100) || 0
+          };
+
+          setValues(prop);
+        };
+
+        if (hoverPlayDelay) {
+          onMouseEnter = e => {
+            e.stopPropagation();
+            if (!state.hasMouseHovered && !state.userClicked && video.paused) {
+              state.moueHoverTimer = setTimeout(() => {
+                state.hoverPlaying = true;
+                handlePlay({ mouseEnter: true });
+              }, hoverPlayDelay);
+            }
+            state.hasMouseHovered = true;
+          };
+          onMouseLeave = e => {
+            e.stopPropagation();
+            if (state.moueHoverTimer) {
+              clearTimeout(state.moueHoverTimer);
+              state.moueHoverTimer = undefined;
+              stateRef.current.muted = undefined;
+              video.currentTime = 0;
+              handlePause({ mouseLeave: true, emitFn: true, e });
+            }
+            state.hasMouseHovered = false;
+          };
+          video.addEventListener("mouseenter", onMouseEnter, false);
+          video.addEventListener("mouseleave", onMouseLeave, false);
         }
 
-        setLoading(false);
-        onLoadedMetadata && onLoadedMetadata();
-      };
-      if (typeof onError === "function") {
+        if (autoPlay === undefined) {
+          if (withIntersection !== undefined) {
+            if (isIntersecting) {
+              state.hasMouseHovered = true;
+              stateRef.current.autoPlay = true;
+              handlePlay({
+                isIntersecting
+              });
+            } else {
+              state.userClicked = false;
+              handlePause({
+                isIntersecting
+              });
+            }
+          }
+        } else if (autoPlay) {
+          stateRef.current.autoPlay = true;
+          handlePlay({ isIntersecting });
+        } else {
+          stateRef.current.autoPlay = false;
+          handlePause({ isIntersecting });
+        }
+
+        handleLoadedMetadata = () => {
+          if (video.canPlayType(mimetype) === "") {
+            const error = {
+              message:
+                "Your browser is unable to process this video due to an unsupported format",
+              code: "MIMETYPE_ERROR",
+              severity: 1
+            };
+            if (backdrops[error.code]) {
+              setLoading(false);
+              setBackdrop(error.message);
+            }
+            return onError && onError(error);
+          }
+
+          setLoading(false);
+          onLoadedMetadata && onLoadedMetadata();
+        };
         handleError = ({ target: { error: err } }) => {
           const error = {
             name: err.name,
@@ -273,266 +297,274 @@ const VideoPlayer = ({
               error.message = "An unknown error occurred.";
               break;
           }
-          onError(error);
+          onError && onError(error);
         };
         video.addEventListener("error", handleError, false);
+
+        video.addEventListener("loadedmetadata", handleLoadedMetadata, false);
+        video.addEventListener("timeupdate", handleTimeUpdate, false);
       }
+      return () => {
+        if (video)
+          if (!state._noNext) {
+            if (!video.paused && !state.hasMouseHovered) video.pause();
 
-      video.addEventListener("loadedmetadata", handleLoadedMetadata, false);
-      video.addEventListener("timeupdate", onTimeupdate, false);
-    }
-    return () => {
-      if (video)
-        if (!state._noNext) {
-          if (!video.paused && !state.hasMouseHovered) video.pause();
+            video.removeEventListener(
+              "loadedmetadata",
+              handleLoadedMetadata,
+              false
+            );
+            video.removeEventListener("erorr", handleError, false);
+            video.removeEventListener("timeupdate", handleTimeUpdate, false);
+            video.removeEventListener("mouseenter", onMouseEnter, false);
+            video.removeEventListener("mouseleave", onMouseLeave, false);
+          }
+      };
+    }, [
+      videoUrl,
+      hoverPlayDuration,
+      hoverPlayDelay,
+      handlePlay,
+      handlePause,
+      playingThreshold,
+      timeUpdateDuration,
+      onTimeUpdate,
+      pause,
+      onError,
+      onLoadedMetadata,
+      autoPlay,
+      mimetype,
+      setSnackBar,
+      backdrops,
+      isIntersecting,
+      withIntersection,
+      ref
+    ]);
 
-          video.removeEventListener(
-            "loadedmetadata",
-            handleLoadedMetadata,
-            false
-          );
-          video.removeEventListener("erorr", handleError, false);
-          video.removeEventListener("timeupdate", onTimeupdate, false);
-          video.removeEventListener("mouseenter", onMouseEnter, false);
-          video.removeEventListener("mouseleave", onMouseLeave, false);
-        }
-    };
-  }, [
-    videoUrl,
-    hoverPlayDuration,
-    hoverPlayDelay,
-    handlePlay,
-    handlePause,
-    playingThreshold,
-    timeUpdateDuration,
-    onTimeUpdate,
-    pause,
-    onError,
-    onLoadedMetadata,
-    autoPlay,
-    mimetype,
-    setSnackBar,
-    backdrops,
-    isIntersecting,
-    withIntersection
-  ]);
-
-  useEffect(() => {
-    let onKeyDown;
-    if (videoUrl) {
-      if (!backdrop && !loading) {
-        const playProp = {
-          enableIndicator: true
-        };
-        if (withKeyEvents) {
-          onKeyDown = e => {
-            if (e.code === "Space") {
-              stateRef.current._processing = true;
-              if (videoRef.current.paused) handlePlay(playProp);
-              else handlePause(playProp);
-            }
+    useEffect(() => {
+      let onKeyDown;
+      if (videoUrl) {
+        if (!backdrop && !loading) {
+          const playProp = {
+            enableIndicator: true
           };
-          window.addEventListener("keydown", onKeyDown, false);
-        } else handlePause(playProp);
-      }
-    }
-    return () => {
-      window.removeEventListener("keydown", onKeyDown, false);
-    };
-  }, [
-    handlePlay,
-    handlePause,
-    isIntersecting,
-    withIntersection,
-    withKeyEvents,
-    videoUrl,
-    backdrop,
-    loading
-  ]);
-
-  const handleGoto = useCallback((e, v) => {
-    e.stopPropagation();
-    const ctime = (v * videoRef.current.duration) / 100;
-    if (ctime >= 0) videoRef.current.currentTime = ctime;
-  }, []);
-
-  const handleReload = useCallback(
-    e => {
-      e.stopPropagation();
-      setBackdrop("");
-      setLoading(true);
-      onReload && onReload();
-      if (!videoRef.current.paused) videoRef.current.pause();
-      videoRef.current.load();
-    },
-    [onReload]
-  );
-  return (
-    <Box
-      key={videoUrl}
-      sx={{
-        minWidth: 0,
-        minHeight: 0,
-        width: "100%",
-        height: `100%`,
-        borderRadius: "inherit",
-        scrollSnapAlign: "start",
-        borderRadius: "inherit",
-        position: "relative",
-        top: 0,
-        left: 0,
-        "& > video": {
-          width: "100%",
-          height: "100%",
-          borderRadius: "inherit",
-          position: "absolute",
-          top: 0,
-          left: 0,
-          objectFit: "cover"
-        },
-        ".custom-video-player-overlay": {
-          position: "absolute",
-          top: 0,
-          left: 0,
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "common.blendHover",
-          width: "100%",
-          height: "100%",
-          textAlign: "center",
-          border: "inherit",
-          borderRadius: "inherit",
-          zIndex: 2,
-          cursor: "default",
-          color: "common.white"
-        },
-
-        ".video-player-footer": {
-          opacity: 1,
-          pointerEvents: "none",
-          zIndex: 1,
-          position: "absolute",
-          width: "100%",
-          padding: "0px 16px",
-          left: 0,
-          bottom: 0,
-          transition: "all ease-in-out .25s",
-          background: blend,
-          py: 1,
-          borderTopRightRadius: "4px",
-          borderTopLeftRadius: "4px",
-          ...(loading ? { opacity: 0, pointerEvents: "none" } : undefined),
-          ...footerSx
-        },
-        ...sx,
-        "&:hover": {
-          ".video-player-footer": loading
-            ? undefined
-            : {
-                pointerEvents: "all",
-                opacity: "1"
+          if (withKeyEvents) {
+            onKeyDown = e => {
+              if (e.code === "Space") {
+                stateRef.current._processing = true;
+                if (videoRef.current.paused) handlePlay(playProp);
+                else handlePause(playProp);
               }
+            };
+            window.addEventListener("keydown", onKeyDown, false);
+          } else handlePause(playProp);
         }
-      }}
-    >
-      {backdrop ? (
-        <div
-          onClick={e => {
-            e.stopPropagation();
-          }}
-          style={{ zIndex: 3 }}
-          className="custom-video-player-overlay"
-        >
-          {{
-            reload: (
-              <div>
-                <Typography variant="h5" sx={{ maxWidth: "280px", mx: "auto" }}>
-                  Sorry video couldn't be downloaded or played
-                </Typography>
-                <Button
-                  variant="contained"
-                  onClick={handleReload}
-                  sx={{ mt: 1 }}
-                >
-                  Reload
-                </Button>
-              </div>
-            )
-          }[backdrop] || (
-            <Typography variant="h5" sx={{ maxWidth: "280px", mx: "auto" }}>
-              {backdrop}
-            </Typography>
-          )}
-        </div>
-      ) : null}
-      {loading ? (
-        <Skeleton
-          variant="rectangular"
-          animation="wave"
-          className="custom-video-player-overlay"
-          onClick={e => e.stopPropagation()}
-          sx={{ border: "1px solid red" }}
-        />
-      ) : null}
-      <video
-        {...props}
-        src={videoUrl}
-        ref={videoRef}
-        onClick={handleClick}
-        controls={false}
-      />
+      }
+      return () => {
+        window.removeEventListener("keydown", onKeyDown, false);
+      };
+    }, [
+      handlePlay,
+      handlePause,
+      isIntersecting,
+      withIntersection,
+      withKeyEvents,
+      videoUrl,
+      backdrop,
+      loading
+    ]);
+
+    const handleGoto = useCallback((e, v) => {
+      e.stopPropagation();
+      const ctime = (v * videoRef.current.duration) / 100;
+      if (ctime >= 0) videoRef.current.currentTime = ctime;
+    }, []);
+
+    const handleReload = useCallback(
+      e => {
+        e.stopPropagation();
+        setBackdrop("");
+        setLoading(true);
+        onReload && onReload();
+        if (!videoRef.current.paused) videoRef.current.pause();
+        videoRef.current.load();
+      },
+      [onReload]
+    );
+    return (
       <Box
+        key={videoUrl}
         sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%,-50%)",
-          "& > *": {
-            transform: "scale(0)",
-            opacity: 1
+          minWidth: 0,
+          minHeight: 0,
+          width: "100%",
+          height: `100%`,
+          borderRadius: "inherit",
+          scrollSnapAlign: "start",
+          borderRadius: "inherit",
+          position: "relative",
+          top: 0,
+          left: 0,
+          "& > video": {
+            width: "100%",
+            height: "100%",
+            borderRadius: "inherit",
+            position: "absolute",
+            top: 0,
+            left: 0,
+            objectFit: "cover"
+          },
+          ".custom-video-player-overlay": {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "common.blendHover",
+            width: "100%",
+            height: "100%",
+            textAlign: "center",
+            border: "inherit",
+            borderRadius: "inherit",
+            zIndex: 2,
+            cursor: "default",
+            color: "common.white"
+          },
+
+          ".video-player-footer": {
+            opacity: 1,
+            pointerEvents: "none",
+            zIndex: 1,
+            position: "absolute",
+            width: "100%",
+            padding: "0px 16px",
+            left: 0,
+            bottom: 0,
+            transition: "all ease-in-out .25s",
+            background: blend,
+            py: 1,
+            borderTopRightRadius: "4px",
+            borderTopLeftRadius: "4px",
+            ...(loading ? { opacity: 0, pointerEvents: "none" } : undefined),
+            ...footerSx
+          },
+          ...sx,
+          "&:hover": {
+            ".video-player-footer": loading
+              ? undefined
+              : {
+                  pointerEvents: "all",
+                  opacity: "1"
+                }
           }
         }}
       >
-        {isPlaying ? (
-          <IconButton
-            key={isPlaying}
-            sx={{
-              animation: typeof isPlaying === "boolean" ? `${zoom} 0.75s` : ""
+        {backdrop ? (
+          <div
+            onClick={e => {
+              e.stopPropagation();
             }}
+            style={{ zIndex: 3 }}
+            className="custom-video-player-overlay"
           >
-            <PauseIcon />
-          </IconButton>
-        ) : (
-          <IconButton
-            key={isPlaying}
-            sx={{
-              animation: typeof isPlaying === "boolean" ? `${zoom} 0.75s` : ""
-            }}
-          >
-            <PlayIcon />
-          </IconButton>
-        )}
-      </Box>
-      {hideTimeline ? null : (
-        <Box onClick={e => e.stopPropagation()} className="video-player-footer">
-          <Box className="video-player-controls"></Box>
-          {hideTimeline ? null : (
-            <Box className="video-player-timeline">
-              <Slider
-                sx={{ zIndex: 1 }}
-                size="small"
-                value={values.seek}
-                onChange={handleGoto}
-                valueLabelDisplay="auto"
-              />
-            </Box>
+            {{
+              reload: (
+                <div>
+                  <Typography
+                    variant="h5"
+                    sx={{ maxWidth: "280px", mx: "auto" }}
+                  >
+                    Sorry video couldn't be downloaded or played
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    onClick={handleReload}
+                    sx={{ mt: 1 }}
+                  >
+                    Reload
+                  </Button>
+                </div>
+              )
+            }[backdrop] || (
+              <Typography variant="h5" sx={{ maxWidth: "280px", mx: "auto" }}>
+                {backdrop}
+              </Typography>
+            )}
+          </div>
+        ) : null}
+        {loading ? (
+          <Skeleton
+            variant="rectangular"
+            animation="wave"
+            className="custom-video-player-overlay"
+            onClick={e => e.stopPropagation()}
+          />
+        ) : null}
+
+        <video
+          {...props}
+          autoPlay={stateRef.current.autoPlay}
+          src={videoUrl}
+          ref={videoRef}
+          onClick={handleClick}
+          controls={false}
+        />
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%,-50%)",
+            "& > *": {
+              transform: "scale(0)",
+              opacity: 1
+            }
+          }}
+        >
+          {isPlaying ? (
+            <IconButton
+              key={isPlaying}
+              sx={{
+                animation: typeof isPlaying === "boolean" ? `${zoom} 0.75s` : ""
+              }}
+            >
+              <PauseIcon />
+            </IconButton>
+          ) : (
+            <IconButton
+              key={isPlaying}
+              sx={{
+                animation: typeof isPlaying === "boolean" ? `${zoom} 0.75s` : ""
+              }}
+            >
+              <PlayIcon />
+            </IconButton>
           )}
         </Box>
-      )}
-    </Box>
-  );
-};
+        {hideTimeline ? null : (
+          <Box
+            onClick={e => e.stopPropagation()}
+            className="video-player-footer"
+          >
+            <Box className="video-player-controls"></Box>
+            {hideTimeline ? null : (
+              <Box className="video-player-timeline">
+                <Slider
+                  sx={{ zIndex: 1, cursor: "pointer" }}
+                  size="small"
+                  value={values.seek || 0}
+                  onChange={handleGoto}
+                  valueLabelDisplay="auto"
+                />
+              </Box>
+            )}
+          </Box>
+        )}
+      </Box>
+    );
+  }
+);
 
 VideoPlayer.propTypes = {};
 

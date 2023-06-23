@@ -153,7 +153,6 @@ const InfiniteScroll = React.forwardRef(
               withMatchedDocs,
               withShowRetry
             } = stateRef.current;
-
             setLoading(true);
             let withFetch = true,
               withEq = true,
@@ -218,7 +217,6 @@ const InfiniteScroll = React.forwardRef(
               (async () => {
                 try {
                   stateRef.current.isFetching = true;
-
                   let _data = await http.get(
                     url +
                       `?limit=${limit}&cursor=${data.paging?.nextCursor ||
@@ -236,9 +234,6 @@ const InfiniteScroll = React.forwardRef(
                       ...httpConfig
                     }
                   );
-
-                  dataKey && (_data = _data[dataKey]);
-
                   stateRef.current.dataChanged =
                     !data.paging?.nextCursor ||
                     data.paging.nextCursor !== _data.paging.nextCursor ||
@@ -246,7 +241,7 @@ const InfiniteScroll = React.forwardRef(
 
                   if (isObject(_data)) {
                     if (
-                      _data.paging?.nextCursor !== undefined &&
+                      _data.paging.nextCursor !== undefined &&
                       Array.isArray(_data.data)
                     ) {
                       if (
@@ -259,8 +254,8 @@ const InfiniteScroll = React.forwardRef(
                       }
                     } else return;
 
+                    // state fn merege _data with current data before http resolves
                     const exclude = stateRef.current.exclude || "";
-
                     setData(data => {
                       const set = exclude
                         ? (() => {
@@ -271,6 +266,7 @@ const InfiniteScroll = React.forwardRef(
                             return set;
                           })()
                         : {};
+
                       data = {
                         ..._data,
                         data: (stateRef.current.withDefaultData

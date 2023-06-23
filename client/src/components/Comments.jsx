@@ -310,11 +310,6 @@ const Comments = ({
           message={{
             success: `Your comment has been soshared!`
           }}
-          sx={{
-            minHeight: 0,
-            borderTopLeftRadius: 0,
-            borderTopRightRadius: 0
-          }}
           key={documentId + "-comment-input-box"}
         />
       ) : null}

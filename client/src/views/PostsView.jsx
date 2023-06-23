@@ -88,11 +88,7 @@ const PostsView = ({
     <InfiniteScroll
       exclude={Object.keys(blacklistedPosts).join(",")}
       root={document.documentElement}
-      Component={WidgetContainer}
-      componentProps={{
-        plainWidget,
-        sx: sx
-      }}
+      sx={sx}
       url={stateRef.current.url}
       ref={infiniteScrollRef}
       notifierDelay={
@@ -107,7 +103,13 @@ const PostsView = ({
       readyState={
         composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
       }
-      searchId={composeDoc?.url ? composeDoc.document?.idp : undefined}
+      searchId={
+        composeDoc?.docType === "post"
+          ? composeDoc.url
+            ? composeDoc.url && composeDoc.document.id
+            : undefined
+          : undefined
+      }
     >
       {({ data: { data, paging }, setObservedNode }) => {
         return paging?.nextCursor !== undefined || data.length ? (

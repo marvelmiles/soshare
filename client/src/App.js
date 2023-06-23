@@ -87,7 +87,7 @@ const App = () => {
         case TOKEN_EXPIRED_MSG:
           handleRefreshToken()
             .then(() => socket.connect())
-            .catch(() => navigate("/auth/signin"))
+            .catch(() => navigate(cid ? "/auth/signin" : "/"))
             .finally(() => {
               setReadyState("ready");
               handlingErr = undefined;
@@ -263,6 +263,7 @@ const App = () => {
       ...snackbar,
       open: false
     });
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -325,7 +326,13 @@ const App = () => {
       >
         {
           {
-            reject: <EmptyData maxWidth="400px" withReload />,
+            reject: (
+              <EmptyData
+                sx={{ minHeight: "100vh" }}
+                maxWidth="400px"
+                withReload
+              />
+            ),
             pending: <BrandIcon hasLoader />,
             ready: (
               <Routes path="/">

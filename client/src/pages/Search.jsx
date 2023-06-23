@@ -45,11 +45,11 @@ const Search = () => {
       );
     }
   }, [tab]);
-  const viewSx = {
-    p: 0,
-    minHeight: "inherit",
-    height: "auto"
-  };
+  // const viewSx = {
+  //   minHeight: "inherit",
+  //   height: "auto",
+
+  // };
 
   return (
     <MainView
@@ -118,7 +118,11 @@ const Search = () => {
             verify: true,
             scrollNodeRef: null
           }}
-          sx={viewSx}
+          sx={
+            {
+              // ...viewSx
+            }
+          }
           key={"serach-posts"}
         />
         <FollowMeWidget
@@ -142,7 +146,6 @@ const Search = () => {
           }}
         />
         <ShortsView
-          plainWidget
           infiniteScrollProps={{
             dataKey: tab,
             searchParams: `q=${q}&select=shorts`,
@@ -153,7 +156,10 @@ const Search = () => {
                 : "pending",
             scrollNodeRef: null
           }}
-          sx={viewSx}
+          componentProps={{
+            plainWidget: true
+          }}
+          // sx={viewSx}
           key={"serach-shorts"}
         />
       </Carousel>

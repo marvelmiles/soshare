@@ -53,7 +53,7 @@ const Signin = () => {
     dispatch(signoutUser());
   }, [dispatch]);
 
-  const handleLogin = async e => {
+  const onSubmit = async e => {
     if (e.target) {
       e.preventDefault();
       e.stopPropagation();
@@ -95,14 +95,20 @@ const Signin = () => {
       message && setSnackBar(message);
     }
   };
+
   return (
     <>
       <Stack sx={{ minHeight: "100vh", width: "100%" }}>
-        <WidgetContainer sx={{ maxWidth: "576px", mx: "auto" }}>
+        <WidgetContainer
+          sx={{ maxWidth: "576px", mx: "auto" }}
+          component="form"
+          onSubmit={onSubmit}
+        >
           <BrandIcon staticFont />
           <CustomInput
             name="placeholder"
             label="Email or username"
+            type="email"
             value={formData.placeholder || ""}
             onChange={handleChange}
             error={!!(errors.placeholder || errors.all)}
@@ -179,7 +185,7 @@ const Signin = () => {
           <Button
             variant="contained"
             sx={{ width: "100%", mt: 2 }}
-            onClick={handleLogin}
+            type="submit"
             disabled={isSubmitting}
           >
             Sigin
@@ -187,7 +193,7 @@ const Signin = () => {
           <Button
             variant="contained"
             sx={{ width: "100%", mt: 2 }}
-            onClick={() => handleLogin("google")}
+            onClick={() => onSubmit("google")}
             disabled={isSubmitting}
           >
             Continue with Google

@@ -8,7 +8,7 @@ import ShortFooter from "./ShortFooter";
 import ShortSidebar from "./ShortSidebar";
 import { useNavigate } from "react-router-dom";
 import Typography from "@mui/material/Typography";
-
+import { useContext } from "context/store";
 const Short = React.forwardRef(
   (
     {
@@ -21,16 +21,21 @@ const Short = React.forwardRef(
       handleAction,
       loop,
       dialogContent,
+      stateCtx,
       ...rest
     },
     ref
   ) => {
     const cid = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
+    const { setContext } = useContext();
     const stateRef = useRef({
       backdropText: "Unable to play video"
     });
     const [loading, setLoading] = useState(true);
+    const [showVolume, setShowVolume] = useState(!miniShort);
+    const [muted, setMuted] = useState(miniShort);
+
     const onTimeUpdate = useCallback(async () => {
       try {
         if (miniShort || short.views[cid]) return;
@@ -41,23 +46,73 @@ const Short = React.forwardRef(
       } catch (msg) {}
     }, [short.id, short.views, cid, handleAction, miniShort]);
 
+    const onPlay = useCallback(
+      (v, { mouseEnter }) => {
+        setShowVolume(true);
+        if (stateCtx.shouldUnmute) setMuted(mouseEnter ? v.muted : false);
+        stateCtx.shouldUnmute = true;
+      },
+      [stateCtx]
+    );
+
+    const onPause = useCallback(
+      (v, { e }) => {
+        if (e && e.relatedTarget.nodeName !== "BUTTON") {
+          setShowVolume(!miniShort);
+          setMuted(true);
+        }
+      },
+      [miniShort]
+    );
+
     const onLoadedMetadata = useCallback(() => setLoading(false), []);
+
     const onClick = useCallback(
       e => {
         e.stopPropagation();
         window.location.pathname.toLowerCase() !== "/shorts" &&
           navigate(`/shorts`);
+        setContext(prev => ({
+          ...prev,
+          composeDoc: {
+            docType: "short",
+            reason: "search",
+            document: {
+              id: short.id
+            }
+          }
+        }));
       },
-      [navigate]
+      [navigate, short.id, setContext]
     );
     const onError = useCallback(
-      ({ severity, withReload }) => {
-        if (!withReload) setLoading(false);
-        if (severity === 1) handleAction("filter", short.id, undefined, false);
+      err => {
+        if (!err.withReload) setLoading(false);
+        if (err.severity === 1)
+          handleAction("filter", short.id, undefined, false);
+
+        if (err.name?.toLowerCase() === "notallowederror") {
+          stateCtx.shouldUnmute = false;
+          setMuted(true);
+        }
       },
-      [handleAction, short.id]
+      [handleAction, short.id, stateCtx]
     );
     const onReload = useCallback(() => setLoading(true), []);
+
+    const _handleAction = useCallback(
+      (reason, res) => {
+        switch (reason) {
+          case "toggle-mute":
+            setMuted(!res.value);
+            break;
+          default:
+            handleAction(reason, res);
+            break;
+        }
+      },
+      [handleAction]
+    );
 
     const inheritSx = {
       height: "inherit",
@@ -70,10 +125,12 @@ const Short = React.forwardRef(
       <Box
         sx={{
           position: "relative",
-          border: "1px solid currentColor",
-          borderColor: "divider",
-          height: miniShort ? "200px" : "calc(100vh - 100px)",
-          borderRadius: 3,
+          height: miniShort ? "200px" : "calc(100vh - 80px)",
+          borderRadius: miniShort
+            ? 3
+            : {
+                md: 3
+              },
           width: miniShort
             ? {
                 xs: "100%",
@@ -81,7 +138,7 @@ const Short = React.forwardRef(
               }
             : {
                 xs: "100%",
-                s320: "320px"
+                md: "350px"
               },
           mb: miniShort ? 1 : 0,
           mx: miniShort ? "" : "auto"
@@ -112,6 +169,7 @@ const Short = React.forwardRef(
           <VideoPlayer
             id={short.id}
             key={short.id + miniShort + "short"}
+            muted={muted}
             loop={loop}
             src={short.url}
             mimetype={short.mimetype}
@@ -121,10 +179,11 @@ const Short = React.forwardRef(
               RELOAD: true
             }}
             pause={short.pause}
-            autoPlay={!miniShort}
-            withIntersection={!miniShort}
+            withIntersection={miniShort ? undefined : true}
             hoverPlayDelay={miniShort && 500}
             hideTimeline={miniShort}
+            onPlay={onPlay}
+            onPause={onPause}
             onTimeUpdate={onTimeUpdate}
             onClick={onClick}
             onLoadedMetadata={onLoadedMetadata}
@@ -159,7 +218,9 @@ const Short = React.forwardRef(
           <ShortSidebar
             id={short.id}
             user={short.user}
-            handleAction={handleAction}
+            muted={muted}
+            withVolume={showVolume}
+            handleAction={_handleAction}
             loading={loading}
             animation={stateRef.current.backdropText ? false : undefined}
           />

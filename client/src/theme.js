@@ -1,5 +1,6 @@
-import { alpha } from "@mui/material/styles";
+import { alpha, darken } from "@mui/material/styles";
 import { createTheme as createMuiTheme } from "@mui/material";
+
 export const createTheme = mode =>
   createMuiTheme({
     palette: {
@@ -18,7 +19,7 @@ export const createTheme = mode =>
               paper: "rgb(22, 24, 28)"
             },
             action: {
-              altHover: `rgba(11,12,14,.95)`
+              altHover: "#333"
             },
             text: {
               primary: "rgba(255,255,255,0.85)",
@@ -43,7 +44,7 @@ export const createTheme = mode =>
               secondary: "#232323"
             },
             action: {
-              altHover: `rgba(204, 204, 204,.78)`
+              altHover: darken("rgb(247, 249, 249)", 0.08)
             }
           }),
       common: {
@@ -94,7 +95,7 @@ export const createTheme = mode =>
         styleOverrides: {
           root: ({
             theme: {
-              palette: { background }
+              palette: { background, action }
             }
           }) => ({
             width: 30,
@@ -102,6 +103,12 @@ export const createTheme = mode =>
             minHeight: 0,
             minWidth: 0,
             backgroundColor: background.alt,
+            "&:focus": {
+              backgroundColor: background.alt
+            },
+            "&:hover": {
+              backgroundColor: action.altHover
+            },
             svg: {
               fontSize: ".75em"
             }
@@ -254,7 +261,9 @@ export const createTheme = mode =>
         s280: 280,
         s320: 320,
         s640: 640,
-        xxxl: 1595
+        xxxl: 1595,
+        s1200: 1200,
+        s1400: 1400
       }
     }
   });
