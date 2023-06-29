@@ -49,8 +49,10 @@ export const createError = (message, status) => {
 
   if (err.status === 500)
     console.log(
-      `[SERVER_ERROR]: ${message.name || err.name}: [code:${message.code ||
-        err.code}]: ${message.message || err.message} at ${new Date()}. `
+      `[SERVER_ERROR ${message.name || err.name}]: [code:${message.code ||
+        err.code}]: ${message.message || err.message}. URL:${
+        message.url
+      } at ${new Date()}. `
     );
 
   return err;

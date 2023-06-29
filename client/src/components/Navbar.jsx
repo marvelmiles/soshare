@@ -97,18 +97,21 @@ const Navbar = ({ routePage = "homePage" }) => {
   useEffect(() => {
     const handleAppendNotification = (n, { filter, isNew }) => {
       if (isNew && !filter && n.to.id === currentUser.id) {
-        let notified = false;
+        let count = 0;
         setUnseens(unseens => {
-          if (notified) return unseens;
-          notified = true;
+          if (count) {
+            unseens.notifications = count;
+            return unseens;
+          }
+          count = unseens.notifications + 1;
           return {
             ...unseens,
-            notifications: unseens.notifications + 1
+            notifications: count
           };
         });
         if (popover.openFor !== "notifications")
           stateRef.current.notifications.unmarked = {
-            data: [n]
+            data: [n].concat(stateRef.current.notifications.unmarked.data || [])
           };
       }
     };
@@ -322,7 +325,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           profilePage: [
             {
               to: `/u/${currentUser.id}`,
-              label: "Profile",
+              label: "Me",
               icon: PersonIcon,
               nullify: currentUser.id === userId
             },
@@ -350,7 +353,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           homePage: [
             {
               to: `/u/${currentUser.id}`,
-              label: "Profile",
+              label: "Me",
               icon: PersonIcon
             }
           ]

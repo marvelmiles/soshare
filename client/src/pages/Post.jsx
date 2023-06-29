@@ -106,7 +106,7 @@ const Post = () => {
     const handleUpdate = document => {
       post?.id === document.id && _handleAction("update", { document });
     };
-    socket.on(`update-${docType}`, handleUpdate);
+       socket.on(`update-${docType}`, handleUpdate);
     socket.on(`filter-${docType}`, handleFilter);
 
     return () => {

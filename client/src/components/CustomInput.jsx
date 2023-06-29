@@ -14,6 +14,7 @@ const CustomInput = ({
   value = "",
   sx,
   rows = multiline ? 1 : 0,
+  type = "text",
   ...props
 }) => {
   const spanSxOnInput = {
@@ -82,7 +83,8 @@ const CustomInput = ({
                 paddingTop: "20px",
                 minHeight: multiline && rows ? `${22 + 16 * rows}px` : "", // row=22 + textLabel=16
                 [INPUT_AUTOFILL_SELECTOR]: {
-                  "& + span": spanSxOnInput
+                  "& + span": spanSxOnInput,
+                  content: '"autofill"'
                 },
                 ".custom-input": {
                   outline: 0,
@@ -131,15 +133,17 @@ const CustomInput = ({
             <div className="custom-input-content">
               {multiline ? (
                 <textarea
+                  {...props}
                   rows={rows}
                   value={value}
-                  {...props}
+                  type={type}
                   className={`custom-input ${props.className || ""}`}
                 />
               ) : (
                 <input
-                  value={value}
                   {...props}
+                  value={value}
+                  type={type}
                   className={`custom-input ${props.className || ""}`}
                 />
               )}
@@ -156,7 +160,7 @@ const CustomInput = ({
           {endAdornment ? <div>{endAdornment}</div> : null}
         </Box>
       </div>
-      {error !== "required" && typeof error === "string" ? (
+      {value && typeof error === "string" ? (
         <Typography
           color={
             error

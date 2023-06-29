@@ -8,6 +8,7 @@ import { useContext } from "context/store";
 import { useSelector } from "react-redux";
 import InfiniteScroll from "components/InfiniteScroll";
 import useCallbacks from "hooks/useCallbacks";
+import { filterDocsByUserSet } from "utils";
 
 const ShortsView = ({
   title,
@@ -24,7 +25,7 @@ const ShortsView = ({
   const currentUser = useSelector(state => state.user.currentUser || {});
   const {
     socket,
-    context: { composeDoc, blacklistedUsers, filterDocsByUserSet }
+    context: { composeDoc, blacklistedUsers }
   } = useContext();
 
   const infiniteScrollRef = useRef();
@@ -65,7 +66,6 @@ const ShortsView = ({
     let date = new Date();
     let sec = date.getSeconds();
     timeId = setTimeout(() => {
-      return;
       const filterOlders = () => {
         infiniteScrollRef.current.setData(prev => {
           return {
@@ -80,7 +80,8 @@ const ShortsView = ({
         });
       };
       filterOlders();
-      taskId = setInterval(filterOlders, 60 * 1000);
+      taskId = setInterval(filterOlders, 60000);
+      clearTimeout(timeId);
     }, (60 - sec) * 1000);
 
     if (composeDoc)
@@ -96,16 +97,14 @@ const ShortsView = ({
       }
 
     return () => {
-      if (timeId) {
-        clearTimeout(timeId);
-        taskId && clearInterval(taskId);
-      }
+      timeId && clearTimeout(timeId);
+      taskId && clearInterval(taskId);
     };
   }, [composeDoc, _handleAction]);
 
   useEffect(() => {
     filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
-  }, [blacklistedUsers, filterDocsByUserSet]);
+  }, [blacklistedUsers]);
 
   return (
     <InfiniteScroll

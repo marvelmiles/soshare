@@ -16,15 +16,14 @@ export const createShort = async (req, res, next) => {
     req.body.url = req.file.publicUrl;
     req.body.mimetype = req.file.mimetype;
     let short = await new Short(req.body).save();
-    const user = await User.updateOne(
-      {
-        _id: short.user
-      },
+    const user = await User.findByIdAndUpdate(
+      short.user,
       {
         $inc: {
           shortCount: 1
         }
-      }
+      },
+      { new: true }
     );
     short.user = user;
     res.json(short);
@@ -40,16 +39,16 @@ export const createShort = async (req, res, next) => {
 
 export const getFeedShorts = async (req, res, next) => {
   const start = new Date();
-  start.setDate(start.getDate() - 3);
+  start.setDate(start.getDate() - 1);
   return getFeedMedias({
     model: Short,
     req,
     res,
     next,
     match: {
-      // createdAt: {
-      //   $gte: start
-      // }
+      createdAt: {
+        $gte: start
+      }
     }
   });
 };

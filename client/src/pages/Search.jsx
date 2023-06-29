@@ -45,11 +45,6 @@ const Search = () => {
       );
     }
   }, [tab]);
-  // const viewSx = {
-  //   minHeight: "inherit",
-  //   height: "auto",
-
-  // };
 
   return (
     <MainView
@@ -118,11 +113,6 @@ const Search = () => {
             verify: true,
             scrollNodeRef: null
           }}
-          sx={
-            {
-              // ...viewSx
-            }
-          }
           key={"serach-posts"}
         />
         <FollowMeWidget
@@ -159,7 +149,6 @@ const Search = () => {
           componentProps={{
             plainWidget: true
           }}
-          // sx={viewSx}
           key={"serach-shorts"}
         />
       </Carousel>

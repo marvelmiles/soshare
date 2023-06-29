@@ -48,7 +48,6 @@ const Layout = ({
   };
   return (
     <div
-      id="app-root"
       style={{
         minHeight: "inherit",
         height: "inherit",

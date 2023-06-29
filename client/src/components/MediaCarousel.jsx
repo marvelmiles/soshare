@@ -51,7 +51,7 @@ const MediaCarousel = forwardRef(
     {
       medias = [],
       display = "block",
-      height = "220px",
+      height = "350px",
       borderRadius = "12px",
       actionBar,
       showIndicator = true,
@@ -72,6 +72,7 @@ const MediaCarousel = forwardRef(
       }),
       []
     );
+
     if (!medias.length) return null;
     height = medias ? height : "0px";
 
@@ -97,12 +98,7 @@ const MediaCarousel = forwardRef(
             position: "absolute",
             top: 10,
             left: 10,
-            zIndex: 1,
-            "& button": {
-              "&:hover,&:focus,&:active": {
-                backgroundColor: "common.blendHover"
-              }
-            }
+            zIndex: 1
           }}
         >
           {actionBar}
@@ -156,15 +152,11 @@ const MediaCarousel = forwardRef(
                         position: "absolute",
                         top: 10,
                         right: 10,
-                        background: blend,
                         borderRadius: "16px",
                         minWidth: "30px",
                         zIndex: 1,
                         border: "1px solid currentColor",
-                        borderColor: "divider",
-                        "&:hover,&:focus,&:active": {
-                          backgroundColor: "common.blendHover"
-                        }
+                        borderColor: "divider"
                       }
                     }}
                   >
@@ -209,8 +201,5 @@ export const arrowStyles = {
   top: "50%",
   transform: "translateY(-50%)",
   border: "1px solid currentColor",
-  borderColor: "divider",
-  "&:hover": {
-    backgroundColor: "common.blendHover"
-  }
+  borderColor: "divider"
 };

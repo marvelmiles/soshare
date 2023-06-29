@@ -44,10 +44,15 @@ const Signin = () => {
   const navigate = useNavigate();
   const [showPwd, setShowPwd] = useState(false);
   const stateRef = useRef({
-    rememberMe: "true"
-  }).current;
+    rememberMe: "true",
+    validateTypeMap: {}
+  });
 
-  const redirect = searchParams.get("redirect");
+  let redirect = searchParams.get("redirect") || "";
+  redirect =
+    redirect.toLowerCase().indexOf(encodeURIComponent("/auth/signup")) > -1
+      ? ""
+      : redirect;
 
   useEffect(() => {
     dispatch(signoutUser());
@@ -61,7 +66,8 @@ const Signin = () => {
     try {
       let user;
       reset(true, { isSubmitting: true });
-      const url = `/auth/signin?rememberMe=${stateRef.rememberMe || ""}`;
+      const url = `/auth/signin?rememberMe=${stateRef.current.rememberMe ||
+        ""}`;
       switch (e) {
         case "google":
           user = (await signInWithPopupTimeout()).user;
@@ -75,7 +81,12 @@ const Signin = () => {
           });
           break;
         default:
-          if (handleSubmit()) user = await http.post(url, formData);
+          if (
+            handleSubmit(undefined, {
+              validateTypeMap: stateRef.current.validateTypeMap
+            })
+          )
+            user = await http.post(url, formData);
           else return;
           break;
       }
@@ -91,9 +102,18 @@ const Signin = () => {
         else message = "Something went wrong!";
       }
       reset(true);
-      if (message === "Account is not registered") stateRef.email = false;
+      if (message === "Account is not registered")
+        stateRef.current.email = false;
       message && setSnackBar(message);
     }
+  };
+
+  const onChange = e => {
+    if (e.target.dataset.changed === "false")
+      stateRef.current.validateTypeMap[e.target.name] = e.target.type;
+    else if (stateRef.current.validateTypeMap[e.target.name])
+      delete stateRef.current.validateTypeMap[e.target.name];
+    handleChange(e);
   };
 
   return (
@@ -108,10 +128,10 @@ const Signin = () => {
           <CustomInput
             name="placeholder"
             label="Email or username"
-            type="email"
             value={formData.placeholder || ""}
-            onChange={handleChange}
+            onChange={onChange}
             error={!!(errors.placeholder || errors.all)}
+            data-changed={!!formData.placeholder}
             sx={{ my: 2 }}
             startAdornment={
               <IconButton
@@ -129,11 +149,13 @@ const Signin = () => {
             type={showPwd ? "text" : "password"}
             name="password"
             label="Password"
+            autoComplete="pass testUser4"
             value={formData.password || ""}
-            onChange={handleChange}
+            onChange={onChange}
             error={errors.password}
             data-validate-type={"false"}
             data-min={8}
+            data-changed={!!formData.password}
             startAdornment={
               <IconButton
                 sx={{
@@ -158,7 +180,7 @@ const Signin = () => {
               control={
                 <Checkbox
                   defaultChecked
-                  onChange={(_, bool) => (stateRef.rememberMe = bool)}
+                  onChange={(_, bool) => (stateRef.current.rememberMe = bool)}
                 />
               }
               label="Remember Me"
@@ -170,7 +192,7 @@ const Signin = () => {
             />
             <StyledLink
               state={
-                stateRef.email !== false &&
+                stateRef.current.email !== false &&
                 formData.placeholder && {
                   user: {
                     email: formData.placeholder
@@ -203,7 +225,9 @@ const Signin = () => {
             <StyledLink
               to={`/auth/signup?${
                 redirect
-                  ? `redirect=${encodeURIComponent(createRelativeURL("view"))}`
+                  ? `redirect=${encodeURIComponent(
+                      createRelativeURL("view redirect")
+                    )}`
                   : ""
               }`}
             >

@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
+import { mediaSchema } from "./Media.js";
 
 const schema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["follow", "like", "comment"]
+      enum: ["follow", "like", "comment", "delete"]
     },
     to: {
       type: String,
@@ -30,6 +31,15 @@ const schema = new mongoose.Schema(
         return !!this.document;
       }
     },
+    cacheType: String,
+    cacheDocs: [
+      {
+        type: new mongoose.Schema({
+          text: String,
+          media: mediaSchema
+        })
+      }
+    ],
     expireAt: Date
   },
   {

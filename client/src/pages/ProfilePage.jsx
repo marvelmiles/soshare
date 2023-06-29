@@ -56,6 +56,9 @@ const ProfilePage = () => {
         isCurrentUser={isCurrentUser}
         routePage="profilePage"
         key={userId}
+        sx={{
+          p: 2
+        }}
       >
         {user === undefined ? (
           <Loading />
@@ -98,6 +101,7 @@ const ProfilePage = () => {
                 hidePwd
               />
             ) : null}
+
             <FollowMeWidget
               url="followers"
               title={isCurrentUser ? "Your Followers" : "Followers"}
@@ -107,7 +111,6 @@ const ProfilePage = () => {
               readOnly={!isCurrentUser}
               variant="flex"
               key="followers"
-              privateUserFollowing={user.following}
             />
 
             <FollowMeWidget
@@ -119,15 +122,14 @@ const ProfilePage = () => {
               isCurrentUser={isCurrentUser}
               variant="flex"
               key="following"
-              privateUserFollowing={user.following}
             />
+
             {isCurrentUser ? (
               <FollowMeWidget
                 width={width}
                 variant="flex"
                 key="suggest"
                 title="People to follow"
-                privateUserFollowing={user.following}
                 priority="follow"
               />
             ) : null}

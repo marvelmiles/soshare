@@ -13,6 +13,10 @@ import { isObject } from "../utils/validators.js";
 import bcrypt from "bcrypt";
 import { getDocument, getFeedMedias } from "../utils/req-res-hooks.js";
 import { mapToObject } from "../utils/normalizers.js";
+import {
+  getAllIntervally,
+  clearGetAllIntervallyTask
+} from "../utils/schedule-tasks.js";
 
 export const getUser = (req, res, next) =>
   getDocument({
@@ -167,30 +171,27 @@ export const suggestFollowers = async (req, res, next) => {
     res.json(result);
     const io = req.app.get("socketIo");
     const socketId = getRoomSockets(io, req.user.id)[0];
+    const mapFn = user => user.id.toString();
     let socket;
     if (
-      false &&
       socketId &&
       (socket = io.sockets.sockets.get(socketId)) &&
-      socket.handshake.withCookies &&
-      !socket.handshake.suggestFollowersTime
+      socket.handshake.withCookies
     ) {
-      socket.handshake.suggestFollowersTime = setTimeout(() => {
-        const suggest = async () => {
-          queryConfig.match._id.$nin = queryConfig.match._id.$nin.concat(
-            result.data
-          );
-          queryConfig.query = {
-            ...queryConfig.query,
-            cursor: result.paging.nextCursor
-          };
-          result = await getAll(queryConfig);
-          io.to(req.user.id).emit("suggest-followers", result);
-        };
-        suggest();
-        socket.handshake.suggestFollowersInterval = setInterval(suggest, 2000);
-      }, 2000);
-    }
+      getAllIntervally(
+        queryConfig,
+        socket,
+        result.paging.nextCursor,
+        "suggestFollowersInterval",
+        {
+          eventName: "suggest-followers",
+          blacklist: result.data.map(mapFn),
+          mapFn
+        }
+      );
+    } else if (socket)
+      // just incase, socket.disconnect should do it.
+      clearGetAllIntervallyTask(socket, "suggestFollowersInterval");
   } catch (err) {
     next(err);
   }
@@ -358,20 +359,22 @@ export const markNotifications = async (req, res, next) => {
 export const getUserShorts = async (req, res, next) => {
   const start = new Date();
   start.setDate(start.getDate() - (Number(req.query.date) || 1));
-  // createdAt: {
-  //   // $gt: start
-  // }
   getFeedMedias({
     req,
     res,
     next,
-    model: Short
+    model: Short,
+    isVisiting: true,
+    match: {
+      createdAt: {
+        $gte: start
+      }
+    }
   });
 };
 
 export const blacklistUserRecommendation = async (req, res, next) => {
   try {
-    return res.json("Blacklisted successfully");
     if (req.user.id === req.params.userId)
       throw createError("You can't blacklist yourself");
 
@@ -385,6 +388,7 @@ export const blacklistUserRecommendation = async (req, res, next) => {
       { new: true }
     );
     const io = req.app.get("socketIo");
+
     io && io.emit("update-user", user);
     res.json("Blacklisted successfully");
   } catch (err) {

@@ -26,7 +26,8 @@ Dialog.defaultProps = {
   open: false
 };
 
-const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
+const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
+  isCurrentUser = isCurrentUser === undefined ? !!uid : isCurrentUser;
   openFor = {
     "create-post": true,
     "create-short": true,
@@ -131,7 +132,21 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                   </Typography>
                 ) : (
                   <div>
-                    <Typography variant="h5" fontWeight="bold" mb={0}>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: "error.main"
+                      }}
+                    >
+                      Media limit (
+                      {compose === "create-short" ? "500mb / 60s" : "1gb / 5h"})
+                    </Typography>
+                    <Typography
+                      variant="h5"
+                      sx={{ mt: "-8px" }}
+                      fontWeight="bold"
+                      mb={0}
+                    >
                       Share your moment
                     </Typography>
                     {key === "create-short" ? (
@@ -183,8 +198,8 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                     }}
                     handleAction={_handleAction}
                     placeholder="#Short_Description"
-                    maxUpload="500mb"
-                    maxDuration="60s"
+                    maxUpload="50mb"
+                    maxDuration="10s"
                   />
                 )
               }[key] || (
@@ -258,8 +273,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                       plainWidget
                       url={`/users/${uid}/posts`}
                       sx={{
-                        p: 0,
-                        pb: 3
+                        p: 0
                       }}
                       scrollNodeRef={scrollNodeRef}
                     />
@@ -268,7 +282,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                     <ShortsView
                       privateUid={uid}
                       hideDataNotifier
-                      plainWidget
+                      componentProps={{ plainWidget: true }}
                       url={`/users/${uid}/shorts`}
                       scrollNodeRef={scrollNodeRef}
                     />
@@ -311,8 +325,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           <>
             <DialogContent
               sx={{
-                p: 0,
-                pb: 3
+                p: 0
               }}
               ref={scrollNodeRef}
             >

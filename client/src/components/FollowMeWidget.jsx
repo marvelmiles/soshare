@@ -10,6 +10,7 @@ import { useParams } from "react-router-dom";
 import InfiniteScroll from "components/InfiniteScroll";
 import useFollowDispatch from "hooks/useFollowDispatch";
 import useCallbacks from "hooks/useCallbacks";
+import { addToSet } from "utils";
 
 const FollowMeWidget = ({
   title = "",
@@ -21,8 +22,7 @@ const FollowMeWidget = ({
   infiniteScrollProps,
   widgetProps,
   emptyDataMessage,
-  privateUid,
-  privateUserFollowing
+  privateUid
 }) => {
   const { previewUser, currentUser = {} } = useSelector(state => state.user);
   let { userId } = useParams();
@@ -63,15 +63,14 @@ const FollowMeWidget = ({
     [_handleAction]
   );
 
-  const { following, toggleFollow, isProcessingFollow } = useFollowDispatch({
-    priority,
-    following: privateUserFollowing
+  const { handleToggleFollow, isProcessingFollow } = useFollowDispatch({
+    priority
   });
 
   const handleFollowingAction = useCallback(
-    toFollow => ({ to, from = { id: currentUser.id } }) => {
+    toFollow => ({ to, from }) => {
       const isFrm = from.id === userId;
-      const isTo = to.id === userId; 
+      const isTo = to.id === userId;
       const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
       if (isTo || isFrm) {
         if (stateRef.current[key]) return;
@@ -91,36 +90,56 @@ const FollowMeWidget = ({
         ] = undefined;
       }
     },
-    [_handleAction, priority, userId, currentUser.id]
+    [_handleAction, priority, userId]
   );
 
   useEffect(() => {
     const isSuggest = priority === "follow";
 
+    let hasSuggested;
     const suggestFollowers = data => {
-      if (!stateRef.current[priority]) {
-        stateRef.current[priority] = true;
+      if (!hasSuggested) {
+        hasSuggested = true;
         infiniteScrollRef.current.setData({
           ...data,
-          data: infiniteScrollRef.current.data.data.concat(data.data)
+          data: addToSet([...data.data, ...infiniteScrollRef.current.data.data])
         });
-        stateRef.current[priority] = undefined;
+        hasSuggested = undefined;
+      }
+    };
+
+    let hasUser;
+    const handleUserEntrying = user => {
+      if (!hasUser) {
+        hasUser = true;
+        socket.emit("suggest-followers", user);
+        infiniteScrollRef.current.setData({
+          ...infiniteScrollRef.current.data,
+          data: addToSet([user, ...infiniteScrollRef.current.data.data])
+        });
+        hasUser = undefined;
       }
     };
 
     const handleFollow = handleFollowingAction(true);
     const handleUnfollow = handleFollowingAction();
+
     const handleUpdateUser = (user, isProfile) =>
       isProfile && _handleAction("update", user);
 
     socket.on("unfollow", handleUnfollow);
     socket.on("follow", handleFollow);
-    isSuggest && socket.on("suggest-followers", suggestFollowers);
+    if (isSuggest) {
+      socket.on("suggest-followers", suggestFollowers);
+      socket.on("user", handleUserEntrying);
+    }
     socket.on("update-user", handleUpdateUser);
     return () => {
       if (isSuggest) {
-        socket.emit("disconnect-suggest-followers-task");
-        socket.removeEventListener("suggest-followers", suggestFollowers);
+        socket
+          .emit("disconnect-suggest-followers-task")
+          .removeEventListener("suggest-followers", suggestFollowers)
+          .removeEventListener("user", handleUserEntrying);
       }
       socket
         .removeEventListener("follow", handleFollow)
@@ -139,10 +158,10 @@ const FollowMeWidget = ({
 
   useEffect(() => {
     const user = previewUser?.followUser;
-    if (user) handleFollowingAction(!user.isFollowing)({ to: user });
-  }, [handleFollowingAction, previewUser?.followUser]);
+    if (user)
+      handleFollowingAction(!user.isFollowing)({ to: user, from: currentUser });
+  }, [handleFollowingAction, previewUser?.followUser, currentUser]);
   const loading = dataSize === undefined || dataSize < 0;
-
   return (
     <WidgetContainer
       ref={scrollNodeRef}
@@ -184,7 +203,7 @@ const FollowMeWidget = ({
         url={stateRef.current.url}
         searchParams={searchParams}
         {...infiniteScrollProps}
-        withCredentials={!!(currentUser.id || following)}
+        withCredentials={!!currentUser.id}
         verify={priority === "toggle"}
         notifierDelay={
           isCurrentUser ? (priority === "toggle" ? undefined : -1) : undefined
@@ -196,7 +215,7 @@ const FollowMeWidget = ({
           const renderPersons = () => {
             return data.map((u = {}, i) => {
               const isFollowing = {
-                toggle: following && following.includes(u.id),
+                toggle: currentUser.following.includes(u.id),
                 follow: false,
                 unfollow: true
               }[userId === currentUser.id ? priority : "toggle"];
@@ -211,17 +230,15 @@ const FollowMeWidget = ({
                   variant={variant}
                   key={i + u.id + priority}
                   sx={
-                    variant !== "block" || following
+                    variant !== "block" || currentUser.following
                       ? undefined
                       : {
                           minHeight: "100px"
                         }
                   }
                   user={u}
-                  btnLabel={
-                    following ? (isFollowing ? "Unfollow" : "Follow") : "Follow"
-                  }
-                  onBtnClick={e => toggleFollow(e, u, isFollowing)}
+                  btnLabel={isFollowing ? "Unfollow" : "Follow"}
+                  onBtnClick={e => handleToggleFollow(e, u, isFollowing)}
                   disabled={isProcessingFollow}
                   isOwner={
                     currentUser.id ? u.id === currentUser.id : u.id === userId

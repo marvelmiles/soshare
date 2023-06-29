@@ -10,6 +10,7 @@ import Comment from "./models/Comment.js";
 import Post from "./models/Post.js";
 import Short from "./models/Short.js";
 import Notification from "./models/Notification.js";
+import { clearGetAllIntervallyTask } from "./utils/schedule-tasks.js";
 
 export default (app, port = process.env.PORT || 8800) => {
   (async () => {
@@ -121,34 +122,30 @@ export default (app, port = process.env.PORT || 8800) => {
       } else socket.emit("bare-connection");
     };
 
-    const stopSuggestFollowersTask = () => {
-      if (socket.handshake.suggestFollowersTime)
-        clearTimeout(socket.handshake.suggestFollowersTime);
-
-      if (socket.handshake.suggestFollowersInterval)
-        clearInterval(socket.handshake.suggestFollowersInterval);
-
-      delete socket.handshake.suggestFollowersTime;
-      delete socket.handshake.suggestFollowersInterval;
-    };
     if (socket.handshake.withCookies) {
       !socket.handshake.userId && io.emit("register-user");
       socket.on("register-user", handleRegUser);
     } else socket.emit("bare-connection");
 
-    socket.on("disconnect-suggest-followers-task", stopSuggestFollowersTask);
+    socket.on("disconnect-suggest-followers-task", () =>
+      clearGetAllIntervallyTask(socket, "suggestFollowersInterval")
+    );
 
     socket.on("disconnect", () => {
       // console.clear();
+
       socket.removeAllListeners();
 
       socket.leave(socket.handshake.userId);
 
-      stopSuggestFollowersTask();
+      clearGetAllIntervallyTask(socket, "suggestFollowersInterval");
+      io.removeListener("register-user", handleRegUser);
 
       delete socket.handshake.withCookies;
       delete socket.handshake.userId;
     });
   });
-  httpServer.listen(port, () => console.log(`App listening on port ${port}`));
+  httpServer.listen(port, () => {
+    console.log(`App listening on port ${port}`);
+  });
 };

@@ -33,7 +33,11 @@ const ShortFooter = ({
     id: cid,
     settings: { hideDelDialog }
   } = useSelector(state => state.user.currentUser);
-  const { toggleFollow, isProcessingFollow, isFollowing } = useFollowDispatch({
+  const {
+    handleToggleFollow,
+    isProcessingFollow,
+    isFollowing
+  } = useFollowDispatch({
     user,
     docId: id
   });
@@ -165,7 +169,7 @@ const ShortFooter = ({
                     Delete
                   </Button>
                 ) : (
-                  <Button variant="contained" onClick={toggleFollow}>
+                  <Button variant="contained" onClick={handleToggleFollow}>
                     {isProcessingFollow ? (
                       <CircularProgress />
                     ) : isFollowing ? (

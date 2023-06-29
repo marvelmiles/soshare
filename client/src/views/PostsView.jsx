@@ -3,33 +3,25 @@ import PropTypes from "prop-types";
 import PostWidget from "components/PostWidget";
 import { useContext } from "context/store";
 import { useSelector } from "react-redux";
-import { WidgetContainer } from "components/styled";
 import EmptyData from "components/EmptyData";
 import { Typography } from "@mui/material";
 import InfiniteScroll from "components/InfiniteScroll";
 import useCallbacks from "hooks/useCallbacks";
+import { filterDocsByUserSet } from "utils";
 
 const PostsView = ({
-  plainWidget = true,
   title,
   url,
   sx,
   postSx,
   children,
-  centerEmptyText,
   scrollNodeRef,
   infiniteScrollProps,
   privateUid
 }) => {
   const {
     socket,
-    context: {
-      composeDoc,
-      blacklistedPosts,
-      blacklistedUsers,
-      filterDocsByUserSet
-    },
-    locState
+    context: { composeDoc, blacklistedPosts, blacklistedUsers }
   } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const infiniteScrollRef = useRef();
@@ -82,7 +74,7 @@ const PostsView = ({
 
   useEffect(() => {
     filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
-  }, [blacklistedUsers, filterDocsByUserSet]);
+  }, [blacklistedUsers]);
 
   return (
     <InfiniteScroll
@@ -140,11 +132,6 @@ const PostsView = ({
               })
             ) : (
               <EmptyData
-                centerEmptyText={centerEmptyText}
-                sx={{
-                  minHeight: "calc(80vh -  202px)",
-                  height: "normal"
-                }}
                 label={
                   privateUid
                     ? `You don't have any post at the moment!`
@@ -155,7 +142,6 @@ const PostsView = ({
           </>
         ) : (
           <EmptyData
-            centerEmptyText={centerEmptyText}
             label={
               privateUid
                 ? `You don't have any post at the moment!`

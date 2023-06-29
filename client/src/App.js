@@ -87,7 +87,13 @@ const App = () => {
         case TOKEN_EXPIRED_MSG:
           handleRefreshToken()
             .then(() => socket.connect())
-            .catch(() => navigate(cid ? "/auth/signin" : "/"))
+            .catch(() =>
+              cid
+                ? navigate(
+                    createRelativeURL("view", "view=session-timeout", false)
+                  )
+                : null
+            )
             .finally(() => {
               setReadyState("ready");
               handlingErr = undefined;
@@ -258,133 +264,149 @@ const App = () => {
     },
     [cid, navigate]
   );
-  const closeSnackBar = () =>
-    setSnackbar({
-      ...snackbar,
-      open: false
-    });
+  const closeSnackBar = () => {
+    setSnackbar(prev =>
+      prev.open
+        ? {
+            ...snackbar,
+            open: false
+          }
+        : prev
+    );
+  };
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <GlobalStyles
-        styles={{
-          "*": {
-            fontFamily: `'Rubik', sans-serif`
-          },
-          textarea: {
-            resize: "none",
-            background: "transparent"
-          },
-          a: {
-            textDecoration: "none"
-          },
-          "html,body,#root": {
-            minHeight: "100vh",
-            scrollBehavior: "smooth",
-            position: "relative",
-            backgroundColor: theme.palette.background.default
-          },
-          ".zoom-in": {
-            transform: "scale(1.2) !important",
-            transition: "transform 0.2s ease-out, opacity 0.5s ease-out 2s",
-            opacity: "0 !important"
-          },
-          [INPUT_AUTOFILL_SELECTOR]: {
-            backgroundColor: "transparent",
-            transition: "background-color 5000s ease-in-out 0s",
-            textFillColor: theme.palette.text.primary,
-            caretColor: theme.palette.text.primary
-          },
-          "html .MuiButtonBase-root.Mui-disabled": {
-            cursor: "not-allowed"
-          },
-          "html .MuiInputBase-input::placeholder": {
-            opacity: "1"
-          },
-          input: {
-            background: "transparent"
-          },
-          "html .MuiButton-contained": {
-            color: theme.palette.common.white
-          }
-        }}
-      />
-      <Provider
-        value={{
-          setSnackBar,
-          socket,
-          context,
-          locState,
-          readyState,
-          prevPath: stateRef.current.prevPath ? stateRef.current.prevPath : "",
-          currentPath: stateRef.current.currentPath,
-          setContext,
-          setReadyState,
-          closeSnackBar
-        }}
-      >
-        {
-          {
-            reject: (
-              <EmptyData
-                sx={{ minHeight: "100vh" }}
-                maxWidth="400px"
-                withReload
-              />
-            ),
-            pending: <BrandIcon hasLoader />,
-            ready: (
-              <Routes path="/">
-                <Route index element={<HomePage />} />
-                <Route path="/auth">
-                  <Route path="signin" element={<Signin />} />
-                  <Route path="signup" element={<Signup />} />
-                  <Route
-                    path="verification-mail"
-                    element={<VerificationMail />}
-                  />
-                  <Route
-                    path="reset-password/:token/:userId"
-                    element={<ResetPwd setSnackBar={setSnackBar} />}
-                  />
-                  <Route path="*" element={<Auth404 />} />
-                </Route>
-                <Route path="u/:userId" element={<ProfilePage />} />
-                <Route path="search" element={<Search />} />
-                <Route path="shorts" element={<ShortsPage />} />
-                <Route path=":kind/:id" element={<Post />} />
-                <Route path="*" element={<Page404 />} />
-              </Routes>
-            )
-          }[readyState]
-        }
-      </Provider>
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={
-          snackbar.autoHideDuration ||
-          (snackbar.severity === "success" ? 5000 : 10000)
-        }
-        onClose={
-          snackbar.onClose === undefined ? closeSnackBar : snackbar.onClose
-        }
-        sx={{ maxWidth: "500px" }}
-      >
-        <Alert
-          severity={snackbar.severity || "error"}
-          action={
-            snackbar.handleClose || true ? (
-              <CloseIcon onClick={closeSnackBar} />
-            ) : (
-              undefined
-            )
-          }
+    <div id="app-root">
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <GlobalStyles
+          styles={{
+            "*": {
+              fontFamily: `'Rubik', sans-serif`
+            },
+            textarea: {
+              resize: "none",
+              background: "transparent"
+            },
+            a: {
+              textDecoration: "none"
+            },
+            "html,body,#root": {
+              minHeight: "100vh",
+              scrollBehavior: "smooth",
+              position: "relative",
+              backgroundColor: theme.palette.background.default
+            },
+            ".zoom-in": {
+              transform: "scale(1.2) !important",
+              transition: "transform 0.2s ease-out, opacity 0.5s ease-out 2s",
+              opacity: "0 !important"
+            },
+            [INPUT_AUTOFILL_SELECTOR]: {
+              backgroundColor: "transparent",
+              transition: "background-color 5000s ease-in-out 0s",
+              textFillColor: theme.palette.text.primary,
+              caretColor: theme.palette.text.primary
+            },
+            "html .MuiButtonBase-root.Mui-disabled": {
+              cursor: "not-allowed"
+            },
+            "html .MuiInputBase-input::placeholder": {
+              opacity: "1"
+            },
+            input: {
+              background: "transparent"
+            },
+            "html .MuiButton-contained": {
+              color: theme.palette.common.white
+            }
+          }}
+        />
+        <Provider
+          value={{
+            setSnackBar,
+            socket,
+            context,
+            locState,
+            readyState,
+            prevPath: stateRef.current.prevPath
+              ? stateRef.current.prevPath
+              : "",
+            currentPath: stateRef.current.currentPath,
+            setContext,
+            setReadyState,
+            closeSnackBar
+          }}
         >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </ThemeProvider>
+          <div>
+            {
+              {
+                reject: (
+                  <EmptyData
+                    sx={{ minHeight: "100vh" }}
+                    maxWidth="400px"
+                    withReload
+                  />
+                ),
+                pending: <BrandIcon hasLoader />,
+                ready: (
+                  <Routes path="/">
+                    <Route index element={<HomePage />} />
+                    <Route path="/auth">
+                      <Route path="signin" element={<Signin />} />
+                      <Route path="signup" element={<Signup />} />
+                      <Route
+                        path="verification-mail"
+                        element={<VerificationMail />}
+                      />
+                      <Route
+                        path="reset-password/:token/:userId"
+                        element={<ResetPwd setSnackBar={setSnackBar} />}
+                      />
+                      <Route path="*" element={<Auth404 />} />
+                    </Route>
+                    <Route path="u/:userId" element={<ProfilePage />} />
+                    <Route path="search" element={<Search />} />
+                    <Route path="shorts" element={<ShortsPage />} />
+                    <Route path=":kind/:id" element={<Post />} />
+                    <Route path="*" element={<Page404 />} />
+                  </Routes>
+                )
+              }[readyState]
+            }
+            <Snackbar
+              open={snackbar.open}
+              autoHideDuration={
+                snackbar.autoHideDuration ||
+                (snackbar.severity === "success" ? 5000 : 10000)
+              }
+              onClose={
+                snackbar.onClose === undefined
+                  ? closeSnackBar
+                  : snackbar.onClose
+              }
+              sx={{ maxWidth: "500px" }}
+            >
+              <Alert
+                severity={snackbar.severity || "error"}
+                action={
+                  snackbar.handleClose || true ? (
+                    <CloseIcon onClick={closeSnackBar} />
+                  ) : (
+                    undefined
+                  )
+                }
+                sx={{
+                  whiteSpace: "pre-line"
+                }}
+              >
+                {snackbar.message}
+              </Alert>
+            </Snackbar>
+          </div>
+        </Provider>
+      </ThemeProvider>
+    </div>
   );
 };
 

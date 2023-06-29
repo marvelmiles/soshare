@@ -218,7 +218,6 @@ const InfiniteScroll = React.forwardRef(
               (async () => {
                 try {
                   stateRef.current.isFetching = true;
-
                   let _data = await http.get(
                     url +
                       `?limit=${limit}&cursor=${data.paging?.nextCursor ||
@@ -260,31 +259,29 @@ const InfiniteScroll = React.forwardRef(
                     } else return;
 
                     const exclude = stateRef.current.exclude || "";
-
                     setData(data => {
-                      const set = exclude
-                        ? (() => {
-                            const set = {};
-                            exclude.split(sep).forEach(item => {
-                              return (set[item] = true);
-                            });
-                            return set;
-                          })()
-                        : {};
+                      const set =
+                        !stateRef.current.withDefaultData && exclude
+                          ? (() => {
+                              const set = {};
+                              exclude.split(sep).forEach(item => {
+                                return (set[item] = true);
+                              });
+                              return set;
+                            })()
+                          : {};
+
                       data = {
                         ..._data,
-                        data: (stateRef.current.withDefaultData
-                          ? []
-                          : data.data
-                        ).concat(
-                          addToSet(
-                            stateRef.current.withDefaultData
-                              ? [..._data.data, ...data.data]
-                              : _data.data,
-                            undefined,
-                            set
-                          )
-                        )
+                        data: stateRef.current.withDefaultData
+                          ? addToSet(
+                              [..._data.data, ...data.data],
+                              undefined,
+                              set
+                            )
+                          : data.data.concat(
+                              addToSet(_data.data, undefined, set)
+                            )
                       };
                       let e = "";
                       if (set)
@@ -334,7 +331,6 @@ const InfiniteScroll = React.forwardRef(
             stateRef.current.exclude = e;
             data.data = valid;
           }
-
           return { ...data };
         });
       },
@@ -437,13 +433,16 @@ const InfiniteScroll = React.forwardRef(
                   : 0);
 
               stateRef.current.infinitePaging.matchedDocs === dataSize &&
+                !stateRef.current.isFetching &&
                 (nullify = true);
             }
 
             stateRef.current.dataChanged = dataSize !== data.data.length;
             preventFetch !== undefined &&
               (stateRef.current.isFetching = preventFetch);
-            exclude !== undefined && (stateRef.current.exclude = exclude);
+
+            exclude !== undefined &&
+              (stateRef.current.exclude += `${stateRef.current.sep}${exclude}`);
 
             stateRef.current.shallowUpdate = true;
           };

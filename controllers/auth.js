@@ -26,6 +26,8 @@ export const signup = async (req, res, next) => {
     );
     req.body.photoUrl = req.file?.publicUrl;
     user = await new User(req.body).save();
+    const io = req.app.get("socketIo");
+    io && io.emit("user", user);
     res.json("Thank you for registering. You can login!");
   } catch (err) {
     next(err);

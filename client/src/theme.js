@@ -95,7 +95,7 @@ export const createTheme = mode =>
         styleOverrides: {
           root: ({
             theme: {
-              palette: { background, action }
+              palette: { background, action, text }
             }
           }) => ({
             width: 30,
@@ -103,6 +103,7 @@ export const createTheme = mode =>
             minHeight: 0,
             minWidth: 0,
             backgroundColor: background.alt,
+            color: text.primary,
             "&:focus": {
               backgroundColor: background.alt
             },

@@ -30,6 +30,7 @@ import { useContext } from "context/store";
 import { useSelector } from "react-redux";
 import DeleteIcon from "@mui/icons-material/Delete";
 import http from "api/http";
+import { useTheme } from "@mui/material";
 import { useDispatch } from "react-redux";
 import { updateUser } from "context/slices/userSlice";
 import DeleteDialog from "components/DeleteDialog";
@@ -70,7 +71,11 @@ const InputBox = ({
   const { setSnackBar, closeSnackBar } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const [moreActionPopover, setMoreActionPopover] = useState({});
-
+  const {
+    palette: {
+      background: { blend }
+    }
+  } = useTheme();
   const isSm = useMediaQuery("(min-width:576px)");
   let {
     formData,
@@ -79,8 +84,8 @@ const InputBox = ({
     errors,
     reset,
     isSubmitting,
-    setErrors,
-    isInValid
+    stateChanged,
+    setErrors
   } = useForm({
     placeholders,
     required,
@@ -89,10 +94,7 @@ const InputBox = ({
     returnFilesArray: true,
     mergeFile: multiple,
     maxUpload,
-    maxDuration,
-    ignoreMap: {
-      document: true
-    }
+    maxDuration
   });
   const [dialog, setDialog] = useState({});
   const mediaCarouselRef = useRef();
@@ -102,8 +104,7 @@ const InputBox = ({
     currentSlide: 0,
     visibility: formData.visibility || "everyone",
     filteredMedias: "",
-    key: fileId || `input-box-file-dialog-${new Date().getTime()}`,
-    inputs: {}
+    key: fileId || `input-box-file-dialog-${new Date().getTime()}`
   });
   const dispatch = useDispatch();
   const actionBtnSx = {
@@ -118,6 +119,7 @@ const InputBox = ({
     _multiple => {
       if (formData[mediaRefName]) {
         const stateCtx = stateRef.current;
+
         if (multiple) {
           if (dialog.multiple || _multiple) {
             let filtered = {};
@@ -133,19 +135,10 @@ const InputBox = ({
             setErrors(errors => {
               if (filtered) {
                 for (const index in filtered) {
-                  errors[mediaRefName + "-duration"] &&
-                    delete errors[mediaRefName + "-duration"][index];
-                  errors[mediaRefName + "-upload"] &&
-                    delete errors[mediaRefName + "-upload"][index];
+                  delete errors[mediaRefName + "-duration"][index];
+                  delete errors[mediaRefName + "-upload"][index];
                 }
                 filtered = undefined;
-
-                !Object.keys(errors[mediaRefName + "-duration"]).length &&
-                  delete errors[mediaRefName + "-duration"];
-
-                !Object.keys(errors[mediaRefName + "-upload"]).length &&
-                  delete errors[mediaRefName + "-upload"];
-
                 return {
                   ...errors
                 };
@@ -156,22 +149,12 @@ const InputBox = ({
               stateCtx.filteredMedias += `${
                 stateCtx.filteredMedias.length ? "," : ""
               }${formData[mediaRefName][currentSlide].id}`;
-            formData[mediaRefName].splice(0, 1);
-            let deleted;
+            delete formData[mediaRefName].splice(currentSlide, 1);
             setErrors(errors => {
-              if (deleted) return errors;
-              deleted = true;
               if (errors[mediaRefName + "-duration"])
                 delete errors[mediaRefName + "-duration"][currentSlide];
               if (errors[mediaRefName + "-upload"])
                 delete errors[mediaRefName + "-upload"][currentSlide];
-
-              Object.keys(errors[mediaRefName + "-duration"]).length &&
-                delete errors[mediaRefName + "-duration"];
-
-              !Object.keys(errors[mediaRefName + "-upload"]).length &&
-                delete errors[mediaRefName + "-upload"];
-
               return {
                 ...errors
               };
@@ -288,13 +271,10 @@ const InputBox = ({
         }
         const stateCtx = stateRef.current;
         const _formData = handleSubmit(undefined, {
-          formData: new FormData()
+          formData: new FormData(),
+          bareMessage: true
         });
-        // return console.log(
-        //   _formData.getAll(mediaRefName),
-        //   _formData.get("visibility"),
-        //   _formData.get("text")
-        // );
+        return console.log(_formData.getAll(mediaRefName));
         if (_formData) {
           let _url =
             url +
@@ -421,16 +401,13 @@ const InputBox = ({
       let withLimit = !!(
         errors[mediaRefName + "-duration"] || errors[mediaRefName + "-upload"]
       );
-
       let err =
-        errors[mediaRefName] ||
-        (errors[mediaRefName + "-duration"] ||
-          errors[mediaRefName + "-upload"]);
+        errors[mediaRefName + "-duration"] || errors[mediaRefName + "-upload"];
 
       let msg = "";
-
+      console.log("has er ", err, errors);
       if (err) {
-        stateRef.current.closedErr = false;
+        console.log("has errrrrrr ");
         if (isObject(err)) {
           err = withLimit
             ? {
@@ -438,36 +415,35 @@ const InputBox = ({
                 ...errors[mediaRefName + "-upload"]
               }
             : err;
-          if (formData[mediaRefName]) {
+          console.log(Object.keys(err).length, " poo ");
+          if (Object.keys(err).length > 0 && formData[mediaRefName]) {
             for (const key in err) {
-              msg = err[key].code
-                ? "Invalid file format or browser have no support for it."
-                : withLimit
-                ? err[key] && `Maximum upload or duration limit exceeded for`
-                : err[key];
-              if (msg)
-                msg += `${msg.length ? "\n" : ""}${Number(key) + 1}) ${msg} ${
-                  formData[mediaRefName][key].name
-                }.`;
+              msg += `${msg.length ? "\n" : ""}${Number(key) + 1}) ${
+                err[key].code
+                  ? "Invalid file format or browser have no support for it."
+                  : withLimit
+                  ? `Maximum upload or duration limit exceeded for`
+                  : err[key]
+              } ${formData[mediaRefName][key].name}`;
             }
-          } else
+          } else {
             setErrors(errors => {
               delete errors[mediaRefName];
               delete errors[mediaRefName + "-duration"];
               delete errors[mediaRefName + "-upload"];
               return { ...errors };
             });
+          }
         } else if (typeof err === "string" || withLimit)
           msg = withLimit ? "Maximum upload or duration limit exceeded!" : err;
-      } else if (!stateRef.current.closedErr) {
-        stateRef.current.closedErr = true;
-        closeSnackBar();
+      
       }
+
       msg && setSnackBar(msg);
     } catch (err) {
       console.log(err);
     }
-  }, [errors, mediaRefName, setSnackBar, formData, closeSnackBar, setErrors]);
+  }, [errors, mediaRefName, setSnackBar, formData, setErrors, closeSnackBar]);
 
   const disable = isSubmitting || isProcessingDelete;
 
@@ -555,7 +531,7 @@ const InputBox = ({
                   }}
                   onChange={({ target: { value } }) => {
                     formData.visibility = value;
-                    reset(formData);
+                    reset({ ...formData }, { stateChanged: true });
                   }}
                 >
                   <MenuItem value="everyone">Everyone</MenuItem>
@@ -626,12 +602,23 @@ const InputBox = ({
             actionBar={
               showActionBar ? (
                 <>
-                  <IconButton disabled={disable} onClick={handleDeleteAll}>
+                  <IconButton
+                    disabled={disable}
+                    sx={{
+                      color: "common.light",
+                      background: blend
+                    }}
+                    onClick={handleDeleteAll}
+                  >
                     <CloseIcon />
                   </IconButton>
                   {multiple ? (
                     <IconButton
                       disabled={disable}
+                      sx={{
+                        color: "common.light",
+                        background: blend
+                      }}
                       onClick={e => {
                         e.stopPropagation();
                         if (currentUser.settings.hideDelMediaDialog)
@@ -701,7 +688,10 @@ const InputBox = ({
             >
               <IconButton
                 sx={{
-                  display: isSm ? "none" : "inline-flex"
+                  display: isSm ? "none" : "inline-flex",
+                  [`&:focus,&:active`]: {
+                    backgroundColor: "background.alt"
+                  }
                 }}
                 onClick={showMoreTools}
               >
@@ -730,7 +720,23 @@ const InputBox = ({
                   borderRadius: 6
                 }}
                 type="submit"
-                disabled={disable || isInValid}
+                disabled={
+                  disable ||
+                  (Object.keys(errors).length > 0 ||
+                    Object.keys(formData).length < 1 ||
+                    (required && required !== true
+                      ? (() => {
+                          let withErr;
+                          for (const key in required) {
+                            if (!formData[key]) {
+                              withErr = true;
+                              break;
+                            }
+                          }
+                          return withErr;
+                        })()
+                      : false))
+                }
                 variant="contained"
               >
                 {actionText
@@ -809,3 +815,4 @@ const InputBox = ({
 InputBox.propTypes = {};
 
 export default InputBox;
+  

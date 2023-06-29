@@ -45,12 +45,12 @@ const schema = new mongoose.Schema(
 );
 
 schema.index({ text: 1 });
-// schema.index(
-//   {
-//     createdAt: 1
-//   },
-//   { expireAfterSeconds: 24 * 60 * 60 }
-// );
+schema.index(
+  {
+    createdAt: 1
+  },
+  { expireAfterSeconds: 86400 }
+);
 const Short = mongoose.model("short", schema);
 
 export default Short;

@@ -1,11 +1,17 @@
 import mongoose from "mongoose";
+import { mediaSchema } from "./Media.js";
 
 export const postSchema = mongoose.Schema(
   {
     location: String,
     text: String,
     moreText: String,
-    medias: Array,
+    medias: [
+      {
+        type: mediaSchema,
+        default: []
+      }
+    ],
     likes: {
       type: Map,
       of: Boolean,

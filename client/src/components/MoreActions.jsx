@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import MoreHorizIcon from "@mui/icons-material/MoreHoriz";
 import IconButton from "@mui/material/IconButton";
@@ -32,7 +32,8 @@ const MoreActions = ({
   isRO,
   btnSx,
   docType,
-  nullifyEdit = docType === "comment"
+  nullifyEdit = docType === "comment",
+  unmount
 }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -55,7 +56,7 @@ const MoreActions = ({
     url: urls.delPath,
     handleAction
   });
-  const { toggleFollow, isFollowing } = useFollowDispatch({
+  const { handleToggleFollow, isFollowing } = useFollowDispatch({
     user: document.user
   });
 
@@ -65,6 +66,10 @@ const MoreActions = ({
     }
     setAnchorEl(null);
   }, []);
+
+  useEffect(() => {
+    unmount && setAnchorEl(null);
+  }, [unmount]);
 
   const handleDontRecommend = useCallback(async () => {
     const url = `/users/recommendation/blacklist/${document.user.id}`;
@@ -177,7 +182,7 @@ const MoreActions = ({
             text: `${isFollowing ? "Unfollow" : "Follow"} ${
               document.user.username
             }`,
-            onClick: toggleFollow,
+            onClick: handleToggleFollow,
             nullify: isOwner
           },
           {
