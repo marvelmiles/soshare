@@ -1,0 +1,37 @@
+.tweet-card {
+  display: block;
+  border: 1px solid #e6ecf0;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.tweet-video {
+  width: 100%;
+  margin-bottom: 16px;
+}
+
+.tweet-video-wrapper {
+  position: relative;
+  padding-top: 56.25%; /* 16:9 aspect ratio */
+}
+
+.tweet-video-element {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+}
+
+.tweet-content h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: bold;
+}
+
+.tweet-content p {
+  margin: 8px 0;
+  font-size: 14px;
+}

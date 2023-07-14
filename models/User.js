@@ -15,35 +15,89 @@ const schema = new mongoose.Schema(
     },
     password: {
       type: String,
-      required: true,
       min: 8
     },
     photoUrl: String,
     followers: {
-      type: Array,
+      type: [
+        {
+          type: String,
+          ref: "user"
+        }
+      ],
       default: []
     },
     following: {
-      type: Array,
+      type: [
+        {
+          type: String,
+          ref: "user"
+        }
+      ],
       default: []
     },
-
+    socials: {
+      type: mongoose.Schema.Types.Mixed,
+      default: {}
+    },
+    bio: String,
     location: String,
     occupation: String,
-    viewedProfile: Number,
-    impressions: Number
+    recommendationBlacklist: {
+      type: [{ type: String, ref: "user" }],
+      default: []
+    },
+    lastLogin: Date,
+    isLogin: {
+      type: Boolean,
+      set(v) {
+        v && (this.lastLogin = new Date());
+        return v;
+      }
+    },
+    provider: String,
+    resetToken: String,
+    resetDate: Date,
+    shortCount: {
+      type: Number,
+      default: 0
+    },
+    postCount: {
+      type: Number,
+      default: 0
+    },
+    settings: {
+      type: Object,
+      default: {}
+    }
   },
   {
+    collection: "user",
     timestamps: true,
     versionKey: false,
     toJSON: {
-      transform(_, ret) {
+      minimize: false,
+      transform(doc, ret) {
         ret.id = ret._id;
         delete ret._id;
         delete ret.password;
+        if (ret.settings) delete ret.settings._id;
+        if (ret.socials) delete ret.socials._id;
+
+        ret.blacklistCount =
+          doc.blacklistCount === undefined && doc.recommendationBlacklist
+            ? doc.recommendationBlacklist.length
+            : doc.blacklistCount;
+
+        if (ret.postCount < 0) ret.postCount = 0;
+
+        if (ret.shortCount < 0) ret.shortCount = 0;
       }
     }
   }
 );
 
-export default mongoose.model("users", schema);
+// index all string fieldss
+schema.index({ "$**": "text" });
+const User = mongoose.model("user", schema);
+export default User;
