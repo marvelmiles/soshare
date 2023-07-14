@@ -4,7 +4,8 @@ import { isDOMElement } from "../utils/validators";
 const useViewIntersection = (targetRef, options) => {
   const [entry, setEntry] = useState({
     isIntersecting: false,
-    key: false
+    key: false,
+    intersectionKey: ""
   });
   const stateRef = useRef({
     nodeKey: options?.nodeKey
@@ -16,18 +17,18 @@ const useViewIntersection = (targetRef, options) => {
         dataset: {}
       }
     };
-    let key = "";
-    if (entry.isIntersecting) {
-      key = stateRef.current.nodeKey
-        ? entry.target.dataset[stateRef.current.nodeKey] ||
-          entry.target.getAttribute(stateRef.current.nodeKey) ||
-          ""
-        : entry.target.id || entry.target.dataset.id || "";
-      if (!key) {
-        key = Date.now();
-        entry.target.dataset.id = key;
-      }
+
+    let key = stateRef.current.nodeKey
+      ? entry.target.dataset[stateRef.current.nodeKey] ||
+        entry.target.getAttribute(stateRef.current.nodeKey) ||
+        ""
+      : entry.target.id || entry.target.dataset.id || "";
+
+    if (entry.isIntersecting && !key) {
+      key = Date.now();
+      entry.target.dataset.id = key;
     }
+
     entry.intersectionKey = key;
 
     setEntry(entry);

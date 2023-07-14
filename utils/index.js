@@ -250,13 +250,15 @@ export const sendAndUpdateNotification = async ({
   filter = false,
   to,
   withFrom = false,
-  docPopulate = "user document"
+  docPopulate = "user document",
+  cacheDoc,
+  cacheType
 }) => {
   let match;
   const from = req.user.id;
   try {
     const {
-      maxNotificationAge: maxAge = 1,
+      maxNotificationAge: maxDay = 1,
       maxFromNotification: maxFrom = 20
     } = req.query;
     to =
@@ -267,7 +269,6 @@ export const sendAndUpdateNotification = async ({
           ? document.document.user?.id || document.document.user
           : document.user?.id || document.user
         : undefined);
-
     if (!withFrom && to === from) return;
 
     document = document && (document.id || document);
@@ -277,7 +278,8 @@ export const sendAndUpdateNotification = async ({
       type,
       document,
       to,
-      docType
+      docType,
+      cacheType
     };
 
     if ({ follow: true }[type]) {
@@ -298,7 +300,8 @@ export const sendAndUpdateNotification = async ({
     let report = true,
       isNew = false,
       filterNotice = false,
-      notice;
+      notice,
+      forceNotify;
 
     notice = await Notification.findOne(match).sort({
       createdAt: -1
@@ -313,9 +316,9 @@ export const sendAndUpdateNotification = async ({
           ) {
             filterNotice = true;
             await notice.deleteOne();
-          } else {
+          } else if (!notice.expireAt) {
             const expireAt = new Date();
-            expireAt.setDate(expireAt.getDate() + maxAge);
+            expireAt.setDate(expireAt.getDate() + maxDay);
             notice = await Notification.findByIdAndUpdate(
               notice.id,
               {
@@ -336,40 +339,47 @@ export const sendAndUpdateNotification = async ({
           );
         }
       }
-    } else if (notice && !notice.marked) {
-      let index;
-      if (
-        (index = notice.users.findIndex(id => id === from)) < 0 ||
-        (notice.expireAt
-          ? notice.expireAt.getTime() < new Date().getTime()
-          : false)
-      ) {
-        index > -1 && notice.users.splice(index, 1);
-        notice.users.unshift(from);
-        notice = await Notification.findByIdAndUpdate(
-          notice.id,
-          {
-            users: notice.users
-          },
-          {
-            new: true
-          }
-        );
-        report = notice.users.length <= maxFrom;
+    } else if (
+      notice &&
+      !notice.marked &&
+      (notice.expireAt
+        ? notice.expireAt.getTime() >= new Date().getTime()
+        : true)
+    ) {
+      if (notice.users[0] !== from) notice.users.unshift(from);
+
+      notice = await Notification.findByIdAndUpdate(
+        notice.id,
+        {
+          users: notice.users,
+          cacheDocs: cacheDoc
+            ? [cacheDoc, ...notice.cacheDocs]
+            : notice.cacheDocs
+        },
+        {
+          new: true
+        }
+      );
+      report = notice.users.length <= maxFrom;
+    } else {
+      if (notice && notice.users.includes(from)) {
+        filterNotice = true;
+        forceNotify = true;
+        await notice.deleteOne();
       }
-    } else if (notice ? !notice.users.includes(from) : true) {
       isNew = true;
       match.users = [from];
+      match.cacheDoc = cacheDoc;
       notice = await new Notification(match).save();
     }
 
     if (notice) notice = await notice.populate(populate);
 
     const io = req.app.get("socketIo");
-
     if (io && notice && report) {
       if (filterNotice) io.emit("filter-notifications", [notice.id]);
-      else
+
+      if (forceNotify || !filterNotice)
         io.emit("notification", notice, {
           filter,
           isNew
@@ -389,7 +399,8 @@ export const generateToken = () => {
   return crypto.randomBytes(20).toString("hex");
 };
 
-export const handleMiscDelete = async (docId, io, withComment = true) => {
+export const handleMiscDelete = async (docId, io, options = {}) => {
+  const { withComment = true, cb, $or = [] } = options;
   try {
     if (withComment) {
       const deleteQuery = {
@@ -398,7 +409,8 @@ export const handleMiscDelete = async (docId, io, withComment = true) => {
           { document: docId },
           {
             rootThread: docId
-          }
+          },
+          ...$or
         ]
       };
       (await Comment.find(deleteQuery)).forEach(
@@ -415,9 +427,12 @@ export const handleMiscDelete = async (docId, io, withComment = true) => {
       notices.length &&
       io.emit("filter-notifications", notices.map(n => n.id || n));
     await Notification.deleteMany(docQuery);
+    cb && cb();
   } catch (err) {
     console.error(
-      `[Error: Misc Delete]: id: ${doocId}. ${err.message} at ${new Date()}.`
+      `[SERVER_Error: Misc Delete] id: ${docId}. ${
+        err.message
+      } at ${new Date()}.`
     );
   }
 };

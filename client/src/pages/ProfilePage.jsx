@@ -10,6 +10,7 @@ import { useSelector } from "react-redux";
 import Loading from "components/Loading";
 import { Stack } from "@mui/material";
 import User404 from "./404/User404";
+import mp4 from "components/video.mp4";
 
 import { useDispatch } from "react-redux";
 const ProfilePage = () => {
@@ -57,6 +58,13 @@ const ProfilePage = () => {
         routePage="profilePage"
         key={userId}
       >
+        {/* <video
+          src={mp4}
+          style={{ border: "1px solid red" }}
+          onLoadedMetadata={e => {
+            console.log(e.target.videoWidth, e.target.videoHeight);
+          }}
+        /> */}
         {user === undefined ? (
           <Loading />
         ) : user?.id ? (
@@ -65,11 +73,12 @@ const ProfilePage = () => {
             justifyContent="normal"
             sx={{
               flexWrap: "wrap",
-              gap: 3,
+              gap: 2,
               maxWidth: "1024px",
               mx: "auto",
               pt: 2,
               width: "100%",
+              p: 2,
               "& > *,& > .data-scrollable,& > .widget-container": {
                 flex: "none",
                 minWidth: {
@@ -98,16 +107,14 @@ const ProfilePage = () => {
                 hidePwd
               />
             ) : null}
+
             <FollowMeWidget
               url="followers"
               title={isCurrentUser ? "Your Followers" : "Followers"}
               secondaryTitle="followers"
               width={width}
-              filterUser={false}
-              readOnly={!isCurrentUser}
               variant="flex"
               key="followers"
-              privateUserFollowing={user.following}
             />
 
             <FollowMeWidget
@@ -116,18 +123,16 @@ const ProfilePage = () => {
               secondaryTitle="following"
               width={width}
               priority="unfollow"
-              isCurrentUser={isCurrentUser}
               variant="flex"
               key="following"
-              privateUserFollowing={user.following}
             />
+
             {isCurrentUser ? (
               <FollowMeWidget
                 width={width}
                 variant="flex"
                 key="suggest"
                 title="People to follow"
-                privateUserFollowing={user.following}
                 priority="follow"
               />
             ) : null}

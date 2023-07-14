@@ -151,9 +151,11 @@ export const deleteComment = async (req, res, next) => {
     if (!comment) return res.json("Comment deleted successfully");
 
     const isOwner = comment.user.id === req.user.id;
+    let withRo;
     if (!isOwner) {
       if (!req.query.ro || req.query.ro !== req.user.id)
         throw createError("Delete operation denied", 401);
+      else withRo = true;
     }
 
     await Comment.deleteOne({ _id: req.params.id });
@@ -203,9 +205,38 @@ export const deleteComment = async (req, res, next) => {
         if (threads.length) io.emit("comment", threads, true);
       }
     }
-    handleMiscDelete(comment.id, io);
+
+    handleMiscDelete(comment.id, io, {
+      $or: [
+        {
+          cacheDocs: {
+            $elemMatch: {
+              _id: comment.id
+            }
+          }
+        }
+      ],
+      cb() {
+        withRo &&
+          sendAndUpdateNotification({
+            req,
+            docPopulate,
+            type: "delete",
+            cacheDoc: {
+              _id: comment._id,
+              text: comment.text,
+              media: comment.media
+            },
+            cacheType: "comment",
+            document: comment.rootThread?.id || comment.document?.id,
+            docType: comment.rootType || comment.docType,
+            to: comment.user.id
+          });
+      }
+    });
     if (comment.media) deleteFile(comment.media.url);
   } catch (err) {
+    console.log(err.message, " err msg ");
     next(err);
   }
 };

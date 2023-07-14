@@ -33,6 +33,7 @@ import { StyledLink } from "components/styled";
 import { TOKEN_EXPIRED_MSG } from "context/config";
 import { setThemeMode } from "context/slices/configSlice";
 import { useDispatch } from "react-redux";
+import PlayGround from "PlayGround";
 
 let socket;
 
@@ -41,6 +42,7 @@ const App = () => {
   const [context, setContext] = useState(contextState);
   const [readyState, setReadyState] = useState("pending");
   const configMode = useSelector(state => state.config.mode);
+  const [isOnline, setIsOnline] = useState(undefined);
   const systemMode = useMediaQuery("(prefers-color-scheme: dark)")
     ? "dark"
     : "light";
@@ -87,7 +89,13 @@ const App = () => {
         case TOKEN_EXPIRED_MSG:
           handleRefreshToken()
             .then(() => socket.connect())
-            .catch(() => navigate("/auth/signin"))
+            .catch(() =>
+              cid
+                ? navigate(
+                    createRelativeURL("view", "view=session-timeout", false)
+                  )
+                : null
+            )
             .finally(() => {
               setReadyState("ready");
               handlingErr = undefined;
@@ -141,6 +149,13 @@ const App = () => {
       ...context,
       composeDoc: context.composeDoc?.url ? context.composeDoc : undefined
     }));
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
     return () => {
       if (socket)
         socket
@@ -150,6 +165,9 @@ const App = () => {
           .removeEventListener("connect_error", handleSocketErr);
 
       handleCancelRequest();
+
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
     };
   }, [cid, navigate]);
 
@@ -204,7 +222,6 @@ const App = () => {
 
   useEffect(() => {
     dispatch(setThemeMode(systemMode));
-    setTheme(createTheme(systemMode));
   }, [dispatch, systemMode]);
 
   const setSnackBar = useCallback(
@@ -258,101 +275,177 @@ const App = () => {
     },
     [cid, navigate]
   );
-  const closeSnackBar = () =>
-    setSnackbar({
-      ...snackbar,
-      open: false
-    });
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <GlobalStyles
-        styles={{
-          "*": {
-            fontFamily: `'Rubik', sans-serif`
-          },
-          textarea: {
-            resize: "none",
-            background: "transparent"
-          },
-          a: {
-            textDecoration: "none"
-          },
-          "html,body,#root": {
-            minHeight: "100vh",
-            scrollBehavior: "smooth",
-            position: "relative",
-            backgroundColor: theme.palette.background.default
-          },
-          ".zoom-in": {
-            transform: "scale(1.2) !important",
-            transition: "transform 0.2s ease-out, opacity 0.5s ease-out 2s",
-            opacity: "0 !important"
-          },
-          [INPUT_AUTOFILL_SELECTOR]: {
-            backgroundColor: "transparent",
-            transition: "background-color 5000s ease-in-out 0s",
-            textFillColor: theme.palette.text.primary,
-            caretColor: theme.palette.text.primary
-          },
-          "html .MuiButtonBase-root.Mui-disabled": {
-            cursor: "not-allowed"
-          },
-          "html .MuiInputBase-input::placeholder": {
-            opacity: "1"
-          },
-          input: {
-            background: "transparent"
-          },
-          "html .MuiButton-contained": {
-            color: theme.palette.common.white
+  const closeSnackBar = useCallback(() => {
+    setSnackbar(prev =>
+      prev.open
+        ? {
+            ...prev,
+            open: false
           }
-        }}
-      />
-      <Provider
-        value={{
-          setSnackBar,
-          socket,
-          context,
-          locState,
-          readyState,
-          prevPath: stateRef.current.prevPath ? stateRef.current.prevPath : "",
-          currentPath: stateRef.current.currentPath,
-          setContext,
-          setReadyState,
-          closeSnackBar
-        }}
-      >
-        {
+        : prev
+    );
+  }, []);
+
+  const closeIsOnlineSnackBar = () => setIsOnline(undefined);
+
+  const _isOnline = isOnline === undefined ? window.navigator.onLine : isOnline;
+
+  return (
+    <div id="app-root">
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <GlobalStyles
+          styles={{
+            "*": {
+              fontFamily: "'Rubik', sans-serif"
+            },
+            textarea: {
+              resize: "none",
+              background: "transparent"
+            },
+            a: {
+              textDecoration: "none"
+            },
+            "html,body,#root": {
+              minHeight: "100vh",
+              scrollBehavior: "smooth",
+              position: "relative",
+              backgroundColor: theme.palette.background.default
+            },
+            ".zoom-in": {
+              transform: "scale(1.2) !important",
+              transition: "transform 0.2s ease-out, opacity 0.5s ease-out 2s",
+              opacity: "0 !important"
+            },
+            [INPUT_AUTOFILL_SELECTOR]: {
+              backgroundColor: "transparent",
+              transition: "background-color 5000s ease-in-out 0s",
+              textFillColor: theme.palette.text.primary,
+              caretColor: theme.palette.text.primary
+            },
+            "html .MuiButtonBase-root.Mui-disabled": {
+              cursor: "not-allowed"
+            },
+            "html .MuiInputBase-input::placeholder": {
+              opacity: "1"
+            },
+            input: {
+              background: "transparent"
+            },
+            "html .MuiButton-contained": {
+              color: theme.palette.common.white
+            },
+            ".custom-overlay": {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: theme.palette.common.blend,
+              height: "100%",
+              maxHeight: "inherit",
+              minHeight: "100%",
+              width: "100%",
+              maxWidth: "inherit",
+              minWidth: "100%",
+              textAlign: "center",
+              border: "inherit",
+              borderRadius: "inherit",
+              zIndex: 2,
+              cursor: "default",
+              color: theme.palette.common.white
+            },
+            ".textarea-readOnly": {
+              resize: "none",
+              width: "100%",
+              color: theme.palette.text.primary,
+              height: "auto",
+              maxHeight: "none",
+              overflow: "hidden",
+              whiteSpace: "pre-line",
+              wordBreak: "break-word"
+            },
+            ".custom-media": {
+              maxHeight: "100%",
+              maxWidth: "100%",
+              minHeight: "100%",
+              minWidth: "100%",
+              width: "100%",
+              height: "100%",
+              position: "absolute",
+              top: "0",
+              left: "0",
+              objectFit: "fill",
+              outline: 0
+            },
+            ".content-inherit": {
+              minWidth: "inherit",
+              minHeight: "inherit",
+              maxHeight: "inherit",
+              maxWidth: "inherit",
+              height: "inherit",
+              width: "inherit",
+              border: "inherit",
+              borderRadius: "inherit",
+              color: "inherit"
+            }
+          }}
+        />
+        <Provider
+          value={{
+            setSnackBar,
+            socket,
+            context,
+            locState,
+            readyState,
+            prevPath: stateRef.current.prevPath
+              ? stateRef.current.prevPath
+              : "",
+            currentPath: stateRef.current.currentPath,
+            setContext,
+            setReadyState,
+            closeSnackBar
+          }}
+        >
           {
-            reject: <EmptyData maxWidth="400px" withReload />,
-            pending: <BrandIcon hasLoader />,
-            ready: (
-              <Routes path="/">
-                <Route index element={<HomePage />} />
-                <Route path="/auth">
-                  <Route path="signin" element={<Signin />} />
-                  <Route path="signup" element={<Signup />} />
-                  <Route
-                    path="verification-mail"
-                    element={<VerificationMail />}
-                  />
-                  <Route
-                    path="reset-password/:token/:userId"
-                    element={<ResetPwd setSnackBar={setSnackBar} />}
-                  />
-                  <Route path="*" element={<Auth404 />} />
-                </Route>
-                <Route path="u/:userId" element={<ProfilePage />} />
-                <Route path="search" element={<Search />} />
-                <Route path="shorts" element={<ShortsPage />} />
-                <Route path=":kind/:id" element={<Post />} />
-                <Route path="*" element={<Page404 />} />
-              </Routes>
-            )
-          }[readyState]
-        }
-      </Provider>
+            {
+              reject: (
+                <EmptyData
+                  sx={{ minHeight: "100vh" }}
+                  maxWidth="400px"
+                  withReload
+                />
+              ),
+              pending: <BrandIcon hasLoader />,
+              ready: (
+                <Routes path="/">
+                  <Route index element={<HomePage />} />
+                  <Route path="playground" element={<PlayGround />} />
+                  <Route path="/auth">
+                    <Route path="signin" element={<Signin />} />
+                    <Route path="signup" element={<Signup />} />
+                    <Route
+                      path="verification-mail"
+                      element={<VerificationMail />}
+                    />
+                    <Route
+                      path="reset-password/:token/:userId"
+                      element={<ResetPwd setSnackBar={setSnackBar} />}
+                    />
+                    <Route path="*" element={<Auth404 />} />
+                  </Route>
+                  <Route path="u/:userId" element={<ProfilePage />} />
+                  <Route path="search" element={<Search />} />
+                  <Route path="shorts" element={<ShortsPage />} />
+                  <Route path=":kind/:id" element={<Post />} />
+                  <Route path="*" element={<Page404 />} />
+                </Routes>
+              )
+            }[readyState]
+          }
+        </Provider>
+      </ThemeProvider>
       <Snackbar
         open={snackbar.open}
         autoHideDuration={
@@ -362,22 +455,42 @@ const App = () => {
         onClose={
           snackbar.onClose === undefined ? closeSnackBar : snackbar.onClose
         }
-        sx={{ maxWidth: "500px" }}
+        sx={{
+          bottom: isOnline === undefined ? undefined : "80px !important",
+          maxWidth: "500px"
+        }}
       >
         <Alert
           severity={snackbar.severity || "error"}
           action={
-            snackbar.handleClose || true ? (
-              <CloseIcon onClick={closeSnackBar} />
-            ) : (
-              undefined
-            )
+            <CloseIcon sx={{ cursor: "pointer" }} onClick={closeSnackBar} />
           }
+          sx={{
+            whiteSpace: "pre-line"
+          }}
         >
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </ThemeProvider>
+      <Snackbar
+        key={isOnline + "-online"}
+        open={isOnline !== undefined}
+        autoHideDuration={5000}
+        onClose={closeIsOnlineSnackBar}
+      >
+        <Alert
+          severity={_isOnline ? "success" : "warning"}
+          action={
+            <CloseIcon
+              sx={{ cursor: "pointer" }}
+              onClick={closeIsOnlineSnackBar}
+            />
+          }
+        >
+          You are currently {_isOnline ? "online" : "offline"}
+        </Alert>
+      </Snackbar>
+    </div>
   );
 };
 

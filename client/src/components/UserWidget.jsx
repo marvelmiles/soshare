@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
 import PropTypes from "prop-types";
 import { WidgetContainer } from "./styled";
-import { Box, Stack, Avatar, Divider, IconButton } from "@mui/material";
+import { Box, Stack, Divider, IconButton } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import ManageAccountsOutlined from "@mui/icons-material/ManageAccountsOutlined";
-import { StyledLink, StyledTypography } from "components/styled";
+import { StyledLink } from "components/styled";
 import LocationOnOutlinedIcon from "@mui/icons-material/LocationOnOutlined";
 import WorkOutlinedIcon from "@mui/icons-material/WorkOutlineOutlined";
 import TwitterIcon from "@mui/icons-material/Twitter";
@@ -15,10 +15,10 @@ import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import { useContext } from "context/store";
 import { useDispatch } from "react-redux";
 import { updateUser, updatePreviewUser } from "context/slices/userSlice";
+import UserTip from "tooltips/UserTip";
 
 const UserWidget = ({ width, user }) => {
   const { socket } = useContext();
-  const [searchParams] = useSearchParams();
   const { previewUser, currentUser } = useSelector(({ user }) => user);
 
   const [cUser, setCUser] = useState(
@@ -38,19 +38,21 @@ const UserWidget = ({ width, user }) => {
   });
 
   useEffect(() => {
-    const ctx = stateRef.current;
-    const handleUserUpdate = u => {
-      if (u.id === stateRef.current.cid) {
-        dispatch(updateUser(u));
-        dispatch(updatePreviewUser({ nullify: true }));
-      }
-    };
-    ctx.withSocket &&
-      ctx.isCurrentUser &&
-      socket.on("update-user", handleUserUpdate);
-    return () => {
-      socket.removeEventListener("update-user", handleUserUpdate);
-    };
+    if (socket) {
+      const ctx = stateRef.current;
+      const handleUserUpdate = u => {
+        if (u.id === stateRef.current.cid) {
+          dispatch(updateUser(u));
+          dispatch(updatePreviewUser({ nullify: true }));
+        }
+      };
+      ctx.withSocket &&
+        ctx.isCurrentUser &&
+        socket.on("update-user", handleUserUpdate);
+      return () => {
+        socket.removeEventListener("update-user", handleUserUpdate);
+      };
+    }
   }, [socket, dispatch]);
 
   useEffect(() => {
@@ -76,8 +78,6 @@ const UserWidget = ({ width, user }) => {
     }));
   }, [user]);
 
-  const userLink = `/u/${cUser.id}`;
-
   const styles = {
     textValue: {
       gap: 2,
@@ -95,16 +95,6 @@ const UserWidget = ({ width, user }) => {
     },
     divider: { my: 3 }
   };
-  const renderSV = v => {
-    const view = (searchParams.get("view") || "").toLowerCase();
-    return `${
-      window.location.search
-        ? view
-          ? window.location.search.replace(`view=${view}`, `view=${v}`)
-          : window.location.search + `&view=${v}`
-        : `?view=${v}`
-    }`;
-  };
   return (
     <WidgetContainer
       sx={{
@@ -112,124 +102,18 @@ const UserWidget = ({ width, user }) => {
       }}
       className="widget-container"
     >
-      <Stack sx={{ gap: 2, flexWrap: "wrap" }} alignItems="flex-start">
-        <Stack
-          sx={{
-            gap: 2,
-            flexWrap: {
-              xs: "wrap",
-              s320: "nowrap"
-            },
-            width: {
-              xs: "100%",
-              s320: "calc(100% - 50px)"
-            }
-          }}
-          alignItems="flex-start"
-          justifyContent="normal"
-        >
-          <Avatar
-            src={cUser.photoUrl}
-            alt={`${cUser.username} avatar`}
-            title={`@${cUser.username || cUser.displayName}`}
-            variant="sm"
-          />
-          <Box
-            sx={{
-              minWidth: 0,
-              color: "text.secondary",
-              wordBreak: "break-word"
-            }}
-          >
-            <StyledTypography
-              component="p"
-              variant="h5"
-              fontWeight="bold"
-              color="text.primary"
-              sx={{
-                wordBreak: "break-word"
-              }}
-            >
-              {cUser.displayName}
-            </StyledTypography>
-            <Typography
-              color="inherit"
-              component={StyledLink}
-              to={userLink}
-              variant="caption"
-              sx={{
-                wordBreak: "break-word"
-              }}
-            >
-              @{cUser.username}
-            </Typography>
-            <div style={{ whiteSpace: "wrap" }}>
-              <StyledLink
-                sx={{ color: "inherit" }}
-                to={renderSV("user-following")}
-              >
-                {cUser.following.length} following
-              </StyledLink>
-              <span style={{ marginInline: "2px" }}>|</span>
-              <StyledLink
-                sx={{ color: "inherit" }}
-                to={renderSV("user-followers")}
-              >
-                {cUser.followers.length} followers
-              </StyledLink>
-
-              <span style={{ marginInline: "2px" }}>|</span>
-              <StyledLink sx={{ color: "inherit" }} to={renderSV("user-posts")}>
-                {cUser.postCount} posts
-              </StyledLink>
-
-              <span style={{ marginInline: "2px" }}>|</span>
-              <StyledLink
-                sx={{ color: "inherit" }}
-                to={renderSV("user-shorts")}
-              >
-                {cUser.shortCount} shorts
-              </StyledLink>
-              {stateRef.current.isCurrentUser ? (
-                <>
-                  <span style={{ marginInline: "2px" }}>|</span>
-                  <StyledLink
-                    sx={{ color: "inherit" }}
-                    to={renderSV("user-blacklist")}
-                  >
-                    {cUser.blacklistCount} blacklist
-                  </StyledLink>
-                </>
-              ) : null}
-            </div>
-          </Box>
-        </Stack>
-        {stateRef.current.isCurrentUser && !user ? (
-          <IconButton component={StyledLink} to={userLink}>
-            <ManageAccountsOutlined />
-          </IconButton>
-        ) : null}
-      </Stack>
-      {cUser.bio ? (
-        <Typography
-          variant="caption"
-          component="div"
-          color="text.secondary"
-          fontWeight="500"
-          sx={{
-            resize: "none",
-            width: "100%",
-            height: "auto",
-            maxHeight: "none",
-            overflow: "hidden",
-            whiteSpace: "pre-line",
-            mt: "1rem",
-            pl: "0px"
-          }}
-        >
-          {cUser.bio}
-        </Typography>
-      ) : null}
+      <UserTip
+        disableSnippet
+        actionBar={
+          stateRef.current.isCurrentUser && !user ? (
+            <IconButton component={StyledLink} to={`/u/${cUser.id}`}>
+              <ManageAccountsOutlined />
+            </IconButton>
+          ) : null
+        }
+        user={cUser}
+        isCurrentUser={stateRef.current.isCurrentUser}
+      />
       {cUser.occupation || cUser.location ? (
         <>
           <Divider sx={styles.divider} />

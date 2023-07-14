@@ -4,7 +4,7 @@ import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
-import { StyledTypography, StyledLink } from "./styled";
+import { StyledTypography, StyledLink } from "components/styled";
 import { Link } from "react-router-dom";
 
 const Person = React.forwardRef(
@@ -67,82 +67,79 @@ const Person = React.forwardRef(
         );
       default:
         return (
-          <>
-            {user.id}
+          <Stack
+            ref={ref}
+            alignItems="flex-start"
+            sx={{
+              mb,
+              flexWrap: "wrap",
+              ...sx
+            }}
+          >
             <Stack
-              ref={ref}
-              alignItems="flex-start"
               sx={{
-                mb,
-                flexWrap: "wrap",
-                ...sx
+                minWidth: {
+                  xs: "100%",
+                  s320: "50px"
+                },
+                flex: 1
               }}
+              alignItems="flex-start"
+              justifyContent="normal"
             >
-              <Stack
+              <Avatar
+                variant="md"
+                src={user.photoUrl}
+                component={Link}
+                to={`/u/${user.id}`}
+              />
+              <Box
                 sx={{
-                  minWidth: {
-                    xs: "100%",
-                    s320: "50px"
-                  },
-                  flex: 1
+                  minWidth: 0,
+                  "& > *": {
+                    display: "flex"
+                  }
                 }}
-                alignItems="flex-start"
-                justifyContent="normal"
               >
-                <Avatar
-                  variant="md"
-                  src={user.photoUrl}
-                  component={Link}
-                  to={`/u/${user.id}`}
-                />
-                <Box
-                  sx={{
-                    minWidth: 0,
-                    "& > *": {
-                      display: "flex"
-                    }
-                  }}
-                >
-                  <Box>
-                    <StyledTypography
-                      fontWeight="500"
-                      variant="caption"
-                      color="common.dark"
-                      textEllipsis
-                    >
-                      {isOwner ? "You" : user.displayName || user.username}
-                    </StyledTypography>
-                  </Box>
-                  <Box>
-                    <StyledTypography
-                      variant="caption"
-                      color="common.dark"
-                      textEllipsis
-                      sx={{ minWidth: 0, flex: 1 }}
-                      component={StyledLink}
-                      color="inherit"
-                      to={`/u/${user.id}`}
-                    >
-                      @{user.username}
-                    </StyledTypography>
-                  </Box>
+                <Box>
+                  <StyledTypography
+                    fontWeight="500"
+                    variant="caption"
+                    color="common.dark"
+                    textEllipsis
+                  >
+                    {isOwner ? "You" : user.displayName || user.username}
+                  </StyledTypography>
                 </Box>
-              </Stack>
-              {btnLabel ? (
-                <Button
-                  variant={{}[variant] || "contained"}
-                  sx={{
-                    borderRadius: 6,
-                    flexShrink: 0
-                  }}
-                  onClick={onBtnClick}
-                  disabled={isOwner || disabled}
-                >
-                  {btnLabel}
-                </Button>
-              ) : null}
+                <Box>
+                  <StyledTypography
+                    variant="caption"
+                    color="common.dark"
+                    textEllipsis
+                    sx={{ minWidth: 0, flex: 1 }}
+                    component={StyledLink}
+                    color="inherit"
+                    to={`/u/${user.id}`}
+                  >
+                    @{user.username}
+                  </StyledTypography>
+                </Box>
+              </Box>
             </Stack>
-          </>
+            {btnLabel ? (
+              <Button
+                variant={{}[variant] || "contained"}
+                sx={{
+                  borderRadius: 6,
+                  flexShrink: 0
+                }}
+                onClick={onBtnClick}
+                disabled={isOwner || disabled}
+              >
+                {btnLabel}
+              </Button>
+            ) : null}
+          </Stack>
         );
     }
   }

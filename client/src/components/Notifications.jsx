@@ -27,6 +27,11 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import { useContext } from "context/store";
 import { Link } from "react-router-dom";
+import moment from "moment";
+import PostWidget from "components/PostWidget";
+import { StyledLink } from "./styled";
+import Tooltip from "@mui/material/Tooltip";
+import UserTip from "tooltips/UserTip";
 
 const Notifications = ({
   markNotification,
@@ -38,6 +43,7 @@ const Notifications = ({
   dataSx,
   sx
 }) => {
+  const t = useRef();
   const { socket } = useContext();
   const [disabled, setDisabled] = useState(true);
   const [type, setType] = useState(defaultType);
@@ -75,7 +81,7 @@ const Notifications = ({
         else setDisabled(true);
         break;
       case "close":
-        setDisabled(false);
+        setDisabled(true);
         break;
       default:
         break;
@@ -195,6 +201,7 @@ const Notifications = ({
         handleAction={_handleAction}
         sx={sx}
         withCredentials={!!cid}
+        exclude={(cache[type].data || []).map(n => n.id).join(",")}
       >
         {({ setObservedNode, data: { data } }) => {
           return (
@@ -238,38 +245,105 @@ const Notifications = ({
                   <List sx={{ mt: 0, p: 0 }}>
                     {data.map((n, i) => {
                       const renderMsg = () => {
+                        let withRo;
+                        const formatedDate = moment(n.createdAt).fromNow();
+                        const moreInfo = (
+                          <span>
+                            {
+                              {
+                                like: " liked",
+                                comment: ` soshared a ${n.docType} on`
+                              }[n.type]
+                            }{" "}
+                            {n.document?.user?.id === cid ||
+                            (withRo = n.document?.document?.user?.id === cid)
+                              ? "your"
+                              : "a"}{" "}
+                            {withRo ? (
+                              <StyledLink
+                                style={{ color: "inherit" }}
+                                to={`/${n.document.docType}s/${n.document.document.id}`}
+                              >
+                                {n.document.docType}
+                              </StyledLink>
+                            ) : n.document ? (
+                              n.docType
+                            ) : (
+                              <StyledLink
+                                style={{ color: "inherit" }}
+                                to={`/${n.docType}s/${n.document?.id || ""}`}
+                              >
+                                {n.docType}
+                              </StyledLink>
+                            )}{" "}
+                            {formatedDate}.
+                          </span>
+                        );
+                        const username = (
+                          <Tooltip
+                            arrow={false}
+                            title={
+                              <UserTip
+                                user={n.users[0]}
+                                isOwner={cid === n.users[0].id}
+                              />
+                            }
+                          >
+                            <span>{n.users[0].username}</span>
+                          </Tooltip>
+                        );
                         switch (n.type) {
                           case "like":
                           case "comment":
                             const usersLen = n.users.length - 1;
-                            const moreInfo = ` ${
-                              {
-                                like: "liked",
-                                comment: "shared their view about"
-                              }[n.type]
-                            } your ${
-                              n.docType === "comment"
-                                ? "comment"
-                                : n.document.user?.id === cid
-                                ? n.docType
-                                : ""
-                            }`;
-                            return `@${n.users[0].username}${
-                              usersLen
-                                ? ` and ${
-                                    usersLen - 1
-                                      ? `${usersLen} others ${moreInfo} `
-                                      : ` @${n.users[1].username} ${moreInfo}`
-                                  }`
-                                : moreInfo
-                            }`;
+                            return (
+                              <div>
+                                @{username}
+                                {usersLen
+                                  ? ` and ${
+                                      usersLen - 1
+                                        ? `${usersLen} others${moreInfo} `
+                                        : ` @${n.users[1].username}${moreInfo}`
+                                    }`
+                                  : moreInfo}
+                              </div>
+                            );
+                          case "follow":
+                            return (
+                              <div>
+                                @{username} followed
+                                {n.to.id === cid ? " you " : " a friend "}
+                                {formatedDate}.
+                              </div>
+                            );
+                          case "delete":
+                            return (
+                              <div>
+                                @{username} deleted your
+                                {n.cacheType +
+                                  (n.cacheDocs.length > 1 ? " s " : " ")}
+                                on their{" "}
+                                <StyledLink
+                                  to={`/${n.docType}s/${n.document.id}`}
+                                >
+                                  {n.docType}
+                                </StyledLink>{" "}
+                                {formatedDate}.
+                              </div>
+                            );
                           default:
-                            break;
+                            return (
+                              <div>
+                                @{username}
+                                {moreInfo}
+                              </div>
+                            );
                         }
                       };
                       return (
                         <ListItemButton
                           key={n.id}
+                          disableRipple
                           ref={
                             i === data.length - 1
                               ? node => node && setObservedNode(node)
@@ -277,9 +351,12 @@ const Notifications = ({
                           }
                           component="li"
                           sx={{
-                            borderBottom: "1px solid currentColor",
-                            borderBottomColor: "divider",
-                            alignItems: "flex-start",
+                            "&": {
+                              borderBottom: "1px solid currentColor",
+                              borderBottomColor: "divider",
+                              alignItems: "flex-start",
+                              zIndex: 2
+                            },
                             "&:hover": {
                               backgroundColor: "common.selectedHover"
                             }
@@ -330,28 +407,10 @@ const Notifications = ({
                               ))}
                             </Stack>
                             <Typography sx={{ mt: 1 }}>
-                              {
-                                {
-                                  follow: `@${n.users[0].username} followed  ${
-                                    n.to.id === cid ? "you" : ""
-                                  }`,
-                                  like: renderMsg(),
-                                  comment: renderMsg()
-                                }[n.type]
-                              }
+                              {renderMsg()}
                             </Typography>
-                            {n.document?.text ? (
-                              <Box sx={{ mt: "4px" }}>
-                                <Typography
-                                  variant="h5"
-                                  sx={{ display: "inline" }}
-                                >
-                                  {n.document.text}...
-                                </Typography>
-                                {n.document.moreText ? (
-                                  <Typography component="span">...</Typography>
-                                ) : null}
-                              </Box>
+                            {n.document ? (
+                              <PostWidget post={n.document} enableSnippet />
                             ) : null}
                           </Box>
                           <Box

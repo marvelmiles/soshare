@@ -53,7 +53,9 @@ const Signup = () => {
           <StyledLink
             to={`/auth/signin?${
               redirect
-                ? `redirect=${encodeURIComponent(createRelativeURL("view"))}`
+                ? `redirect=${encodeURIComponent(
+                    createRelativeURL("view redirect")
+                  )}`
                 : ""
             }`}
           >

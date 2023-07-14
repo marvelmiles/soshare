@@ -37,7 +37,7 @@ export const processQueue = (err, data) => {
 
 export const getHttpErrMsg = (err, rejectAll) => {
   console.log(err);
-  let message = "Something went wrong. Check your network and try again.";
+  let message = "Something went wrong. Try again.";
   if (err instanceof AxiosError) {
     if (err.config) rejectAll = err.config.url === "/auth/reset-password";
     switch (err.code?.toLowerCase()) {
@@ -119,6 +119,7 @@ export const handleRefreshToken = (
 const http = rootAxios.create({
   baseURL: API_ENDPOINT + "/api"
 });
+let f;
 http.interceptors.request.use(function(config) {
   /delete|put|post|patch/.test(config.method) &&
     (config.withCredentials = true);
@@ -127,15 +128,16 @@ http.interceptors.request.use(function(config) {
   source.url = config.url;
   config.cancelToken = source.token;
   cancelRequests.push(source);
-
+  f = config.url;
   return config;
 });
 http.interceptors.response.use(
   response => Promise.resolve(response.data),
   async err => {
-    if (!(err instanceof AxiosError) || rootAxios.isCancel(err))
+    if (!(err instanceof AxiosError) || rootAxios.isCancel(err)) {
+      console.log(f, " cancelled url ");
       return Promise.reject(getHttpErrMsg(err));
-
+    }
     const originalRequest = err.config;
     if (err.response?.status === 401) {
       if (isRefreshing) {

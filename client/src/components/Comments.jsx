@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import Button from "@mui/material/Button";
-import PostWidget from "components/PostWidget";
+import PostWidget from "./PostWidget";
 import InfiniteScroll from "./InfiniteScroll";
 import { useContext } from "context/store";
 import { useSelector } from "react-redux";
@@ -12,6 +12,7 @@ import { checkVisibility } from "utils/validators";
 import EmptyData from "components/EmptyData";
 import Loading from "components/Loading";
 import { StyledLink } from "components/styled";
+import { filterDocsByUserSet } from "utils";
 
 // decided to use index-based rendering
 // scability and real-time updates
@@ -34,7 +35,7 @@ const Comments = ({
   const currentUser = useSelector(state => state.user.currentUser);
   const {
     socket,
-    context: { blacklistedUsers, filterDocsByUserSet, composeDoc },
+    context: { blacklistedUsers, composeDoc },
     setContext
   } = useContext();
   const stateRef = useRef({
@@ -124,8 +125,7 @@ const Comments = ({
       const data = infiniteScrollRef.current.data;
       const index = stateCtx.registeredIds[id];
       const docId = document.id;
-
-      if (!(index > -1) || (!cacheData && isRO)) return;
+      if (!(index > -1)) return;
 
       cacheData &&
         document.comments &&
@@ -181,7 +181,7 @@ const Comments = ({
         filterConfig
       );
     },
-    [documentId, handleAction, isRO]
+    [documentId, handleAction]
   );
   const _handleAction = useCallback(
     (reason, options = {}) => {
@@ -287,7 +287,7 @@ const Comments = ({
       "threads",
       stateRef.current
     );
-  }, [filterDocsByUserSet, blacklistedUsers]);
+  }, [blacklistedUsers]);
 
   return (
     <>
@@ -309,11 +309,6 @@ const Comments = ({
           }}
           message={{
             success: `Your comment has been soshared!`
-          }}
-          sx={{
-            minHeight: 0,
-            borderTopLeftRadius: 0,
-            borderTopRightRadius: 0
           }}
           key={documentId + "-comment-input-box"}
         />

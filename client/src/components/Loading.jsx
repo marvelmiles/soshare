@@ -102,7 +102,13 @@ const Loading = ({ sx, className, ...rest }) => {
       id="custom-loading"
       className={className}
     >
-      <CircularProgress value={60} thickness={4} size={20} {...rest} />
+      <CircularProgress
+        value={60}
+        thickness={4}
+        size={20}
+        {...rest}
+        sx={{ color: "primary.main" }}
+      />
     </Stack>
   );
 };

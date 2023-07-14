@@ -53,3 +53,55 @@ export const addToSet = (arr = [], item, set = {}) => {
   }
   return items;
 };
+
+export const filterDocsByUserSet = (
+  infiniteScrollUtils,
+  usersSet,
+  subPath,
+  stateCtx
+) => {
+  const { data, setData } = infiniteScrollUtils;
+  const arr = [];
+  for (let i = 0; i < data.data.length; i++) {
+    const doc = data.data[i];
+    const deleteFromReg = doc => {
+      delete stateCtx.registeredIds[doc.id];
+
+      if (doc[subPath])
+        for (const { id } of doc[subPath]) {
+          delete stateCtx.registeredIds[id];
+        }
+    };
+
+    if (usersSet[doc.user.id]) {
+      const doc = data.data[i];
+      stateCtx?.registeredIds && deleteFromReg(doc);
+    } else arr.push(doc);
+
+    if (doc[subPath])
+      for (let i = 0; i < doc[subPath].length; i++) {
+        if (usersSet[doc[subPath][i].user.id]) {
+          const array = doc[subPath].splice(i);
+          stateCtx?.registeredIds && array.forEach(deleteFromReg);
+          break;
+        }
+      }
+  }
+  setData({
+    ...data,
+    data: arr
+  });
+};
+
+export const setAspectRatio = element => {
+  let ratio =
+    (element.naturalWidth || element.videoWidth) /
+    (element.naturalHeight || element.videoHeight);
+  ratio = ratio > 1 ? 1 / ratio : ratio;
+  element.parentElement.style.paddingBottom = 100 * ratio + "%";
+};
+
+export const getTimeMap = duration => {
+  const secs = Math.floor(duration);
+  return { mins: Math.floor(secs / 60), secs: secs % 60 };
+};

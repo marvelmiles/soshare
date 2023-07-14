@@ -8,26 +8,24 @@ import { useContext } from "context/store";
 import { useSelector } from "react-redux";
 import InfiniteScroll from "components/InfiniteScroll";
 import useCallbacks from "hooks/useCallbacks";
+import { filterDocsByUserSet } from "utils";
 
 const ShortsView = ({
   title,
   miniShort = true,
-  plainWidget,
   infiniteScrollProps,
   url = "/shorts",
   loop,
   sx,
   mx,
-  centerEmptyText,
   scrollNodeRef,
-  privateUid
+  privateUid,
+  componentProps
 }) => {
-  plainWidget = plainWidget === undefined ? !miniShort : plainWidget;
-  centerEmptyText = plainWidget ? true : centerEmptyText;
   const currentUser = useSelector(state => state.user.currentUser || {});
   const {
     socket,
-    context: { composeDoc, blacklistedUsers, filterDocsByUserSet }
+    context: { composeDoc, blacklistedUsers }
   } = useContext();
 
   const infiniteScrollRef = useRef();
@@ -40,27 +38,29 @@ const ShortsView = ({
     currentUser
   });
   useEffect(() => {
-    const handleFilter = document => {
-      _handleAction("filter", { document, cacheData: false });
-    };
+    if (socket) {
+      const handleFilter = document => {
+        _handleAction("filter", { document, cacheData: false });
+      };
 
-    const handleAppend = short => {
-      (privateUid ? privateUid === short.user.id : true) &&
-        _handleAction("new", { document: short });
-    };
+      const handleAppend = short => {
+        (privateUid ? privateUid === short.user.id : true) &&
+          _handleAction("new", { document: short });
+      };
 
-    const handleUpdateUser = user => _handleAction("update", { user });
+      const handleUpdateUser = user => _handleAction("update", { user });
 
-    socket.on("short", handleAppend);
-    socket.on("filter-short", handleFilter);
-    socket.on("update-user", handleUpdateUser);
+      socket.on("short", handleAppend);
+      socket.on("filter-short", handleFilter);
+      socket.on("update-user", handleUpdateUser);
 
-    return () => {
-      socket
-        .removeEventListener("short", handleAppend)
-        .removeEventListener("filter-short", handleFilter)
-        .removeEventListener("update-user", handleUpdateUser);
-    };
+      return () => {
+        socket
+          .removeEventListener("short", handleAppend)
+          .removeEventListener("filter-short", handleFilter)
+          .removeEventListener("update-user", handleUpdateUser);
+      };
+    }
   }, [socket, _handleAction, privateUid]);
 
   useEffect(() => {
@@ -83,7 +83,8 @@ const ShortsView = ({
         });
       };
       filterOlders();
-      taskId = setInterval(filterOlders, 60 * 1000);
+      taskId = setInterval(filterOlders, 60000);
+      clearTimeout(timeId);
     }, (60 - sec) * 1000);
 
     if (composeDoc)
@@ -99,29 +100,28 @@ const ShortsView = ({
       }
 
     return () => {
-      if (timeId) {
-        clearTimeout(timeId);
-        taskId && clearInterval(taskId);
-      }
+      timeId && clearTimeout(timeId);
+      taskId && clearInterval(taskId);
     };
   }, [composeDoc, _handleAction]);
 
   useEffect(() => {
     filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
-  }, [blacklistedUsers, filterDocsByUserSet]);
+  }, [blacklistedUsers]);
 
   return (
     <InfiniteScroll
       key={"infinite-shorts-" + miniShort}
       url={stateRef.current.url}
-      sx={sx}
-      componentProps={
+      sx={
         miniShort
           ? {
-              plainWidget
+              minHeight: undefined,
+              ...sx
             }
-          : undefined
+          : sx
       }
+      componentProps={componentProps}
       Component={miniShort ? WidgetContainer : undefined}
       notifierDelay={
         !currentUser.id || currentUser.id !== composeDoc?.document?.user?.id
@@ -136,9 +136,14 @@ const ShortsView = ({
       readyState={
         composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
       }
-      searchId={composeDoc?.url && composeDoc.document?.id}
+      searchId={
+        composeDoc?.docType === "short"
+          ? (composeDoc.url && composeDoc.document?.id) ||
+            (composeDoc.reason === "search" && composeDoc.document.id)
+          : undefined
+      }
     >
-      {({ data: { data, paging }, setObservedNode }) => {
+      {({ data: { data }, setObservedNode }) => {
         return data.length ? (
           <>
             {title && miniShort && (
@@ -155,18 +160,23 @@ const ShortsView = ({
             )}
 
             <Stack
-              justifyContent="normal"
+              justifyContent={"normal"}
               alignItems="flex-start"
               sx={
                 miniShort
                   ? {
-                      flexWrap: "wrap",
-                      gap: "16px"
+                      flexWrap: "wrap"
                     }
                   : {
                       flexDirection: "column",
-                      p: 1,
-                      gap: "8px"
+                      gap: {
+                        xs: 0,
+                        md: 2
+                      },
+                      py: {
+                        xs: 0,
+                        md: 1
+                      }
                     }
               }
             >
@@ -175,6 +185,7 @@ const ShortsView = ({
                   <Short
                     id={s.id}
                     key={i + miniShort}
+                    stateCtx={stateRef.current}
                     ref={
                       i === data.length - 1
                         ? node => setObservedNode(node)
@@ -185,7 +196,6 @@ const ShortsView = ({
                     handleAction={_handleAction}
                     miniShort={miniShort}
                     mx={mx}
-                    paging={paging}
                   />
                 );
               })}

@@ -57,7 +57,7 @@ app.use("/api/users", userRoutes);
 app.use("/api/shorts", shortRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api", miscRoutes);
-app.get("/", function(req, res) {
+app.get("/*", function(req, res) {
   res.sendFile(path.join(__dirname, "./client/build/index.html"));
 });
 
@@ -71,9 +71,12 @@ app.use((err, req, res, next) => {
       new Date()
     );
   } else {
-    err = err.status ? err : createError(err);
+    err = err.status
+      ? err
+      : (err.message ? (err.url = req.url || "-") : true) && createError(err);
     if (err) res.status(err.status).json(err.message);
   }
+
   if (req.file) deleteFile(req.file.publicUrl);
   if (req.files)
     for (const { publicUrl } of req.files) {

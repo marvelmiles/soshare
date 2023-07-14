@@ -33,17 +33,19 @@ const UserProfileForm = ({
   hidePwd,
   handleAction,
   required = placeholders
-    ? true
+    ? false
     : {
         username: true,
         email: true,
-        password: true
+        password: true,
+        confirmPassword: true
       },
   requiredOnly,
   method
 }) => {
   const stateRef = useRef({
-    fileKey: `drag-drop-area-input-file-upload-${Date.now()}`
+    fileKey: `drag-drop-area-input-file-upload-${Date.now()}`,
+    inputs: {}
   });
   const [photoUrl, setPhotoUrl] = useState(placeholders?.photoUrl);
   const locState = useLocation().state;
@@ -51,7 +53,7 @@ const UserProfileForm = ({
     formData,
     errors,
     isSubmitting,
-    stateChanged,
+    isInValid,
     handleChange,
     handleSubmit,
     reset
@@ -61,11 +63,18 @@ const UserProfileForm = ({
     dataType: {
       socials: "object"
     },
-    placeholders: locState?.user || placeholders,
+    placeholders:
+      locState?.user ||
+      (placeholders && {
+        username: placeholders.username,
+        email: placeholders.email,
+        displayName: placeholders.displayName,
+        bio: placeholders.bio,
+        location: placeholders.location,
+        socials: placeholders.socials
+      }),
     withPlaceholders: false,
-    deleteEmptyField: false,
-    exclude: !!placeholders,
-    dataSize: 3
+    dataSize: 4
   });
   const { setSnackBar } = useContext();
   const dispatch = useDispatch();
@@ -75,6 +84,27 @@ const UserProfileForm = ({
     s200: "120px",
     s280: "120px"
   };
+  const hasChanged = (() => {
+    let hasChanged = false;
+    for (const key in formData) {
+      switch (key) {
+        case "socials":
+          hasChanged =
+            Object.keys(formData[key] || {}).length !==
+            Object.keys(placeholders[key] || {}).length;
+          break;
+        default:
+          hasChanged = formData[key] !== placeholders[key];
+          break;
+      }
+      if (hasChanged) break;
+    }
+
+    return hasChanged;
+  })()
+    ? !isInValid
+    : false;
+
   useEffect(() => {
     let url;
     withUpdatePreviewUser(() => {
@@ -85,7 +115,7 @@ const UserProfileForm = ({
         if (node.nodeName === "INPUT") {
           dispatch(deleteFromPreviewUser({ [key]: name }));
         }
-      } else if (stateChanged) {
+      } else {
         url = formData.avatar ? URL.createObjectURL(formData.avatar) : "";
 
         dispatch(
@@ -97,7 +127,7 @@ const UserProfileForm = ({
       }
     });
     return () => url && URL.revokeObjectURL(url);
-  }, [dispatch, stateChanged, formData, errors]);
+  }, [dispatch, isInValid, formData, errors]);
 
   useEffect(() => {
     const url = formData.avatar ? URL.createObjectURL(formData.avatar) : "";
@@ -110,13 +140,15 @@ const UserProfileForm = ({
   const onSubmit = useCallback(
     async e => {
       try {
-        const formData = handleSubmit(e);
+        const formData = handleSubmit(e, {
+          formData: new FormData()
+        });
         let user;
-
+        // return console.log(stateRef.current.inputs, formData);
         if (formData) {
           user = await http[method || (placeholders ? "put" : "post")](
             placeholders ? "/users" : "/auth/signup",
-            formData
+            stateRef.current.inputs
           );
           setSnackBar({
             message: placeholders ? (
@@ -168,6 +200,33 @@ const UserProfileForm = ({
     e.stopPropagation();
     reset(placeholders);
     dispatch(updatePreviewUser(placeholders));
+  };
+
+  const onChange = e => {
+    handleChange(e, ({ key, value, keyValue, dataName }) => {
+      switch (key) {
+        case "socials":
+          if (
+            placeholders &&
+            (stateRef.current.inputs[key] &&
+              value === placeholders[key][dataName])
+          )
+            delete stateRef.current.inputs[key][dataName];
+          else if (isLink(value)) {
+            if (!stateRef.current.inputs[key])
+              stateRef.current.inputs[key] = {};
+            stateRef.current.inputs[key][dataName] = value;
+          } else if (value) return "Invalid profile link";
+          else delete keyValue[dataName];
+          return false;
+
+        default:
+          if (placeholders && value === placeholders[key]) {
+            delete stateRef.current.inputs[key];
+          } else stateRef.current.inputs[key] = value;
+          return false;
+      }
+    });
   };
 
   return (
@@ -375,8 +434,16 @@ const UserProfileForm = ({
             max: 250,
             nullify: requiredOnly
           }
-        ].map((input, index) =>
-          input.nullify ? null : (
+        ].map((input, index) => {
+          const value =
+            (formData[input.name] === undefined && placeholders
+              ? input.dataName
+                ? placeholders[input.name][input.dataName]
+                : placeholders[input.name]
+              : input.dataName
+              ? formData[input.name]?.[input.dataName]
+              : formData[input.name]) || "";
+          return input.nullify ? null : (
             <CustomInput
               key={index}
               multiline={input.multiline}
@@ -404,30 +471,12 @@ const UserProfileForm = ({
                   : errors[input.name]) || errors.all
               }
               required={required && (required === true || required[input.name])}
-              value={
-                (formData[input.name] === undefined && placeholders
-                  ? input.dataName
-                    ? placeholders[input.name][input.dataName]
-                    : placeholders[input.name]
-                  : input.dataName
-                  ? formData[input.name]?.[input.dataName]
-                  : formData[input.name]) || ""
-              }
-              onChange={e => {
-                handleChange(e, ({ key, value, validate }) => {
-                  switch (key) {
-                    case "socials":
-                      if (validate)
-                        return isLink(value) ? "" : "Invalid profile link";
-                      else return "";
-                    default:
-                      return false;
-                  }
-                });
-              }}
+              value={value}
+              data-changed={!!value}
+              onChange={onChange}
             />
-          )
-        )}
+          );
+        })}
       </Stack>
 
       {readOnly ? null : (
@@ -435,7 +484,7 @@ const UserProfileForm = ({
           type="submit"
           variant="contained"
           sx={{ width: "100%", mt: 2 }}
-          disabled={!stateChanged || isSubmitting}
+          disabled={!hasChanged || isSubmitting}
         >
           {isSubmitting ? (
             <LoadingDot />

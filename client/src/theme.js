@@ -1,5 +1,6 @@
-import { alpha } from "@mui/material/styles";
+import { alpha, darken } from "@mui/material/styles";
 import { createTheme as createMuiTheme } from "@mui/material";
+
 export const createTheme = mode =>
   createMuiTheme({
     palette: {
@@ -18,10 +19,10 @@ export const createTheme = mode =>
               paper: "rgb(22, 24, 28)"
             },
             action: {
-              altHover: `rgba(11,12,14,.95)`
+              altHover: "#333"
             },
             text: {
-              primary: "rgba(255,255,255,0.85)",
+              primary: "rgba(255,255,255,0.85)",  
               secondary: "rgba(255,255,255,0.7)"
             }
           }
@@ -43,7 +44,7 @@ export const createTheme = mode =>
               secondary: "#232323"
             },
             action: {
-              altHover: `rgba(204, 204, 204,.78)`
+              altHover: darken("rgb(247, 249, 249)", 0.08)
             }
           }),
       common: {
@@ -55,6 +56,33 @@ export const createTheme = mode =>
       }
     },
     components: {
+      MuiSkeleton: {
+        styleOverrides: {
+          root: {
+            backgroundColor: "#212121"
+          }
+        }
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          tooltip: ({
+            theme: {
+              palette: { background, text },
+              shadows
+            }
+          }) => ({
+            backgroundColor: background.paper,
+            marginBottom: "5px !important",
+            borderRadius: "12px",
+            boxShadow: shadows[6],
+            color: text.primary,
+            textTransform: "capitalize",
+            width: "100%",
+            maxWidth: "350px",
+            marginTop: "5px !important"
+          })
+        }
+      },
       MuiPaper: {
         styleOverrides: {
           root: {
@@ -84,6 +112,7 @@ export const createTheme = mode =>
         styleOverrides: {
           root: {
             padding: 0,
+            width: "100%",
             "@media (pointer:coarse)": {
               padding: 0
             }
@@ -94,7 +123,7 @@ export const createTheme = mode =>
         styleOverrides: {
           root: ({
             theme: {
-              palette: { background }
+              palette: { background, action, text }
             }
           }) => ({
             width: 30,
@@ -102,6 +131,13 @@ export const createTheme = mode =>
             minHeight: 0,
             minWidth: 0,
             backgroundColor: background.alt,
+            color: text.primary,
+            "&:focus": {
+              backgroundColor: background.alt
+            },
+            "&:hover": {
+              backgroundColor: action.altHover
+            },
             svg: {
               fontSize: ".75em"
             }
@@ -189,10 +225,6 @@ export const createTheme = mode =>
             props: { variant: "sm" },
             style: {
               "@media (min-width: 0px)": {
-                width: "20px",
-                height: "20px"
-              },
-              "@media (min-width: 280px)": {
                 width: "30px",
                 height: "30px"
               }
@@ -220,7 +252,7 @@ export const createTheme = mode =>
     },
     typography: {
       allVariants: {
-        fontFamily: `'Rubik', sans-serif`,
+        fontFamily: "'Rubik', sans-serif",
         fontSize: 12
       },
       h1: {
@@ -254,7 +286,9 @@ export const createTheme = mode =>
         s280: 280,
         s320: 320,
         s640: 640,
-        xxxl: 1595
+        xxxl: 1595,
+        s1200: 1200,
+        s1400: 1400
       }
     }
   });

@@ -3,13 +3,14 @@ import PropTypes from "prop-types";
 import { WidgetContainer } from "components/styled";
 import EmptyData from "components/EmptyData";
 import { Typography, Stack } from "@mui/material";
-import Person from "./Person";
+import Person from "components/Person";
 import { useContext } from "context/store";
 import { useSelector, useDispatch } from "react-redux";
 import { useParams } from "react-router-dom";
 import InfiniteScroll from "components/InfiniteScroll";
 import useFollowDispatch from "hooks/useFollowDispatch";
 import useCallbacks from "hooks/useCallbacks";
+import { addToSet } from "utils";
 
 const FollowMeWidget = ({
   title = "",
@@ -21,8 +22,7 @@ const FollowMeWidget = ({
   infiniteScrollProps,
   widgetProps,
   emptyDataMessage,
-  privateUid,
-  privateUserFollowing
+  privateUid
 }) => {
   const { previewUser, currentUser = {} } = useSelector(state => state.user);
   let { userId } = useParams();
@@ -63,70 +63,100 @@ const FollowMeWidget = ({
     [_handleAction]
   );
 
-  const { following, toggleFollow, isProcessingFollow } = useFollowDispatch({
-    priority,
-    following: privateUserFollowing
+  const { handleToggleFollow, isProcessingFollow } = useFollowDispatch({
+    priority
   });
 
   const handleFollowingAction = useCallback(
-    toFollow => ({ to, from = { id: currentUser.id } }) => {
-      const isFrm = from.id === userId;
-      const isTo = to.id === userId; 
-      const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
-      if (isTo || isFrm) {
-        if (stateRef.current[key]) return;
-        stateRef.current[key] = true;
+    (toFollow, cacheKey) => {
+      return ({ to, from }) => {
+        const isFrm = from.id === userId;
+        const isTo = to.id === userId;
+        const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
 
-        if (isTo && priority === "toggle") {
-          _handleAction(toFollow ? "new" : "filter", { document: from });
-        } else if (isFrm) {
-          if (priority === "unfollow")
-            _handleAction(toFollow ? "new" : "filter", { document: to });
-          else if (priority === "follow")
-            _handleAction(toFollow ? "filter" : "new", { document: to });
-          else _handleAction("update", { document: to });
+        if (isTo || isFrm) {
+          if (
+            stateRef.current[key] ||
+            (!cacheKey && (isFrm || from.id === currentUser.id))
+          ) {
+            delete stateRef.current[key];
+            return;
+          }
+          stateRef.current[key] = true;
+          if (isTo && priority === "toggle") {
+            _handleAction(toFollow ? "new" : "filter", { document: from });
+          } else if (isFrm) {
+            if (priority === "unfollow")
+              _handleAction(toFollow ? "new" : "filter", { document: to });
+            else if (priority === "follow")
+              _handleAction(toFollow ? "filter" : "new", { document: to });
+            else _handleAction("update", { document: to });
+          }
+          if (!cacheKey) delete stateRef.current[key];
         }
-        stateRef.current[
-          (toFollow ? "unfollowId" : "followId") + to.id + from.id
-        ] = undefined;
-      }
+      };
     },
     [_handleAction, priority, userId, currentUser.id]
   );
 
   useEffect(() => {
-    const isSuggest = priority === "follow";
+    if (socket) {
+      const isSuggest = priority === "follow";
 
-    const suggestFollowers = data => {
-      if (!stateRef.current[priority]) {
-        stateRef.current[priority] = true;
-        infiniteScrollRef.current.setData({
-          ...data,
-          data: infiniteScrollRef.current.data.data.concat(data.data)
-        });
-        stateRef.current[priority] = undefined;
-      }
-    };
+      let hasSuggested;
+      const suggestFollowers = data => {
+        if (!hasSuggested) {
+          hasSuggested = true;
+          infiniteScrollRef.current.setData({
+            ...data,
+            data: addToSet([
+              ...data.data,
+              ...infiniteScrollRef.current.data.data
+            ])
+          });
+          hasSuggested = undefined;
+        }
+      };
 
-    const handleFollow = handleFollowingAction(true);
-    const handleUnfollow = handleFollowingAction();
-    const handleUpdateUser = (user, isProfile) =>
-      isProfile && _handleAction("update", user);
+      let hasUser;
+      const handleUserEntrying = user => {
+        if (!hasUser) {
+          hasUser = true;
+          socket.emit("suggest-followers", user);
+          infiniteScrollRef.current.setData({
+            ...infiniteScrollRef.current.data,
+            data: addToSet([user, ...infiniteScrollRef.current.data.data])
+          });
+          hasUser = undefined;
+        }
+      };
 
-    socket.on("unfollow", handleUnfollow);
-    socket.on("follow", handleFollow);
-    isSuggest && socket.on("suggest-followers", suggestFollowers);
-    socket.on("update-user", handleUpdateUser);
-    return () => {
+      const handleFollow = handleFollowingAction(true);
+      const handleUnfollow = handleFollowingAction();
+
+      const handleUpdateUser = (user, isProfile) =>
+        isProfile && _handleAction("update", user);
+
+      socket.on("unfollow", handleUnfollow);
+      socket.on("follow", handleFollow);
       if (isSuggest) {
-        socket.emit("disconnect-suggest-followers-task");
-        socket.removeEventListener("suggest-followers", suggestFollowers);
+        socket.on("suggest-followers", suggestFollowers);
+        socket.on("user", handleUserEntrying);
       }
-      socket
-        .removeEventListener("follow", handleFollow)
-        .removeEventListener("unfollow", handleUnfollow)
-        .removeEventListener("update-user", handleUpdateUser);
-    };
+      socket.on("update-user", handleUpdateUser);
+      return () => {
+        if (isSuggest) {
+          socket
+            .emit("disconnect-suggest-followers-task")
+            .removeEventListener("suggest-followers", suggestFollowers)
+            .removeEventListener("user", handleUserEntrying);
+        }
+        socket
+          .removeEventListener("follow", handleFollow)
+          .removeEventListener("unfollow", handleUnfollow)
+          .removeEventListener("update-user", handleUpdateUser);
+      };
+    }
   }, [
     socket,
     dispatch,
@@ -139,10 +169,13 @@ const FollowMeWidget = ({
 
   useEffect(() => {
     const user = previewUser?.followUser;
-    if (user) handleFollowingAction(!user.isFollowing)({ to: user });
-  }, [handleFollowingAction, previewUser?.followUser]);
+    if (user)
+      handleFollowingAction(!user.isFollowing, true)({
+        to: user,
+        from: currentUser
+      });
+  }, [handleFollowingAction, previewUser?.followUser, currentUser]);
   const loading = dataSize === undefined || dataSize < 0;
-
   return (
     <WidgetContainer
       ref={scrollNodeRef}
@@ -184,7 +217,7 @@ const FollowMeWidget = ({
         url={stateRef.current.url}
         searchParams={searchParams}
         {...infiniteScrollProps}
-        withCredentials={!!(currentUser.id || following)}
+        withCredentials={!!currentUser.id}
         verify={priority === "toggle"}
         notifierDelay={
           isCurrentUser ? (priority === "toggle" ? undefined : -1) : undefined
@@ -196,10 +229,10 @@ const FollowMeWidget = ({
           const renderPersons = () => {
             return data.map((u = {}, i) => {
               const isFollowing = {
-                toggle: following && following.includes(u.id),
+                toggle: currentUser.following.includes(u.id),
                 follow: false,
                 unfollow: true
-              }[userId === currentUser.id ? priority : "toggle"];
+              }[isCurrentUser ? priority : "toggle"];
 
               return (
                 <Person
@@ -211,17 +244,15 @@ const FollowMeWidget = ({
                   variant={variant}
                   key={i + u.id + priority}
                   sx={
-                    variant !== "block" || following
+                    variant !== "block" || currentUser.following
                       ? undefined
                       : {
                           minHeight: "100px"
                         }
                   }
                   user={u}
-                  btnLabel={
-                    following ? (isFollowing ? "Unfollow" : "Follow") : "Follow"
-                  }
-                  onBtnClick={e => toggleFollow(e, u, isFollowing)}
+                  btnLabel={isFollowing ? "Unfollow" : "Follow"}
+                  onBtnClick={e => handleToggleFollow(e, u, isFollowing)}
                   disabled={isProcessingFollow}
                   isOwner={
                     currentUser.id ? u.id === currentUser.id : u.id === userId

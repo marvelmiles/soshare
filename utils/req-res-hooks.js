@@ -202,7 +202,9 @@ export const deleteDocument = async ({
           io.emit(`filter-${model.modelName}`, doc);
           doc.user && io.emit("update-user", user);
         }
-        handleMiscDelete(doc.id, io, model.modelName !== "short");
+        handleMiscDelete(doc.id, io, {
+          withComment: model.modelName !== "short"
+        });
         if (doc.medias) {
           for (let { url } of doc.medias) {
             deleteFile(url);

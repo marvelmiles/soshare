@@ -6,7 +6,14 @@ import {
   StyledTypography,
   StyledLink
 } from "components/styled";
-import { Stack, Avatar, Typography, Box, IconButton } from "@mui/material";
+import {
+  Stack,
+  Avatar,
+  Typography,
+  Box,
+  IconButton,
+  Tooltip
+} from "@mui/material";
 import MediaCarousel from "components/MediaCarousel";
 import ChatBubbleOutlineOutlinedIcon from "@mui/icons-material/ChatBubbleOutlineOutlined";
 import FavoriteBorderOutlinedIcon from "@mui/icons-material/FavoriteBorderOutlined";
@@ -17,6 +24,8 @@ import moment from "moment";
 import useLikeDispatch from "hooks/useLikeDispatch";
 import { useLocation } from "react-router-dom";
 import { createRelativeURL } from "api/http";
+import UserTip from "tooltips/UserTip";
+
 const PostWidget = React.forwardRef(
   (
     {
@@ -39,9 +48,10 @@ const PostWidget = React.forwardRef(
     ref
   ) => {
     const [showAll, setShowAll] = useState(false);
-    const id = useSelector(state => (state.user.currentUser || {}).id);
+    const cid = useSelector(state => state.user.currentUser.id);
     const navigate = useNavigate();
     const locState = useLocation().state;
+    const [closePoppers, setClosePoppers] = useState(false);
     const stateRef = useRef({
       moreUrls: {
         delPath: {
@@ -54,8 +64,11 @@ const PostWidget = React.forwardRef(
 
     useEffect(() => {
       const textNode = inputTextRef.current;
-      textNode.style.height = "auto";
-      textNode.style.height = textNode.scrollHeight + "px";
+      if (textNode) {
+        textNode.style.height = "auto";
+        textNode.style.height = textNode.scrollHeight + "px";
+      }
+      return () => setClosePoppers(true);
     }, [showAll]);
 
     const { handleLikeToggle } = useLikeDispatch({
@@ -65,7 +78,7 @@ const PostWidget = React.forwardRef(
     });
 
     const likeCount = Object.keys(post.likes || {}).length;
-    const isOwner = post.user.id === id;
+    const isOwner = post.user.id === cid;
 
     const formatedDate = (() => {
       let str = moment(post.createdAt).fromNow();
@@ -99,51 +112,43 @@ const PostWidget = React.forwardRef(
 
     const noNavigate = enableSnippet || disableNavigation;
 
+    const userTip = (
+      <UserTip key={post.user.id} user={post.user} isOwner={isOwner} />
+    );
+
     return (
-      <>
-        <Box sx={{ position: "relative" }}>
-          {dialogContent ? (
-            <Typography
-              component="div"
-              sx={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                backgroundColor: "background.paper",
-                height: "100%",
-                width: "100%",
-                zIndex: 1,
-                color: "inherit"
-              }}
-            >
-              {dialogContent}
-            </Typography>
-          ) : null}
-          <WidgetContainer
-            plainWidget={plainWidget}
-            onClick={
-              noNavigate
-                ? undefined
-                : e => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    navigate(`/${docType}s/${post.id}`);
-                  }
-            }
+      <Box id="ioo" sx={{ position: "relative" }}>
+        {dialogContent ? (
+          <Typography
+            component="div"
+            className="custom-overlay"
             sx={{
-              borderBottom: "1px solid #333",
-              borderBottomColor: "divider",
-              borderRadius: 0,
+              backgroundColor: "background.paper",
+              color: "inherit"
+            }}
+          >
+            {dialogContent}
+          </Typography>
+        ) : null}
+        <WidgetContainer
+          plainWidget={plainWidget}
+          sx={{
+            borderBottom: "1px solid currentColor",
+            borderBottomColor: enableSnippet ? "transparent" : "divider",
+            borderRadius: 0,
+            height: "auto",
+            minHeight: 0,
+            maxHeight: "none",
+            backgroundColor: "transparent !important",
+            mb: 0,
+            p: enableSnippet ? 0 : undefined,
+            ".post-container": {
               display: "flex",
               gap: 1,
               alignItems: "flex-start",
-              height: "auto",
-              minHeight: "0",
-              maxHeight: "none",
+              maxWidth: "576px",
+              mx: "auto",
               cursor: noNavigate ? "default" : "pointer",
-              backgroundColor: "transparent !important",
-              mb: 0,
-              pb: 1,
               ...(showThread && {
                 border: "none",
                 borderRadius: "0",
@@ -164,13 +169,37 @@ const PostWidget = React.forwardRef(
                   },
                   bottom: "0px"
                 }
-              }),
-              ...sx
-            }}
-            ref={ref}
+              })
+            },
+            ...sx
+          }}
+          ref={ref}
+        >
+          <div
+            className="post-container"
+            onClick={
+              noNavigate
+                ? undefined
+                : e => {
+                    e.preventDefault();
+                    return e.stopPropagation();
+                    navigate(`/${docType}s/${post.id}`);
+                  }
+            }
           >
-            <Avatar variant="sm" />
-            <Box sx={{ width: "calc(100% - 40px)" }}>
+            <Tooltip key={post.user.id} arrow={false} title={userTip}>
+              <Avatar src={post.user.photoUrl} variant="md" />
+            </Tooltip>
+            <Box
+              sx={{
+                width: "calc(100% - 52px)",
+                maxWidth: {
+                  xs: "calc(100% - 26px)",
+                  s200: "calc(100% - 36px)",
+                  s360: "calc(100% - 52px)"
+                }
+              }}
+            >
               <Box
                 sx={{
                   position: "relative",
@@ -193,9 +222,15 @@ const PostWidget = React.forwardRef(
                     onClick={e => e.stopPropagation()}
                     to={`/u/${post.user.id}`}
                   >
-                    {isOwner
-                      ? "You"
-                      : post.user.displayName || post.user.username}
+                    <Tooltip key={post.user.id} arrow={false} title={userTip}>
+                      {isOwner ? (
+                        <span>You</span>
+                      ) : (
+                        <span>
+                          {post.user.displayName || post.user.username}
+                        </span>
+                      )}
+                    </Tooltip>
                   </StyledLink>
                   {isOwner ? null : (
                     <StyledTypography
@@ -249,23 +284,22 @@ const PostWidget = React.forwardRef(
                   ref={inputTextRef}
                   variant="h5"
                   component="div"
+                  className="textarea-readOnly"
                   sx={{
-                    resize: "none",
-                    width: "100%",
-                    color: "text.primary",
-                    height: "auto",
-                    maxHeight: "none",
-                    overflow: "hidden",
-                    whiteSpace: "pre-line",
-                    mb: 1
+                    mb: enableSnippet ? 0 : 1
                   }}
                 >
                   <div>
                     <span>
-                      {enableSnippet ? post.text.slice(0, 80) : post.text}
+                      {enableSnippet
+                        ? post.text.slice(0, 80) +
+                          (post.text.length >= 80 ? "..." : "")
+                        : post.text}
                     </span>
                     <span>
-                      {enableSnippet ? "..." : showAll ? post.moreText : null}
+                      {post.moreText && showAll && !enableSnippet
+                        ? post.moreText
+                        : null}
                     </span>
                   </div>
                   {post.moreText && !enableSnippet ? (
@@ -298,7 +332,7 @@ const PostWidget = React.forwardRef(
                   <Stack>
                     <Stack gap="4px">
                       <IconButton onClick={handleLikeToggle}>
-                        {post.likes[id] ? (
+                        {post.likes[cid] ? (
                           <FavoriteOutlinedIcon
                             sx={{
                               color: "common.heart"
@@ -334,6 +368,7 @@ const PostWidget = React.forwardRef(
                     </Stack>
                   </Stack>
                   <MoreActions
+                    unmount={closePoppers}
                     handleAction={handleAction}
                     document={post}
                     isOwner={isOwner}
@@ -345,11 +380,13 @@ const PostWidget = React.forwardRef(
                   />
                 </Stack>
               )}
-              <div style={{ paddingTop: "8px" }}>{secondaryAction}</div>
+              {secondaryAction ? (
+                <div style={{ paddingTop: "8px" }}>{secondaryAction}</div>
+              ) : null}
             </Box>
-          </WidgetContainer>
-        </Box>
-      </>
+          </div>
+        </WidgetContainer>
+      </Box>
     );
   }
 );

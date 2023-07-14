@@ -11,7 +11,7 @@ import { handleScrollUp } from "utils";
 const Layout = ({
   children,
   routePage,
-  maxWidth = "1800px",
+  maxWidth = "1260px",
   gridBreakpoint = "768px",
   sx,
   uid,
@@ -68,7 +68,10 @@ const Layout = ({
             height: "auto",
             top: "64px",
             mx: "auto",
-            px: 2,
+            px: {
+              xs: 0,
+              lg: 2
+            },
             [`@media (min-width:${gridBreakpoint})`]: {
               display: "flex",
               alignItems: "flex-start",

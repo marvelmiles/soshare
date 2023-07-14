@@ -8,14 +8,19 @@ const useCallbacks = (infiniteScrollRef, { currentUser = { user: {} } }) => {
   const dispatch = useDispatch();
 
   const ref = useRef({
+    registeredIds: {},
     _handleAction: (reason, options = {}) => {
       const { document, uid, action, value } = options;
       const { setData, data } = infiniteScrollRef.current;
       const docId = document && (document.id || document);
-      if (ref.current.isProc) return;
+      if (docId ? ref.current.registeredIds[docId] : ref.current.isProc) return;
+
+      if (docId) ref.current.registeredIds[docId] = true;
+      else ref.current.isProc = true;
+
+      ref.current.isProc = true;
       switch (reason) {
         case "new":
-          ref.current.isProc = true;
           let _data = data.data.slice();
           (document.visibility
             ? checkVisibility(document, currentUser)
@@ -30,7 +35,6 @@ const useCallbacks = (infiniteScrollRef, { currentUser = { user: {} } }) => {
 
           break;
         case "filter":
-          ref.current.isProc = true;
           setData(
             {
               ...data,
@@ -42,15 +46,13 @@ const useCallbacks = (infiniteScrollRef, { currentUser = { user: {} } }) => {
               })
             },
             {
-              exclude: [docId]
+              exclude: docId
             }
           );
           break;
         case "clear-cache":
-          ref.current.isProc = true;
           break;
         case "update":
-          ref.current.isProc = true;
           setData({
             ...data,
             data: data.data.map(s =>
@@ -59,7 +61,6 @@ const useCallbacks = (infiniteScrollRef, { currentUser = { user: {} } }) => {
           });
           break;
         case "checked":
-          ref.current.isProc = true;
           dispatch(
             updateUser({
               settings: {
@@ -71,7 +72,8 @@ const useCallbacks = (infiniteScrollRef, { currentUser = { user: {} } }) => {
         default:
           break;
       }
-      ref.current.isProc = false;
+      if (docId) delete ref.current.registeredIds[docId];
+      else ref.current.isProc = false;
     }
   });
   return ref.current;

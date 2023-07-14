@@ -95,54 +95,61 @@ const Navbar = ({ routePage = "homePage" }) => {
   }, [setSnackBar, currentUser.id]);
 
   useEffect(() => {
-    const handleAppendNotification = (n, { filter, isNew }) => {
-      if (isNew && !filter && n.to.id === currentUser.id) {
+    if (socket) {
+      const handleAppendNotification = (n, { filter, isNew }) => {
+        if (isNew && !filter && n.to.id === currentUser.id) {
+          let count = 0;
+          setUnseens(unseens => {
+            if (count) {
+              unseens.notifications = count;
+              return unseens;
+            }
+            count = unseens.notifications + 1;
+            return {
+              ...unseens,
+              notifications: count
+            };
+          });
+          if (popover.openFor !== "notifications")
+            stateRef.current.notifications.unmarked = {
+              data: [n].concat(
+                stateRef.current.notifications.unmarked.data || []
+              )
+            };
+        }
+      };
+
+      const handleDeleteNotifications = notices => {
         let notified = false;
         setUnseens(unseens => {
-          if (notified) return unseens;
+          if (notified) {
+            notified = false;
+            return unseens;
+          }
           notified = true;
           return {
             ...unseens,
-            notifications: unseens.notifications + 1
+            notifications:
+              unseens.notifications > notices.length
+                ? unseens.notifications - notices.length
+                : 0
           };
         });
-        if (popover.openFor !== "notifications")
-          stateRef.current.notifications.unmarked = {
-            data: [n]
-          };
+      };
+
+      if (currentUser.id) {
+        socket.on("notification", handleAppendNotification);
+        socket.on("filter-notifications", handleDeleteNotifications);
       }
-    };
 
-    const handleDeleteNotifications = notices => {
-      let notified = false;
-      setUnseens(unseens => {
-        if (notified) {
-          notified = false;
-          return unseens;
-        }
-        notified = true;
-        return {
-          ...unseens,
-          notifications:
-            unseens.notifications > notices.length
-              ? unseens.notifications - notices.length
-              : 0
-        };
-      });
-    };
-
-    if (currentUser.id) {
-      socket.on("notification", handleAppendNotification);
-      socket.on("filter-notifications", handleDeleteNotifications);
+      return () => {
+        socket.removeEventListener("notification", handleAppendNotification);
+        socket.removeEventListener(
+          "filter-notifications",
+          handleDeleteNotifications
+        );
+      };
     }
-
-    return () => {
-      socket.removeEventListener("notification", handleAppendNotification);
-      socket.removeEventListener(
-        "filter-notifications",
-        handleDeleteNotifications
-      );
-    };
   }, [socket, currentUser.id, popover.openFor]);
 
   useEffect(() => {
@@ -322,7 +329,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           profilePage: [
             {
               to: `/u/${currentUser.id}`,
-              label: "Profile",
+              label: "Me",
               icon: PersonIcon,
               nullify: currentUser.id === userId
             },
@@ -350,7 +357,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           homePage: [
             {
               to: `/u/${currentUser.id}`,
-              label: "Profile",
+              label: "Me",
               icon: PersonIcon
             }
           ]
