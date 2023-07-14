@@ -29,6 +29,10 @@ const schema = new mongoose.Schema(
     visibility: {
       type: String,
       default: "everyone"
+    },
+    isCustom: {
+      type: Boolean,
+      default: false
     }
   },
   {
@@ -44,13 +48,7 @@ const schema = new mongoose.Schema(
   }
 );
 
-schema.index({ text: 1 });
-schema.index(
-  {
-    createdAt: 1
-  },
-  { expireAfterSeconds: 86400 }
-);
+schema.index({ text: 1 })
 const Short = mongoose.model("short", schema);
 
 export default Short;

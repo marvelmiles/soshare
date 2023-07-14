@@ -9,7 +9,7 @@ import Button from "@mui/material/Button";
 import InputBox from "components/InputBox";
 import IconButton from "@mui/material/IconButton";
 import PostWidget from "components/PostWidget";
-import Typography from "@mui/material/Typography";
+import { StyledTypography } from "components/styled";
 import Stack from "@mui/material/Stack";
 import PostsView from "views/PostsView";
 import ShortsView from "views/ShortsView";
@@ -122,17 +122,29 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
       case "create-post":
       case "create-short":
         const fileId = `${key}-file-picker`;
+        const handlePreview = () => {};
         return (
           <>
-            <DialogTitle component={Stack}>
-              <Stack>
+            <DialogTitle
+              component={Stack}
+              flexWrap={{
+                xs: "wrap-reverse",
+                sm: "nowrap"
+              }}
+              alignItems="flex-start"
+            >
+              <Stack
+                flexWrap="wrap"
+                sx={{ width: "100%" }}
+                alignItems="flex-start"
+              >
                 {ctx.processing ? (
-                  <Typography variant="h5" fontWeight="bold">
+                  <StyledTypography variant="h5" fontWeight="bold">
                     <LoadingDot />
-                  </Typography>
+                  </StyledTypography>
                 ) : (
                   <div>
-                    <Typography
+                    <StyledTypography
                       variant="caption"
                       sx={{
                         color: "error.main"
@@ -140,42 +152,62 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
                     >
                       Media limit (
                       {compose === "create-short" ? "500mb / 60s" : "1gb / 5h"})
-                    </Typography>
-                    <Typography
+                    </StyledTypography>
+                    <StyledTypography
                       variant="h5"
                       sx={{ mt: "-8px" }}
                       fontWeight="bold"
                       mb={0}
                     >
                       Share your moment
-                    </Typography>
+                    </StyledTypography>
                     {key === "create-short" ? (
-                      <Typography
+                      <StyledTypography
                         htmlFor={fileId}
                         component="label"
                         variant="caption"
                         sx={{
-                          color: "error.main",
-                          "&:hover": {
-                            textDecoration: "underline",
-                            cursor: "pointer"
-                          }
+                          color: "error.main"
                         }}
                       >
                         Select a video!
-                      </Typography>
+                      </StyledTypography>
                     ) : null}
                   </div>
                 )}
               </Stack>
-              <IconButton
-                sx={{
-                  backgroundColor: "action.selected"
+              <Stack
+                flexWrap={{
+                  xs: "wrap-reverse",
+                  s200: "nowrap"
                 }}
-                onClick={closeDialog}
+                alignItems="flex-start"
+                sx={{ width: "100%" }}
+                justifyContent={{
+                  xs: "space-between",
+                  sm: "flex-end"
+                }}
               >
-                <CloseIcon />
-              </IconButton>
+                <div>
+                  <StyledTypography onClick={handlePreview} variant="link">
+                    Preview
+                  </StyledTypography>
+                  <StyledTypography sx={{ mt: "-4px" }}>
+                    Preffered Dimensions:
+                  </StyledTypography>
+                  <StyledTypography sx={{ mt: "-4px" }}>
+                    width x height: 320 x 564
+                  </StyledTypography>
+                </div>
+                <IconButton
+                  sx={{
+                    backgroundColor: "action.selected"
+                  }}
+                  onClick={closeDialog}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Stack>
             </DialogTitle>
             <DialogContent ref={scrollNodeRef}>
               {{
@@ -197,9 +229,9 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
                       short: "You need to select a video!"
                     }}
                     handleAction={_handleAction}
-                    placeholder="#Short_Description"
-                    maxUpload="50mb"
-                    maxDuration="10s"
+                    placeholder="#ShortTags"
+                    maxUpload="500mb"
+                    maxDuration="60s"
                   />
                 )
               }[key] || (
@@ -341,9 +373,9 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
         return (
           <>
             <DialogTitle component={Stack}>
-              <Typography color="primary" variant="h5">
+              <StyledTypography color="primary" variant="h5">
                 {ctx.dataSize || 0} blacklisted user(s)
-              </Typography>
+              </StyledTypography>
               {ctx.processing ? (
                 <LoadingDot sx={{ float: "right", py: "4px" }} />
               ) : (

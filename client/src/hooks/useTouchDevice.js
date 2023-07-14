@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 
 export const isTouchDevice = () =>
-  window.matchMedia("(pointer: coarse)").matches ||
-  window.ontouchstart !== undefined;
+  (navigator.maxTouchPoints || navigator.msMaxTouchPoints) > 0 ||
+  (window.matchMedia
+    ? window.matchMedia("(hover: none)").matches
+    : "ontouchstart" in window);
 
 const useTouchDevice = () => {
   const [isTouch, setIsTouch] = useState(isTouchDevice());

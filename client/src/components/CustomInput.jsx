@@ -95,7 +95,7 @@ const CustomInput = ({
                   "&:focus": {
                     "& + span": spanSxOnInput
                   }
-                },
+                 },
 
                 ".label": {
                   transition: "all 0.2s ease-out",

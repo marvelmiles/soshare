@@ -40,7 +40,7 @@ const InfiniteScroll = React.forwardRef(
       withCredentials,
       maxSize,
       maxSizeElement,
-      limit = 2,
+      limit = 20,
       scrollNodeRef,
       searchId,
       randomize,
@@ -145,6 +145,13 @@ const InfiniteScroll = React.forwardRef(
                     ? data.data.length < infinitePaging.matchedDocs &&
                       intersectionKey
                     : intersectionKey && data.paging.nextCursor !== null))));
+          console.clear();
+          console.log(
+            shouldFetch,
+            { ...stateRef.current },
+            { ...data },
+            intersectionKey
+          );
 
           if (shouldFetch) {
             let {
@@ -383,7 +390,7 @@ const InfiniteScroll = React.forwardRef(
         infinitePaging: stateRef.current.infinitePaging,
         shallowUpdate: stateRef.current.shallowUpdate,
         setObservedNode: (nodeOrFunc, strictMode = true) => {
-          if (strictMode ? nodeOrFunc && stateRef.current.dataChanged : true) {
+          if (strictMode ? stateRef.current.dataChanged : true) {
             setObservedNode(nodeOrFunc);
             determineFlowing();
           }
@@ -396,35 +403,12 @@ const InfiniteScroll = React.forwardRef(
             exclude
           } = options;
 
-          const handleNotice = _data => {
-            numberOfEntries =
-              numberOfEntries === undefined
-                ? _data.length > data.data.length
-                  ? 1
-                  : 0
-                : numberOfEntries;
-
-            if (_data.length && numberOfEntries && notifierDelay > -1) {
-              clearNotifierState(false);
-              stateRef.current.prevNotice = _data
-                .slice(0, numberOfEntries)
-                .concat(stateRef.current.prevNotice || []);
-              stateRef.current.dataNoticeStartTaskId = setTimeout(() => {
-                setNotifier(notifier => ({
-                  ...notifier,
-                  data: stateRef.current.prevNotice,
-                  open: true
-                }));
-                stateRef.current.prevNotice = [];
-                stateRef.current.dataNoticeEndTaskId = setTimeout(
-                  () => closeNotifier(undefined, false),
-                  notifierDuration
-                );
-              }, notifierDelay);
-            } else closeNotifier(undefined, false);
-          };
           let nullify;
-          const setState = dataSize => {
+
+          const setPropsAndNotice = prop => {
+            const dataSize = prop.data.length;
+
+            //init state
             if (withStateDeterminant && dataSize < data.data.length) {
               const size = stateRef.current.infinitePaging.matchedDocs;
               size &&
@@ -445,31 +429,49 @@ const InfiniteScroll = React.forwardRef(
               (stateRef.current.exclude += `${stateRef.current.sep}${exclude}`);
 
             stateRef.current.shallowUpdate = true;
-          };
-          if (typeof prop === "function") {
-            setData(prev => {
-              const data = prop(prev);
-              if (data.data.length) handleNotice(data.data);
-              else {
-                setShowEnd(false);
-                setObservedNode(null);
-              }
-              setState(data.data.length);
 
-              if (nullify && data.paging) data.paging.nextCursor = null;
+            if (nullify && prop.data.paging) prop.data.paging.nextCursor = null;
 
-              return data;
-            });
-          } else {
-            if (prop.data.length) handleNotice(prop.data);
-            else {
+            // handle new entries and notify
+            if (dataSize) {
+              const _data = prop.data;
+              numberOfEntries =
+                numberOfEntries === undefined
+                  ? _data.length > data.data.length
+                    ? 1
+                    : 0
+                  : numberOfEntries;
+
+              if (_data.length && numberOfEntries && notifierDelay > -1) {
+                clearNotifierState(false);
+                stateRef.current.prevNotice = _data
+                  .slice(0, numberOfEntries)
+                  .concat(stateRef.current.prevNotice || []);
+                stateRef.current.dataNoticeStartTaskId = setTimeout(() => {
+                  setNotifier(notifier => ({
+                    ...notifier,
+                    data: stateRef.current.prevNotice,
+                    open: true
+                  }));
+                  stateRef.current.prevNotice = [];
+                  stateRef.current.dataNoticeEndTaskId = setTimeout(
+                    () => closeNotifier(undefined, false),
+                    notifierDuration
+                  );
+                }, notifierDelay);
+              } else closeNotifier(undefined, false);
+            } else {
+              // no entries
               setShowEnd(false);
               setObservedNode(null);
             }
-            setState(prop.data.length);
-            if (nullify && prop.data.paging) prop.data.paging.nextCursor = null;
-            setData(prop);
-          }
+
+            return prop;
+          };
+
+          if (typeof prop === "function")
+            setData(prev => setPropsAndNotice(prop(prev)));
+          else setData(setPropsAndNotice(prop));
         }
       }),
       [

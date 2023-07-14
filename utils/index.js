@@ -376,7 +376,6 @@ export const sendAndUpdateNotification = async ({
     if (notice) notice = await notice.populate(populate);
 
     const io = req.app.get("socketIo");
-    console.log(!!notice, report, isNew, filter, " roepot ");
     if (io && notice && report) {
       if (filterNotice) io.emit("filter-notifications", [notice.id]);
 

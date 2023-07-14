@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useCallback } from "react";
 import PropTypes from "prop-types";
 import Button from "@mui/material/Button";
-import PostWidget from "components/PostWidget";
+import PostWidget from "./PostWidget";
 import InfiniteScroll from "./InfiniteScroll";
 import { useContext } from "context/store";
 import { useSelector } from "react-redux";

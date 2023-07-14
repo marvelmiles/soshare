@@ -133,9 +133,7 @@ const useForm = (config = {}) => {
               if (
                 errDelMap
                   ? errDelMap[key]
-                  : !withStrongPwdOnly &&
-                    key === "password" &&
-                    errors[key] !== "Strong"
+                  : !withStrongPwdOnly && key === "password"
               )
                 delete errors[key];
               else if (validateTypeMap && !errors[_key]) {
@@ -345,16 +343,18 @@ const useForm = (config = {}) => {
             if (dataMin) {
               dataMin = Number(dataMin) || 0;
               if (keyValue.length < dataMin) {
-                addError(`minimum of ${dataMin} characters`, key);
+                addError(`Minimum of ${dataMin} characters`, key);
                 if (key === "password" && formData.confr)
-                  addError(`password don't match`, "confirmPassword");
+                  addError(`Password don't match`, "confirmPassword");
               }
             }
 
             if (dataMax) {
               dataMax = Number(dataMax) || 0;
-              if (dataMax && keyValue.length > dataMax)
-                addError(`maximum of ${dataMax}`);
+              if (dataMax && keyValue.length > dataMax) {
+                keyValue = formData[key];
+                withErr = true;
+              }
             }
 
             if (node.type === "file") {
@@ -364,13 +364,13 @@ const useForm = (config = {}) => {
                 const isUp = type === "upload";
                 const obj = splitNumberAndText(text);
                 const errKey = key + "-" + type;
-                if (!obj.number) addError(`max ${type} exceeded`, errKey);
+                if (!obj.number) addError(`Maximum ${type} exceeded`, errKey);
                 else {
                   digit = isUp
                     ? { mb: 1000000, gb: 1000000000 }[obj.text]
                     : { s: 1, h: 3600, m: 60 }[obj.text] || NaN;
                   if (digit) digit = obj.number * digit;
-                  else addError(`max ${type} exceeded`, errKey);
+                  else addError(`Maximum ${type} exceeded`, errKey);
                 }
 
                 if (digit) {
@@ -396,7 +396,7 @@ const useForm = (config = {}) => {
                         const metadataListener = () => {
                           if (audio.duration > digit) {
                             addError(
-                              `maximum duration exceeded`,
+                              `Maximum duration exceeded`,
                               errKey,
                               index
                             );
@@ -457,10 +457,10 @@ const useForm = (config = {}) => {
                     if (node.multiple) {
                       for (const index in keyValue) {
                         if (Number(index) > -1 && keyValue[index].size > digit)
-                          addError(`maximum upload exceeded`, errKey, index);
+                          addError(`Maximum upload exceeded`, errKey, index);
                       }
                     } else if (keyValue.size > digit)
-                      addError(`maximum upload exceeded`, errKey);
+                      addError(`Maximum upload exceeded`, errKey);
                   }
                 }
               };
@@ -503,12 +503,12 @@ const useForm = (config = {}) => {
                             deletePathFromObject(errors, "confirmPassword");
                             return errors;
                           });
-                      else addError(`password don't match`, "confirmPassword");
+                      else addError(`Password don't match`, "confirmPassword");
                     }
                     break;
                   case "confirmPassword":
                     if (keyValue !== formData.password)
-                      addError((prop.error = `password don't match.`));
+                      addError((prop.error = `Password don't match.`));
                     break;
                   default:
                     break;
@@ -566,13 +566,19 @@ const useForm = (config = {}) => {
     isInValid =
       Object.keys(errors).length -
         (ignoreMap
-          ? Object.keys(ignoreMap).length
+          ? (() => {
+              let count = 0;
+              for (const key in errors) {
+                ignoreMap[key] && count++;
+              }
+              return count;
+            })()
           : withStrongPwdOnly
           ? 0
           : 1) >
         0 ||
       Object.keys(formData || {}).length <
-        (ignoreMap ? Object.keys(ignoreMap).length + 1 : 1) ||
+        (ignoreMap ? Object.keys(ignoreMap).length || 1 : 1) ||
       (required && required !== true
         ? (() => {
             let withErr;
@@ -586,7 +592,6 @@ const useForm = (config = {}) => {
           })()
         : false);
   }
-
   return {
     formData: formData || placeholders || {},
     errors,

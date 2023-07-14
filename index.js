@@ -71,7 +71,9 @@ app.use((err, req, res, next) => {
       new Date()
     );
   } else {
-    err = err.status ? err : (err.url = req.url || "-") && createError(err);
+    err = err.status
+      ? err
+      : (err.message ? (err.url = req.url || "-") : true) && createError(err);
     if (err) res.status(err.status).json(err.message);
   }
 

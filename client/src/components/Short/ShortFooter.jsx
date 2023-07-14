@@ -71,14 +71,15 @@ const ShortFooter = ({
     },
     [handleAction, handleDelete, id]
   );
+
   return (
     <>
       <Stack
         sx={{
           position: "absolute",
           width: "100%",
-          bottom: 0,
-          p: 1,
+          bottom: "0",
+          p: miniShort ? "4px" : 1,
           alignItems: "flex-start",
           flexWrap: "wrap",
           borderBottomLeftRadius: "inherit",
@@ -94,7 +95,6 @@ const ShortFooter = ({
             variant="circular"
             width={30}
             height={30}
-            sx={{ backgroundColor: "common.blend" }}
             animation={animation}
           />
         ) : (
@@ -118,7 +118,7 @@ const ShortFooter = ({
             />
           ) : (
             <StyledTypography
-              variant="h5"
+              variant="caption"
               maxLine={2}
               component={Link}
               onClick={e => e.stopPropagation()}
@@ -136,14 +136,15 @@ const ShortFooter = ({
           ) : (
             <StyledTypography
               component="div"
-              variant={miniShort ? "caption" : "h6"}
-              maxLine={2}
+              variant="caption"
+              className="textarea-readOnly"
+              textEllipsis={miniShort}
             >
               {text}
             </StyledTypography>
           )}
 
-          <Stack justifyContent="normal" pt="8px">
+          <Stack justifyContent="normal" pt="2px">
             {loading ? (
               <Skeleton
                 variant="text"

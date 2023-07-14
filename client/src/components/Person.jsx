@@ -4,7 +4,7 @@ import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
-import { StyledTypography, StyledLink } from "./styled";
+import { StyledTypography, StyledLink } from "components/styled";
 import { Link } from "react-router-dom";
 
 const Person = React.forwardRef(

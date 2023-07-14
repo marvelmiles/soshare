@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import { WidgetContainer } from "components/styled";
 import EmptyData from "components/EmptyData";
 import { Typography, Stack } from "@mui/material";
-import Person from "./Person";
+import Person from "components/Person";
 import { useContext } from "context/store";
 import { useSelector, useDispatch } from "react-redux";
 import { useParams } from "react-router-dom";
@@ -68,84 +68,95 @@ const FollowMeWidget = ({
   });
 
   const handleFollowingAction = useCallback(
-    toFollow => ({ to, from }) => {
-      const isFrm = from.id === userId;
-      const isTo = to.id === userId;
-      const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
-      if (isTo || isFrm) {
-        if (stateRef.current[key]) return;
-        stateRef.current[key] = true;
+    (toFollow, cacheKey) => {
+      return ({ to, from }) => {
+        const isFrm = from.id === userId;
+        const isTo = to.id === userId;
+        const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
 
-        if (isTo && priority === "toggle") {
-          _handleAction(toFollow ? "new" : "filter", { document: from });
-        } else if (isFrm) {
-          if (priority === "unfollow")
-            _handleAction(toFollow ? "new" : "filter", { document: to });
-          else if (priority === "follow")
-            _handleAction(toFollow ? "filter" : "new", { document: to });
-          else _handleAction("update", { document: to });
+        if (isTo || isFrm) {
+          if (
+            stateRef.current[key] ||
+            (!cacheKey && (isFrm || from.id === currentUser.id))
+          ) {
+            delete stateRef.current[key];
+            return;
+          }
+          stateRef.current[key] = true;
+          if (isTo && priority === "toggle") {
+            _handleAction(toFollow ? "new" : "filter", { document: from });
+          } else if (isFrm) {
+            if (priority === "unfollow")
+              _handleAction(toFollow ? "new" : "filter", { document: to });
+            else if (priority === "follow")
+              _handleAction(toFollow ? "filter" : "new", { document: to });
+            else _handleAction("update", { document: to });
+          }
+          if (!cacheKey) delete stateRef.current[key];
         }
-        stateRef.current[
-          (toFollow ? "unfollowId" : "followId") + to.id + from.id
-        ] = undefined;
-      }
+      };
     },
-    [_handleAction, priority, userId]
+    [_handleAction, priority, userId, currentUser.id]
   );
 
   useEffect(() => {
-    const isSuggest = priority === "follow";
+    if (socket) {
+      const isSuggest = priority === "follow";
 
-    let hasSuggested;
-    const suggestFollowers = data => {
-      if (!hasSuggested) {
-        hasSuggested = true;
-        infiniteScrollRef.current.setData({
-          ...data,
-          data: addToSet([...data.data, ...infiniteScrollRef.current.data.data])
-        });
-        hasSuggested = undefined;
-      }
-    };
+      let hasSuggested;
+      const suggestFollowers = data => {
+        if (!hasSuggested) {
+          hasSuggested = true;
+          infiniteScrollRef.current.setData({
+            ...data,
+            data: addToSet([
+              ...data.data,
+              ...infiniteScrollRef.current.data.data
+            ])
+          });
+          hasSuggested = undefined;
+        }
+      };
 
-    let hasUser;
-    const handleUserEntrying = user => {
-      if (!hasUser) {
-        hasUser = true;
-        socket.emit("suggest-followers", user);
-        infiniteScrollRef.current.setData({
-          ...infiniteScrollRef.current.data,
-          data: addToSet([user, ...infiniteScrollRef.current.data.data])
-        });
-        hasUser = undefined;
-      }
-    };
+      let hasUser;
+      const handleUserEntrying = user => {
+        if (!hasUser) {
+          hasUser = true;
+          socket.emit("suggest-followers", user);
+          infiniteScrollRef.current.setData({
+            ...infiniteScrollRef.current.data,
+            data: addToSet([user, ...infiniteScrollRef.current.data.data])
+          });
+          hasUser = undefined;
+        }
+      };
 
-    const handleFollow = handleFollowingAction(true);
-    const handleUnfollow = handleFollowingAction();
+      const handleFollow = handleFollowingAction(true);
+      const handleUnfollow = handleFollowingAction();
 
-    const handleUpdateUser = (user, isProfile) =>
-      isProfile && _handleAction("update", user);
+      const handleUpdateUser = (user, isProfile) =>
+        isProfile && _handleAction("update", user);
 
-    socket.on("unfollow", handleUnfollow);
-    socket.on("follow", handleFollow);
-    if (isSuggest) {
-      socket.on("suggest-followers", suggestFollowers);
-      socket.on("user", handleUserEntrying);
-    }
-    socket.on("update-user", handleUpdateUser);
-    return () => {
+      socket.on("unfollow", handleUnfollow);
+      socket.on("follow", handleFollow);
       if (isSuggest) {
-        socket
-          .emit("disconnect-suggest-followers-task")
-          .removeEventListener("suggest-followers", suggestFollowers)
-          .removeEventListener("user", handleUserEntrying);
+        socket.on("suggest-followers", suggestFollowers);
+        socket.on("user", handleUserEntrying);
       }
-      socket
-        .removeEventListener("follow", handleFollow)
-        .removeEventListener("unfollow", handleUnfollow)
-        .removeEventListener("update-user", handleUpdateUser);
-    };
+      socket.on("update-user", handleUpdateUser);
+      return () => {
+        if (isSuggest) {
+          socket
+            .emit("disconnect-suggest-followers-task")
+            .removeEventListener("suggest-followers", suggestFollowers)
+            .removeEventListener("user", handleUserEntrying);
+        }
+        socket
+          .removeEventListener("follow", handleFollow)
+          .removeEventListener("unfollow", handleUnfollow)
+          .removeEventListener("update-user", handleUpdateUser);
+      };
+    }
   }, [
     socket,
     dispatch,
@@ -159,7 +170,10 @@ const FollowMeWidget = ({
   useEffect(() => {
     const user = previewUser?.followUser;
     if (user)
-      handleFollowingAction(!user.isFollowing)({ to: user, from: currentUser });
+      handleFollowingAction(!user.isFollowing, true)({
+        to: user,
+        from: currentUser
+      });
   }, [handleFollowingAction, previewUser?.followUser, currentUser]);
   const loading = dataSize === undefined || dataSize < 0;
   return (
@@ -218,7 +232,7 @@ const FollowMeWidget = ({
                 toggle: currentUser.following.includes(u.id),
                 follow: false,
                 unfollow: true
-              }[userId === currentUser.id ? priority : "toggle"];
+              }[isCurrentUser ? priority : "toggle"];
 
               return (
                 <Person

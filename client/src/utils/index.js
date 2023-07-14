@@ -92,3 +92,16 @@ export const filterDocsByUserSet = (
     data: arr
   });
 };
+
+export const setAspectRatio = element => {
+  let ratio =
+    (element.naturalWidth || element.videoWidth) /
+    (element.naturalHeight || element.videoHeight);
+  ratio = ratio > 1 ? 1 / ratio : ratio;
+  element.parentElement.style.paddingBottom = 100 * ratio + "%";
+};
+
+export const getTimeMap = duration => {
+  const secs = Math.floor(duration);
+  return { mins: Math.floor(secs / 60), secs: secs % 60 };
+};

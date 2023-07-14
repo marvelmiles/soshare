@@ -38,27 +38,29 @@ const ShortsView = ({
     currentUser
   });
   useEffect(() => {
-    const handleFilter = document => {
-      _handleAction("filter", { document, cacheData: false });
-    };
+    if (socket) {
+      const handleFilter = document => {
+        _handleAction("filter", { document, cacheData: false });
+      };
 
-    const handleAppend = short => {
-      (privateUid ? privateUid === short.user.id : true) &&
-        _handleAction("new", { document: short });
-    };
+      const handleAppend = short => {
+        (privateUid ? privateUid === short.user.id : true) &&
+          _handleAction("new", { document: short });
+      };
 
-    const handleUpdateUser = user => _handleAction("update", { user });
+      const handleUpdateUser = user => _handleAction("update", { user });
 
-    socket.on("short", handleAppend);
-    socket.on("filter-short", handleFilter);
-    socket.on("update-user", handleUpdateUser);
+      socket.on("short", handleAppend);
+      socket.on("filter-short", handleFilter);
+      socket.on("update-user", handleUpdateUser);
 
-    return () => {
-      socket
-        .removeEventListener("short", handleAppend)
-        .removeEventListener("filter-short", handleFilter)
-        .removeEventListener("update-user", handleUpdateUser);
-    };
+      return () => {
+        socket
+          .removeEventListener("short", handleAppend)
+          .removeEventListener("filter-short", handleFilter)
+          .removeEventListener("update-user", handleUpdateUser);
+      };
+    }
   }, [socket, _handleAction, privateUid]);
 
   useEffect(() => {
@@ -66,6 +68,7 @@ const ShortsView = ({
     let date = new Date();
     let sec = date.getSeconds();
     timeId = setTimeout(() => {
+      return;
       const filterOlders = () => {
         infiniteScrollRef.current.setData(prev => {
           return {

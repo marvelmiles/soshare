@@ -31,7 +31,7 @@ import moment from "moment";
 import PostWidget from "components/PostWidget";
 import { StyledLink } from "./styled";
 import Tooltip from "@mui/material/Tooltip";
-import ClickAwayListener from "@mui/material/ClickAwayListener";
+import UserTip from "tooltips/UserTip";
 
 const Notifications = ({
   markNotification,
@@ -43,6 +43,7 @@ const Notifications = ({
   dataSx,
   sx
 }) => {
+  const t = useRef();
   const { socket } = useContext();
   const [disabled, setDisabled] = useState(true);
   const [type, setType] = useState(defaultType);
@@ -243,7 +244,6 @@ const Notifications = ({
                 {data.length ? (
                   <List sx={{ mt: 0, p: 0 }}>
                     {data.map((n, i) => {
-                      console.log(n, cid);
                       const renderMsg = () => {
                         let withRo;
                         const formatedDate = moment(n.createdAt).fromNow();
@@ -266,10 +266,12 @@ const Notifications = ({
                               >
                                 {n.document.docType}
                               </StyledLink>
+                            ) : n.document ? (
+                              n.docType
                             ) : (
                               <StyledLink
                                 style={{ color: "inherit" }}
-                                to={`/${n.docType}s/${n.document.id}`}
+                                to={`/${n.docType}s/${n.document?.id || ""}`}
                               >
                                 {n.docType}
                               </StyledLink>
@@ -278,7 +280,15 @@ const Notifications = ({
                           </span>
                         );
                         const username = (
-                          <Tooltip disableFocusListener title={<div>notd</div>}>
+                          <Tooltip
+                            arrow={false}
+                            title={
+                              <UserTip
+                                user={n.users[0]}
+                                isOwner={cid === n.users[0].id}
+                              />
+                            }
+                          >
                             <span>{n.users[0].username}</span>
                           </Tooltip>
                         );
@@ -299,9 +309,13 @@ const Notifications = ({
                               </div>
                             );
                           case "follow":
-                            return `@${username} followed  ${
-                              n.to.id === cid ? "you" : "a friend"
-                            } ${formatedDate}.`;
+                            return (
+                              <div>
+                                @{username} followed
+                                {n.to.id === cid ? " you " : " a friend "}
+                                {formatedDate}.
+                              </div>
+                            );
                           case "delete":
                             return (
                               <div>
@@ -318,12 +332,18 @@ const Notifications = ({
                               </div>
                             );
                           default:
-                            return `@${username}${moreInfo}`;
+                            return (
+                              <div>
+                                @{username}
+                                {moreInfo}
+                              </div>
+                            );
                         }
                       };
                       return (
                         <ListItemButton
                           key={n.id}
+                          disableRipple
                           ref={
                             i === data.length - 1
                               ? node => node && setObservedNode(node)

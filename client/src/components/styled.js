@@ -15,38 +15,28 @@ export const StyledLink = styled(Link, {
         return true;
     }
   }
-})(
-  ({
-    theme: {
-      typography,
-      palette: {
-        primary: { main }
-      }
-    },
-    variant,
-    textEllipsis,
-    hoverDecoration
-  }) => {
-    let styles = {
-      textDecoration: "none",
-      display: "inline-block",
-      color: main,
-      ...(typography[variant] || {}[variant])
-    };
-    textEllipsis &&
-      (styles = {
-        ...styles,
-        textOverflow: "ellipsis",
-        overflow: "hidden",
-        whiteSpace: "nowrap"
-      });
-    !hoverDecoration &&
-      (styles["&:hover"] = {
-        textDecoration: "underline"
-      });
-    return styles;
-  }
-);
+})(({ theme, variant, textEllipsis, hoverDecoration }) => {
+  const { typography, palette } = theme;
+
+  let styles = {
+    textDecoration: "none",
+    display: "inline-block",
+    color: palette && palette.primary?.main,
+    ...(typography ? typography[variant] || {}[variant] : undefined)
+  };
+  textEllipsis &&
+    (styles = {
+      ...styles,
+      textOverflow: "ellipsis",
+      overflow: "hidden",
+      whiteSpace: "nowrap"
+    });
+  !hoverDecoration &&
+    (styles["&:hover"] = {
+      textDecoration: "underline"
+    });
+  return styles;
+});
 
 export const StyledTypography = styled(Typography, {
   shouldForwardProp: prop => {
@@ -64,6 +54,7 @@ export const StyledTypography = styled(Typography, {
     variant,
     textEllipsis,
     theme: {
+      typography,
       palette: {
         primary: { main }
       }
@@ -94,6 +85,8 @@ export const StyledTypography = styled(Typography, {
           display: "inline-block",
           cursor: "pointer",
           color: main,
+          marginBottom: 0,
+          ...typography.caption,
           "&:hover": {
             textDecoration: "underline"
           }

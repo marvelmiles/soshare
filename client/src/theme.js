@@ -22,7 +22,7 @@ export const createTheme = mode =>
               altHover: "#333"
             },
             text: {
-              primary: "rgba(255,255,255,0.85)",
+              primary: "rgba(255,255,255,0.85)",  
               secondary: "rgba(255,255,255,0.7)"
             }
           }
@@ -56,6 +56,33 @@ export const createTheme = mode =>
       }
     },
     components: {
+      MuiSkeleton: {
+        styleOverrides: {
+          root: {
+            backgroundColor: "#212121"
+          }
+        }
+      },
+      MuiTooltip: {
+        styleOverrides: {
+          tooltip: ({
+            theme: {
+              palette: { background, text },
+              shadows
+            }
+          }) => ({
+            backgroundColor: background.paper,
+            marginBottom: "5px !important",
+            borderRadius: "12px",
+            boxShadow: shadows[6],
+            color: text.primary,
+            textTransform: "capitalize",
+            width: "100%",
+            maxWidth: "350px",
+            marginTop: "5px !important"
+          })
+        }
+      },
       MuiPaper: {
         styleOverrides: {
           root: {
@@ -85,6 +112,7 @@ export const createTheme = mode =>
         styleOverrides: {
           root: {
             padding: 0,
+            width: "100%",
             "@media (pointer:coarse)": {
               padding: 0
             }
@@ -197,10 +225,6 @@ export const createTheme = mode =>
             props: { variant: "sm" },
             style: {
               "@media (min-width: 0px)": {
-                width: "20px",
-                height: "20px"
-              },
-              "@media (min-width: 280px)": {
                 width: "30px",
                 height: "30px"
               }
@@ -228,7 +252,7 @@ export const createTheme = mode =>
     },
     typography: {
       allVariants: {
-        fontFamily: `'Rubik', sans-serif`,
+        fontFamily: "'Rubik', sans-serif",
         fontSize: 12
       },
       h1: {

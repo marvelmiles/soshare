@@ -46,9 +46,9 @@ export const getFeedShorts = async (req, res, next) => {
     res,
     next,
     match: {
-      createdAt: {
-        $gte: start
-      }
+      // createdAt: {
+      //   $gte: start
+      // }
     }
   });
 };

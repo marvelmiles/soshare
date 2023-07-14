@@ -32,8 +32,10 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon --ignore client/* index.js",
-    "start": "index.js"
+    "dev": "nodemon --ignore client/* --ignore fluent.js index.js",
+    "start": "index.js",
+    "fluent": "nodemon --ignore '*'  --watch .gitignore --watch fluent.js fluent.js",
+    "node:fluent": "node fluent.js"
   },
   "keywords": [],
   "author": "",

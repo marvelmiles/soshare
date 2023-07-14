@@ -13,7 +13,7 @@ const ShortSidebar = ({
   user,
   handleAction,
   loading,
-  animation,
+  animation = "wave",
   muted,
   withVolume = true
 }) => {
@@ -48,6 +48,9 @@ const ShortSidebar = ({
           width={30}
           height={30}
           animation={animation}
+          sx={{
+            backgroundColor: "common.blend"
+          }}
         />
       ) : (
         <IconButton
@@ -70,6 +73,9 @@ const ShortSidebar = ({
           width={30}
           height={30}
           animation={animation}
+          sx={{
+            backgroundColor: "common.blend"
+          }}
         />
       ) : (
         <MoreActions

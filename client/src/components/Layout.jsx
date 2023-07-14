@@ -11,7 +11,7 @@ import { handleScrollUp } from "utils";
 const Layout = ({
   children,
   routePage,
-  maxWidth = "1800px",
+  maxWidth = "1260px",
   gridBreakpoint = "768px",
   sx,
   uid,

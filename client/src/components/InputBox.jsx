@@ -19,7 +19,6 @@ import {
   ListItemText
 } from "@mui/material";
 import useForm from "hooks/useForm";
-import useMediaQuery from "@mui/material/useMediaQuery";
 import GifBoxOutlinedIcon from "@mui/icons-material/GifBoxOutlined";
 import ImageOutlinedIcon from "@mui/icons-material/ImageOutlined";
 import MicOutlinedIcon from "@mui/icons-material/MicOutlined";
@@ -70,8 +69,6 @@ const InputBox = ({
   const { setSnackBar, closeSnackBar } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const [moreActionPopover, setMoreActionPopover] = useState({});
-
-  const isSm = useMediaQuery("(min-width:576px)");
   let {
     formData,
     handleChange,
@@ -290,12 +287,13 @@ const InputBox = ({
         const _formData = handleSubmit(undefined, {
           formData: new FormData()
         });
-        // return console.log(
-        //   _formData.getAll(mediaRefName),
-        //   _formData.get("visibility"),
-        //   _formData.get("text")
-        // );
+
         if (_formData) {
+          console.log(
+            _formData.getAll(mediaRefName),
+            _formData.get("visibility"),
+            _formData.get("text")
+          );
           let _url =
             url +
             `?filteredMedias=${
@@ -418,52 +416,49 @@ const InputBox = ({
 
   useEffect(() => {
     try {
-      let withLimit = !!(
-        errors[mediaRefName + "-duration"] || errors[mediaRefName + "-upload"]
-      );
-
-      let err =
+      const withLimit = !!(
         errors[mediaRefName] ||
-        (errors[mediaRefName + "-duration"] ||
-          errors[mediaRefName + "-upload"]);
-
-      let msg = "";
-
-      if (err) {
-        stateRef.current.closedErr = false;
-        if (isObject(err)) {
-          err = withLimit
-            ? {
-                ...errors[mediaRefName + "-duration"],
-                ...errors[mediaRefName + "-upload"]
+        errors[mediaRefName + "-duration"] ||
+        errors[mediaRefName + "-upload"]
+      );
+      const hasErr = withLimit || errors.text;
+      if (!stateRef.current.hideErr && hasErr) {
+        let msg = "";
+        for (const key in errors) {
+          msg = errors[key].code
+            ? "Invalid file format or browser have no support for it!"
+            : errors[key];
+          if (msg)
+            if (isObject(msg)) {
+              for (let index in msg) {
+                index = Number(index);
+                if (index > -1 && msg[index]) {
+                  msg += `${msg.length ? "\n" : ""}${index + 1}) ${
+                    msg[index].code
+                      ? "Invalid file format or browser have no support for it!"
+                      : "Maximum upload or duration limit exceeded!"
+                  } ${formData[mediaRefName][index].name}.`;
+                }
               }
-            : err;
-          if (formData[mediaRefName]) {
-            for (const key in err) {
-              msg = err[key].code
-                ? "Invalid file format or browser have no support for it."
-                : withLimit
-                ? err[key] && `Maximum upload or duration limit exceeded for`
-                : err[key];
-              if (msg)
-                msg += `${msg.length ? "\n" : ""}${Number(key) + 1}) ${msg} ${
-                  formData[mediaRefName][key].name
-                }.`;
-            }
-          } else
-            setErrors(errors => {
-              delete errors[mediaRefName];
-              delete errors[mediaRefName + "-duration"];
-              delete errors[mediaRefName + "-upload"];
-              return { ...errors };
-            });
-        } else if (typeof err === "string" || withLimit)
-          msg = withLimit ? "Maximum upload or duration limit exceeded!" : err;
-      } else if (!stateRef.current.closedErr) {
-        stateRef.current.closedErr = true;
-        closeSnackBar();
-      }
-      msg && setSnackBar(msg);
+            } else if (withLimit)
+              msg = "Maximum upload or duration limit exceeded!";
+        }
+        if (withLimit && !formData[mediaRefName]) {
+          stateRef.current.hideErr = true;
+          closeSnackBar();
+          setErrors(errors => {
+            delete errors[mediaRefName];
+            delete errors[mediaRefName + "-duration"];
+            delete errors[mediaRefName + "-upload"];
+            return { ...errors };
+          });
+        }
+
+        if (msg && msg.length) {
+          withLimit && (stateRef.current.hideErr = true);
+          setSnackBar(msg);
+        }
+      } else if (!hasErr) stateRef.current.hideErr = undefined;
     } catch (err) {
       console.log(err);
     }
@@ -476,6 +471,12 @@ const InputBox = ({
     if (currentUser.settings.hideDelMediasDialog) deleteMedia(true);
     else showDelDialog("delete-temp", true);
   };
+
+  const handleFileTransfer = e => {
+    stateRef.current.hideErr = undefined;
+    handleChange(e);
+  };
+
   return (
     <>
       <WidgetContainer
@@ -490,7 +491,8 @@ const InputBox = ({
           borderBottom: "1px solid #333",
           borderBottomColor: "divider",
           borderRadius: 0,
-          mb: 0
+          mb: 0,
+          width: "100%"
         }}
       >
         {disable ? (
@@ -504,17 +506,24 @@ const InputBox = ({
           ></div>
         ) : null}
         <form onSubmit={onSubmit}>
-          <Stack alignItems="flex-start" gap={2} px={2}>
+          <Stack
+            alignItems="flex-start"
+            justifyContent="flex-start"
+            gap={{
+              xs: 1,
+              s320: 2
+            }}
+            px={{
+              xs: 1,
+              s320: 2
+            }}
+          >
             <Avatar
               variant="sm"
               src={currentUser.photoUrl}
               alt={currentUser.username}
             />
-            <Box
-              sx={{
-                flex: 1
-              }}
-            >
+            <Box sx={{}}>
               <Stack
                 sx={{
                   minWidth: "0",
@@ -525,7 +534,7 @@ const InputBox = ({
                   className="Mui-custom-select"
                   value={formData.visibility || "everyone"}
                   sx={{
-                    width: "90%",
+                    width: "100%",
                     maxWidth: "150px",
                     marginInline: "auto",
                     borderRadius: 24,
@@ -554,8 +563,9 @@ const InputBox = ({
                     }
                   }}
                   onChange={({ target: { value } }) => {
+                    stateRef.current.hideErr = true;
                     formData.visibility = value;
-                    reset(formData);
+                    reset({ ...formData });
                   }}
                 >
                   <MenuItem value="everyone">Everyone</MenuItem>
@@ -588,6 +598,7 @@ const InputBox = ({
                       color: "text.primary",
                       fontSize: boldFont ? "20px" : "16px",
                       width: "100%",
+                      maxWidth: "100%",
                       m: 0,
                       border: "none",
                       outline: "none",
@@ -604,7 +615,11 @@ const InputBox = ({
                     data-max={max}
                     className={`inputbox-textarea ${inputClassName}`}
                   />
-                  <Typography style={{ float: "right" }}>
+                  <Typography
+                    style={{
+                      float: "right"
+                    }}
+                  >
                     {(formData.text || "").length || 0} / {max}
                   </Typography>
                 </div>
@@ -620,7 +635,7 @@ const InputBox = ({
             }
             showIndicator={multiple && showIndicator}
             ref={mediaCarouselRef}
-            beforeChange={setCurrentSlide}
+            onCarouselChange={setCurrentSlide}
             currentSlide={currentSlide}
             videoPlayerProps={videoPlayerProps}
             actionBar={
@@ -648,7 +663,15 @@ const InputBox = ({
               )
             }
           />
-          <Stack mt={1} px={2}>
+          <Stack
+            mt={1}
+            px={2}
+            justifyContent="flex-end"
+            flexWrap={{
+              xs: "wrap",
+              s200: "nowrap"
+            }}
+          >
             <input
               multiple={multiple}
               name={mediaRefName}
@@ -662,7 +685,7 @@ const InputBox = ({
                 }[accept] || accept
               }
               style={{ display: "none" }}
-              onChange={handleChange}
+              onChange={handleFileTransfer}
             />
             <Stack>
               <Button
@@ -671,8 +694,10 @@ const InputBox = ({
                   ...actionBtnSx,
                   display: {
                     xs: "none",
-                    s280: "inline-flex"
-                  }
+                    s200: "inline-flex"
+                  },
+                  justifyContent: "center",
+                  padding: 1
                 }}
                 htmlFor={stateRef.current.key}
               >
@@ -680,7 +705,7 @@ const InputBox = ({
                 <Typography>Media</Typography>
               </Button>
 
-              {isSm ? (
+              {/* {isSm ? (
                 <>
                   <Button sx={actionBtnSx}>
                     <GifBoxOutlinedIcon />
@@ -691,7 +716,7 @@ const InputBox = ({
                     <Typography>Audio</Typography>
                   </Button>
                 </>
-              ) : null}
+              ) : null} */}
             </Stack>
             <Stack
               alignItems="flex-start"
@@ -701,7 +726,10 @@ const InputBox = ({
             >
               <IconButton
                 sx={{
-                  display: isSm ? "none" : "inline-flex"
+                  display: {
+                    xs: "inline-flex",
+                    s200: "none"
+                  }
                 }}
                 onClick={showMoreTools}
               >
@@ -758,14 +786,14 @@ const InputBox = ({
                 s280: "none"
               }
             },
-            {
-              icon: GifBoxOutlinedIcon,
-              title: "Gif"
-            },
-            {
-              icon: MicOutlinedIcon,
-              title: "Audio"
-            },
+            // {
+            //   icon: GifBoxOutlinedIcon,
+            //   title: "Gif"
+            // },
+            // {
+            //   icon: MicOutlinedIcon,
+            //   title: "Audio"
+            // },
             {
               icon: DeleteIcon,
               title: "Delete",

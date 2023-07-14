@@ -33,28 +33,30 @@ const PostsView = ({
     stateCtx: stateRef.current
   });
   useEffect(() => {
-    const handleFilter = ({ id }) => {
-      _handleAction("filter", { document: id, cacheData: false });
-    };
+    if (socket) {
+      const handleFilter = ({ id }) => {
+        _handleAction("filter", { document: id, cacheData: false });
+      };
 
-    const handleAppend = post => {
-      (privateUid ? post.user.id === privateUid : true) &&
-        _handleAction("new", { document: post });
-    };
+      const handleAppend = post => {
+        (privateUid ? post.user.id === privateUid : true) &&
+          _handleAction("new", { document: post });
+      };
 
-    const handleUpdate = post => {
-      _handleAction("update", { document: post });
-    };
+      const handleUpdate = post => {
+        _handleAction("update", { document: post });
+      };
 
-    socket.on("post", handleAppend);
-    socket.on("update-post", handleUpdate);
-    socket.on("filter-post", handleFilter);
+      socket.on("post", handleAppend);
+      socket.on("update-post", handleUpdate);
+      socket.on("filter-post", handleFilter);
 
-    return () => {
-      socket.removeEventListener("filter-post", handleFilter);
-      socket.removeEventListener("post", handleAppend);
-      socket.removeEventListener("update-post", handleUpdate);
-    };
+      return () => {
+        socket.removeEventListener("filter-post", handleFilter);
+        socket.removeEventListener("post", handleAppend);
+        socket.removeEventListener("update-post", handleUpdate);
+      };
+    }
   }, [socket, _handleAction, privateUid]);
 
   useEffect(() => {
