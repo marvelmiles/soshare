@@ -10,10 +10,13 @@ const configSlice = createSlice({
   reducers: {
     toggleThemeMode(state) {
       state.mode = state.mode === "dark" ? "light" : "dark";
+    },
+    setThemeMode(state, { payload }) {
+      state.mode = payload;
     }
   }
 });
 
-export const { toggleThemeMode, toggleDrawer } = configSlice.actions;
+export const { toggleThemeMode, setThemeMode } = configSlice.actions;
 
 export default configSlice.reducer;
