@@ -1,27 +1,25 @@
 import express from "express";
-import { verifyToken } from "../controllers/auth.js";
+import { verifyToken } from "../utils/middlewares.js";
 import {
   getFeedPosts,
   likePost,
   dislikePost,
-  createPost
+  createPost,
+  getPost,
+  updatePost,
+  deletePost
 } from "../controllers/post.js";
-import { uploadFile } from "../utils/fileHandler.js";
+import { uploadFile } from "../utils/file-handlers.js";
 
 const router = express.Router();
 
 router
-  .post(
-    "/",
-    verifyToken,
-    uploadFile({
-      single: false,
-      dir: "photos/posts"
-    }),
-    createPost
-  )
-  .get("/", verifyToken, getFeedPosts)
-  .put("/:id/like", verifyToken, likePost)
-  .put("/:id/dislike", verifyToken, dislikePost);
+  .post("/new", verifyToken, uploadFile(), createPost)
+  .get("/", getFeedPosts)
+  .get("/:id", getPost)
+  .put("/:id", verifyToken, uploadFile(), updatePost)
+  .patch("/:id/like", verifyToken, likePost)
+  .patch("/:id/dislike", verifyToken, dislikePost)
+  .delete("/:id", verifyToken, deletePost);
 
 export default router;

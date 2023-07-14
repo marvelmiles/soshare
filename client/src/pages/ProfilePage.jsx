@@ -1,136 +1,146 @@
-import React, { useState, useEffect, useMemo } from "react";
-import Layout from "../components/Layout";
-import UserWidget from "../components/UserWidget";
-import FollowMeWidget from "../components/FollowMeWidget";
-import PostsView from "../components/PostsView";
-import InputBox from "../components/InputBox";
-import UserProfileForm from "../components/UserProfileForm";
-import {
-  Button,
-  Typography,
-  IconButton,
-  Stack,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
-} from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
-import { useSearchParams } from "react-router-dom";
-Dialog.defaultProps = {
-  open: false
-};
+import React, { useState, useEffect } from "react";
+import Layout from "components/Layout";
+import UserWidget from "components/UserWidget";
+import FollowMeWidget from "components/FollowMeWidget";
+import UserProfileForm from "components/UserProfileForm";
+import { useParams, useSearchParams } from "react-router-dom";
+import { useContext } from "context/store";
+import http from "api/http";
+import { useSelector } from "react-redux";
+import Loading from "components/Loading";
+import { Stack } from "@mui/material";
+import User404 from "./404/User404";
+import mp4 from "components/video.mp4";
+
+import { useDispatch } from "react-redux";
 const ProfilePage = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [dialog, setDialog] = useState({});
-  const activeDialog = useMemo(
-    () => (searchParams.get("d") || "").toLowerCase(),
-    [searchParams]
-  );
+  let { userId } = useParams();
+  const [searchParams] = useSearchParams();
+  const { socket } = useContext();
+  const [user, setUser] = useState();
+  const dispatch = useDispatch();
+  const cid = useSelector(state => {
+    return (state.user.currentUser || {}).id;
+  });
+  const isCurrentUser = cid === userId;
+  const withCid = (searchParams.get("wc") || "").toLowerCase() === "true";
+
   useEffect(() => {
-    if (
-      activeDialog &&
-      {
-        "create-post": true,
-        "user-posts": true
-      }[activeDialog]
-    ) {
-      setDialog({
-        open: true,
-        activeDialog
-      });
-    }
-  }, [activeDialog]);
+    (async () => {
+      try {
+        setUser(await http.get(`/users/${userId}`, { withCredentials: !!cid }));
+      } catch (message) {
+        setUser(null);
+      }
+    })();
+  }, [userId, cid]);
+
+  useEffect(() => {
+    const handleUpdate = u => {
+      if (u.id === user?.id) setUser(u);
+    };
+
+    socket.on("update-user", handleUpdate);
+
+    return () => {
+      socket.removeEventListener("update-user", handleUpdate);
+    };
+  }, [isCurrentUser, socket, user?.id, dispatch]);
 
   const width = {
     md: "48%"
   };
-
-  const closeDialog = () => {
-    setSearchParams({});
-    setDialog({
-      ...dialog,
-      open: false
-    });
-  };
-
-  const renderDialog = () => {
-    switch (dialog.activeDialog) {
-      case "create-post":
-        return (
-          <>
-            <DialogTitle
-              sx={{
-                border: "1px solid #333",
-                borderColor: "divider"
-              }}
-              component={Stack}
-            >
-              <Typography variant="h5" fontWeight="bold">
-                Share your moment
-              </Typography>
-              <IconButton onClick={closeDialog}>
-                <CloseIcon />
-              </IconButton>
-            </DialogTitle>
-            <DialogContent>
-              <InputBox autoFocus />
-            </DialogContent>
-          </>
-        );
-      default:
-        return (
-          <>
-            <DialogContent>
-              <PostsView />
-            </DialogContent>
-            <DialogActions
-              sx={{
-                borderTop: "1px solid #333",
-                borderColor: "divider",
-                display: {
-                  xs: "block",
-                  md: "none"
-                }
-              }}
-            >
-              <Button variant="contained" onClick={closeDialog}>
-                Cancel
-              </Button>
-            </DialogActions>
-          </>
-        );
-    }
-  };
-
   return (
     <>
       <Layout
-        wrap
-        maxWidth="1024px"
+        uid={withCid ? cid : userId}
+        isCurrentUser={isCurrentUser}
         routePage="profilePage"
-        gridBreakpoint="768px"
-        activeMenuItem={{}[activeDialog]}
+        key={userId}
       >
-        <UserWidget width={width} hideUserSettingsIcon />
-        <UserProfileForm width={width} />
-        <FollowMeWidget width={width} />
-        <FollowMeWidget title="People you follow" width={width} />
+        {/* <video
+          src={mp4}
+          style={{ border: "1px solid red" }}
+          onLoadedMetadata={e => {
+            console.log(e.target.videoWidth, e.target.videoHeight);
+          }}
+        /> */}
+        {user === undefined ? (
+          <Loading />
+        ) : user?.id ? (
+          <Stack
+            alignItems="flex-start"
+            justifyContent="normal"
+            sx={{
+              flexWrap: "wrap",
+              gap: 2,
+              maxWidth: "1024px",
+              mx: "auto",
+              pt: 2,
+              width: "100%",
+              p: 2,
+              "& > *,& > .data-scrollable,& > .widget-container": {
+                flex: "none",
+                minWidth: {
+                  xs: "100%",
+                  md: "48%"
+                },
+                width: {
+                  xs: "100%",
+                  md: "48%"
+                }
+              }
+            }}
+          >
+            <UserWidget
+              key="profile-page-user-widget"
+              width={width}
+              user={user}
+              isCurrentUser={isCurrentUser}
+            />
+
+            {isCurrentUser ? (
+              <UserProfileForm
+                key="profile-page-user-form"
+                placeholders={user}
+                width={width}
+                hidePwd
+              />
+            ) : null}
+
+            <FollowMeWidget
+              url="followers"
+              title={isCurrentUser ? "Your Followers" : "Followers"}
+              secondaryTitle="followers"
+              width={width}
+              variant="flex"
+              key="followers"
+            />
+
+            <FollowMeWidget
+              url="following"
+              title={isCurrentUser ? "People you follow" : "Following"}
+              secondaryTitle="following"
+              width={width}
+              priority="unfollow"
+              variant="flex"
+              key="following"
+            />
+
+            {isCurrentUser ? (
+              <FollowMeWidget
+                width={width}
+                variant="flex"
+                key="suggest"
+                title="People to follow"
+                priority="follow"
+              />
+            ) : null}
+          </Stack>
+        ) : (
+          <User404 contentOnly />
+        )}
       </Layout>
-      <Dialog
-        open={dialog.open}
-        onClose={closeDialog}
-        PaperProps={{
-          sx: {
-            m: {
-              xs: 0,
-              s320: 2
-            }
-          }
-        }}
-      >
-        {renderDialog()}
-      </Dialog>
     </>
   );
 };

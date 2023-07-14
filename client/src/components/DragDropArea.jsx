@@ -1,5 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
+import Box from "@mui/material/Box";
 import PropTypes from "prop-types";
+import { useContext } from "context/store";
 
 function DragDropArea({
   dropView,
@@ -8,10 +10,20 @@ function DragDropArea({
   autoResetOnDrop,
   accept = "",
   multiple = true,
-  children
+  children,
+  disabled,
+  component,
+  inputKey = "drag-drop-area-input-file-upload",
+  sx,
+  mimetype,
+  name,
+  onError,
+  ...rest
 }) {
+  const [showError, setShowError] = useState(false);
   const [dragActive, setDragActive] = React.useState(false);
   const [hasDropedFile, setHasDropedFile] = useState(false);
+  const { setSnackBar } = useContext();
   const resetState = useCallback(() => {
     setDragActive(false);
     setHasDropedFile(false);
@@ -27,34 +39,82 @@ function DragDropArea({
     } else if (e.type === "dragleave") {
       setDragActive(false);
     }
+    setShowError(false);
   };
   const onDataTransfer = e => {
     e.preventDefault();
     e.stopPropagation();
     setHasDropedFile(true);
-    if (!hasDropedFile) {
+    const handleFilesUpload = (fileList = []) => {
       const files = [];
-      if (e.dataTransfer && e.dataTransfer.files) {
-        for (let file of e.dataTransfer.files) {
-          if (file.type.indexOf(accept) >= 0) files.push(file);
+      let message = ``;
+      const validateType = fileType => {
+        for (let type of accept.split(",.")) {
+          if (type[0] === ".") type = type.slice(1);
+          if (type[0] === ",") type = type.slice(1);
+          if (fileType === `${mimetype}/${type}`) return true;
         }
-        files.length && onDrop(multiple ? files : files[0]);
-      } else if (e.target.files)
-        onDrop(multiple ? e.target.files : e.target.files[0]);
-      if (autoResetOnDrop) resetState();
+        return false;
+      };
+      for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        if (mimetype ? validateType(file.type) : file.type.indexOf(accept) >= 0)
+          files.push(file);
+        else {
+          message += `${i === 0 ? `Sorry file${multiple ? "s" : ""} ` : ""}${
+            file.name
+          }${multiple && i !== fileList.length - 1 ? "," : ""}`;
+        }
+      }
+      if (message.length) {
+        message += ` extension not supported. Accept only ${accept} extensions`;
+        setShowError(true);
+        setSnackBar(message);
+      } else if (onDrop) {
+        setShowError(false);
+        onDrop(e.target.multiple ? files : files[0]);
+      }
+    };
+    if (!hasDropedFile) {
+      if (e.dataTransfer?.files) handleFilesUpload(e.dataTransfer.files);
+      else if (e.target.files) handleFilesUpload(e.target.files);
     }
+    if (autoResetOnDrop) resetState();
   };
   return (
-    <div
+    <Box
       onDrop={onDataTransfer}
       onDragOver={handleDrag}
       onDragLeave={handleDrag}
-      style={{
-        position: "relative"
+      sx={{
+        position: "relative",
+        border: "3px solid transparent",
+        borderColor: showError
+          ? "error.main"
+          : dragActive
+          ? "primary.main"
+          : "divider",
+        // "& > *": {
+        //   display: "block",
+        //   height: "inherit",
+        //   minHeight: "inherit",
+        //   width: "inherit",
+        //   minWidth: "inherit",
+        //   border: "inherit",
+        //   borderColor: "transparent",
+        //   borderRadius: "inherit",
+        //   position: "absolute",
+        //   top: -5,
+        //   left: -5
+        // },
+        ...sx
       }}
       className={`drag-drop-area ${dragActive ? "drag-active" : ""}`}
+      component={component}
+      {...rest}
     >
       <input
+        name={name}
         type="file"
         accept={
           {
@@ -63,32 +123,30 @@ function DragDropArea({
             video: "video/*"
           }[accept] || accept
         }
-        id="drag-drop-area-input-file-upload"
+        id={inputKey}
         multiple={multiple}
         style={{ display: "none" }}
         onChange={onDataTransfer}
       />
       <label
-        htmlFor="drag-drop-area-input-file-upload"
-        style={{ cursor: "pointer" }}
+        htmlFor={inputKey}
+        style={{
+          cursor: disabled ? "not-allowed" : "pointer"
+        }}
       >
         {children}
       </label>
-      {hasDropedFile ? (
+      {hasDropedFile || disabled ? (
         <div
           style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
             zIndex: 1,
-            width: "100%",
-            height: "100%"
+            cursor: disabled && "not-allowed"
           }}
         >
-          {dropView}
+          {hasDropedFile ? dropView : null}
         </div>
       ) : null}
-    </div>
+    </Box>
   );
 }
 

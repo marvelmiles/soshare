@@ -1,64 +1,30 @@
 import React from "react";
-import { Box, Stack, useMediaQuery } from "@mui/material";
-import Layout from "../components/Layout";
-import UserWidget from "../components/UserWidget";
-import InputBox from "../components/InputBox";
-import PostsView from "../components/PostsView";
-import AdvertWidget from "../components/AdvertWidget";
-import UsersWidget from "../components/FollowMeWidget";
-import ShortsWidget from "../components/ShortsWidget";
+import { useSelector } from "react-redux";
+import InputBox from "components/InputBox";
+import PostsView from "views/PostsView";
+import MainView from "views/MainView";
+import AddIcon from "@mui/icons-material/Add";
+import { useNavigate } from "react-router-dom";
 
 const HomePage = () => {
+  const cid = useSelector(state => (state.user.currentUser || {}).id);
+  const navigate = useNavigate();
   return (
-    <Layout>
-      <Box
-        sx={{
-          width: {
-            xs: "100%",
-            md: "26%"
-          },
-          display: {
-            xs: "none",
-            lg: "block"
-          },
-          position: "sticky",
-          left: 0,
-          top: 80
-        }}
-      >
-        <ShortsWidget />
-        <UserWidget />
-      </Box>
-      <Box
-        sx={{
-          width: {
-            xs: "100%",
-            lg: "42%"
-          }
-        }}
-      >
-        <InputBox />
-        <PostsView />
-      </Box>
-      <Box
-        sx={{
-          width: {
-            xs: "100%",
-            lg: "26%"
-          },
-          display: {
-            xs: "none",
-            lg: "block"
-          },
-          position: "sticky",
-          left: 0,
-          top: -80
-        }}
-      >
-        <AdvertWidget />
-        <UsersWidget />
-      </Box>
-    </Layout>
+    <MainView
+      borderline
+      layoutProps={
+        cid
+          ? {
+              fabIcon: <AddIcon />,
+              handleFabAction: () => navigate("?compose=create-post")
+            }
+          : undefined
+      }
+    >
+      <PostsView scrollNodeRef={null}>
+        {cid ? <InputBox boldFont autoFocus={false} /> : null}
+      </PostsView>
+    </MainView>
   );
 };
 
