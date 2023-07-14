@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState } from "react";
+import React, { useRef, useCallback, useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -9,29 +9,25 @@ import Button from "@mui/material/Button";
 import InputBox from "components/InputBox";
 import IconButton from "@mui/material/IconButton";
 import PostWidget from "components/PostWidget";
-import Typography from "@mui/material/Typography";
+import { StyledTypography } from "components/styled";
 import Stack from "@mui/material/Stack";
 import PostsView from "views/PostsView";
 import ShortsView from "views/ShortsView";
-import {
-  useLocation,
-  useSearchParams,
-  Navigate,
-  useNavigate
-} from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
 import FollowMeWidget from "components/FollowMeWidget";
 import Comments from "components/Comments";
-import KeyboardBackspaceIcon from "@mui/icons-material/KeyboardBackspace";
 import { LoadingDot } from "components/Loading";
 import UserBlacklistView from "views/UserBlacklistView";
 import { handleCancelRequest } from "api/http";
 import SessionTimeout from "./SessionTimeout";
+
 Dialog.defaultProps = {
   open: false
 };
 
-const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
+const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
+  isCurrentUser = isCurrentUser === undefined ? !!uid : isCurrentUser;
   openFor = {
     "create-post": true,
     "create-short": true,
@@ -45,38 +41,51 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
     comment: true,
     ...openFor
   };
-  const { state } = useLocation();
   const [searchParams] = useSearchParams();
   const stateRef = useRef({
-    commentHolder: {}
+    commentHolder: {},
+    dType: ""
   });
-  const [context, setContext] = useState({});
-  const { setComposeDoc } = useContext();
-  const view = (searchParams.get("view") || "").toLowerCase();
-  const compose = (searchParams.get("compose") || "").toLowerCase();
+  const [ctx, setCtx] = useState({});
+  const { setContext, locState, prevPath = "" } = useContext();
   const cid = searchParams.get("cid") || "";
   const scrollNodeRef = useRef();
   const navigate = useNavigate();
 
+  let view = (searchParams.get("view") || "").toLowerCase();
+  let compose = (searchParams.get("compose") || "").toLowerCase();
+
   const closeDialog = useCallback(
-    e => {
+    (e, dialogType, done) => {
       e && e.stopPropagation();
-      if (view === "session-timeout") return;
+      stateRef.current.commentHolder = {};
+      stateRef.current.dType = "";
       if (stateRef.current.path) handleCancelRequest(stateRef.current.path);
-      setContext({});
-      navigate(-1);
+      setCtx({});
+      dialogType = e ? e.currentTarget.dataset.dialogType : dialogType;
+      const prop =
+        done || !locState?.outInputs
+          ? { state: null }
+          : {
+              state: locState
+            };
+      if (prevPath) navigate(-1, prop);
+      else navigate(window.location.pathname, prop);
     },
-    [navigate, view]
+    [navigate, prevPath, locState]
   );
 
   const _handleAction = useCallback(
     (reason, res, info) => {
-      const addComment = () => {
+      const appendDoc = () => {
         stateRef.current.path = undefined;
         res.reason = reason;
-        if (!res.docType && state) res.docType = state.docType;
-        setComposeDoc(res);
-        closeDialog();
+        if (!res.docType && locState) res.docType = locState.docType;
+        setContext(context => {
+          context.composeDoc = res;
+          return { ...context };
+        });
+        closeDialog(undefined, "compose", true);
       };
       switch (reason) {
         case "error":
@@ -86,13 +95,13 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           stateRef.current.path = info;
           return;
         case "new":
-          addComment();
+          appendDoc();
           break;
         case "update":
-          if (compose === "comment") addComment();
+          if (compose === "comment") appendDoc();
           break;
         case "context":
-          setContext(context => ({
+          setCtx(context => ({
             ...context,
             ...res
           }));
@@ -101,71 +110,106 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           break;
       }
     },
-    [closeDialog, setComposeDoc, state, compose]
+    [closeDialog, setContext, locState, compose]
   );
+
+  useEffect(() => {
+    if (stateRef.current.dType) closeDialog(undefined, stateRef.current.dType);
+  }, [closeDialog]);
+
   const renderDialog = key => {
-    if (!key) return;
-    DialogContent.defaultProps = {
-      ref: scrollNodeRef
-    };
-    const goBackElem = (
-      <IconButton
-        title="Go back"
-        onClick={e => {
-          e.stopPropagation();
-          navigate(-1);
-        }}
-      >
-        <KeyboardBackspaceIcon />
-      </IconButton>
-    );
     switch (key) {
       case "create-post":
       case "create-short":
         const fileId = `${key}-file-picker`;
+        const handlePreview = () => {};
         return (
           <>
-            <DialogTitle component={Stack}>
-              <Stack>
-                {goBackElem}
-                {context.processing ? (
-                  <Typography variant="h5" fontWeight="bold">
+            <DialogTitle
+              component={Stack}
+              flexWrap={{
+                xs: "wrap-reverse",
+                sm: "nowrap"
+              }}
+              alignItems="flex-start"
+            >
+              <Stack
+                flexWrap="wrap"
+                sx={{ width: "100%" }}
+                alignItems="flex-start"
+              >
+                {ctx.processing ? (
+                  <StyledTypography variant="h5" fontWeight="bold">
                     <LoadingDot />
-                  </Typography>
+                  </StyledTypography>
                 ) : (
                   <div>
-                    <Typography variant="h5" fontWeight="bold" mb={0}>
+                    <StyledTypography
+                      variant="caption"
+                      sx={{
+                        color: "error.main"
+                      }}
+                    >
+                      Media limit (
+                      {compose === "create-short" ? "500mb / 60s" : "1gb / 5h"})
+                    </StyledTypography>
+                    <StyledTypography
+                      variant="h5"
+                      sx={{ mt: "-8px" }}
+                      fontWeight="bold"
+                      mb={0}
+                    >
                       Share your moment
-                    </Typography>
+                    </StyledTypography>
                     {key === "create-short" ? (
-                      <Typography
+                      <StyledTypography
                         htmlFor={fileId}
                         component="label"
                         variant="caption"
                         sx={{
-                          color: "error.main",
-                          "&:hover": {
-                            textDecoration: "underline",
-                            cursor: "pointer"
-                          }
+                          color: "error.main"
                         }}
                       >
                         Select a video!
-                      </Typography>
+                      </StyledTypography>
                     ) : null}
                   </div>
                 )}
               </Stack>
-              <IconButton
-                sx={{
-                  backgroundColor: "action.selected"
+              <Stack
+                flexWrap={{
+                  xs: "wrap-reverse",
+                  s200: "nowrap"
                 }}
-                onClick={closeDialog}
+                alignItems="flex-start"
+                sx={{ width: "100%" }}
+                justifyContent={{
+                  xs: "space-between",
+                  sm: "flex-end"
+                }}
               >
-                <CloseIcon />
-              </IconButton>
+                <div>
+                  <StyledTypography onClick={handlePreview} variant="link">
+                    Preview
+                  </StyledTypography>
+                  <StyledTypography sx={{ mt: "-4px" }}>
+                    Preffered Dimensions:
+                  </StyledTypography>
+                  <StyledTypography sx={{ mt: "-4px" }}>
+                    width x height: 320 x 564
+                  </StyledTypography>
+                </div>
+                <IconButton
+                  sx={{
+                    backgroundColor: "action.selected"
+                  }}
+                  onClick={closeDialog}
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Stack>
             </DialogTitle>
-            <DialogContent>
+            <DialogContent ref={scrollNodeRef}>
               {{
                 "create-short": (
                   <InputBox
@@ -185,7 +229,7 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                       short: "You need to select a video!"
                     }}
                     handleAction={_handleAction}
-                    placeholder="#Short_Description"
+                    placeholder="#ShortTags"
                     maxUpload="500mb"
                     maxDuration="60s"
                   />
@@ -204,42 +248,34 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
           </>
         );
       case "comment":
-        if (state.composeDoc.id !== stateRef.current.commentHolder.document)
+        if (stateRef.current.commentHolder.document !== locState.document.id) {
           stateRef.current.commentHolder = {
-            document: state.composeDoc.id
+            document: locState.document.id,
+            ...(locState.outInputs
+              ? locState.outInputs[locState.document.id]
+              : undefined)
           };
+        }
 
         return (
           <>
-            <DialogTitle
-              sx={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                borderBottom: "1px solid currentColor",
-                borderColor: "divider"
-              }}
-            >
-              <Stack>
-                {goBackElem} {context.processing ? <LoadingDot /> : null}
-              </Stack>
-              <Typography color="primary.main">{34} views</Typography>
-            </DialogTitle>
-            <DialogContent sx={{ p: 0 }}>
-              <PostWidget post={state.composeDoc} enableSnippet />
+            <DialogContent sx={{ p: 0 }} ref={scrollNodeRef}>
+              <PostWidget post={locState.document} enableSnippet />
               <InputBox
-                resetData
+                inputClassName="fff"
+                withPlaceholders={false}
+                submitInputsOnly={false}
+                resetData={false}
                 method="post"
                 accept=".jpg,.jpeg,.png,.gif"
-                url={`/comments/new/${state.docType || "post"}?ro=${
-                  state.composeDoc.user.id
+                url={`/comments/new/${locState.docType || "post"}?ro=${
+                  locState.document.user.id
                 }`}
                 placeholder="Send your opinion"
-                actionText="Reply"
                 mediaRefName="media"
                 multiple={false}
                 message={{
-                  success: `Added comment successfully`
+                  success: `Your comment has been soshared!`
                 }}
                 placeholders={stateRef.current.commentHolder}
                 max={280}
@@ -259,26 +295,26 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
               sx={{
                 p: 0
               }}
+              ref={scrollNodeRef}
             >
               {
                 {
                   "user-posts": (
                     <PostsView
-                      privateView
+                      privateUid={uid}
                       plainWidget
                       url={`/users/${uid}/posts`}
                       sx={{
-                        p: 0,
-                        pb: 3
+                        p: 0
                       }}
                       scrollNodeRef={scrollNodeRef}
                     />
                   ),
                   "user-shorts": (
                     <ShortsView
-                      privateView
+                      privateUid={uid}
                       hideDataNotifier
-                      plainWidget
+                      componentProps={{ plainWidget: true }}
                       url={`/users/${uid}/shorts`}
                       scrollNodeRef={scrollNodeRef}
                     />
@@ -292,13 +328,11 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
       case "user-followers":
         return (
           <>
-            <DialogContent>
+            <DialogContent ref={scrollNodeRef}>
               <FollowMeWidget
+                widgetProps={{ plainWidget: true }}
                 infiniteScrollProps={{
-                  scrollNodeRef,
-                  componentProps: {
-                    plainWidget: true
-                  }
+                  scrollNodeRef
                 }}
                 key={view}
                 url={
@@ -307,6 +341,13 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
                     "user-following": "following"
                   }[view]
                 }
+                priority={
+                  {
+                    "user-followers": "toggle",
+                    "user-following": "unfollow"
+                  }[view]
+                }
+                privateUid={uid}
               />
             </DialogContent>
           </>
@@ -314,12 +355,11 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
       case "comments":
         return (
           <>
-            <DialogTitle>{goBackElem}</DialogTitle>
             <DialogContent
               sx={{
-                p: 0,
-                pb: 3
+                p: 0
               }}
+              ref={scrollNodeRef}
             >
               <Comments
                 documentId={cid}
@@ -333,29 +373,30 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
         return (
           <>
             <DialogTitle component={Stack}>
-              <Typography color="primary" variant="h5">
-                {context.dataSize || 0} blacklisted user(s)
-              </Typography>
-              {context.processing ? (
+              <StyledTypography color="primary" variant="h5">
+                {ctx.dataSize || 0} blacklisted user(s)
+              </StyledTypography>
+              {ctx.processing ? (
                 <LoadingDot sx={{ float: "right", py: "4px" }} />
               ) : (
                 <Button
                   onClick={e => {
                     e.stopPropagation();
-                    setContext(context => ({
+                    setCtx(context => ({
                       ...context,
                       action: "whitelist-all"
                     }));
                   }}
                   sx={{ float: "right" }}
+                  disabled={!ctx.dataSize}
                 >
                   whitelist all
                 </Button>
               )}
             </DialogTitle>
-            <DialogContent>
+            <DialogContent ref={scrollNodeRef}>
               <UserBlacklistView
-                whitelistAll={context.action === "whitelist-all"}
+                whitelistAll={ctx.action === "whitelist-all"}
                 key="view-blacklist"
                 scrollNodeRef={scrollNodeRef}
                 handleAction={_handleAction}
@@ -382,11 +423,17 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
   };
 
   if (
-    (compose === "comment" && !state) ||
-    (compose === "comments" && !cid) ||
-    (view === "user-blacklist" && !isCurrentUser)
-  )
-    return <Navigate to={-1} />;
+    (compose === "comment" && !locState) ||
+    (compose === "comments" && !cid)
+  ) {
+    stateRef.current.dType = "compose";
+    compose = "";
+  }
+
+  if (view === "user-blacklist" && !isCurrentUser) {
+    stateRef.current.dType = "view";
+    view = "";
+  }
 
   const paperStyles = {
     sx: {
@@ -396,17 +443,20 @@ const ComposeAndView = ({ openFor, uid, isCurrentUser }) => {
       maxWidth: view === "user-blacklist" ? "700px" : undefined
     }
   };
-
+  const isSession = view === "session-timeout";
   return (
     <>
       <Dialog
         data-dialog-type="view"
         PaperProps={paperStyles}
         open={openFor[view]}
-        onClose={closeDialog}
+        onClose={isSession ? undefined : closeDialog}
+        sx={{
+          zIndex: isSession ? "tooltip" : "modal"
+        }}
       >
         {renderDialog(view)}
-        {view && view !== "session-timeout" ? (
+        {view && !isSession ? (
           <DialogActions
             sx={{
               borderTop: "1px solid #333",

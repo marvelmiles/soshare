@@ -3,6 +3,7 @@ import http from "api/http";
 import { useContext } from "context/store";
 import { CANCELED_REQUEST_MSG } from "context/config";
 import { useSelector } from "react-redux";
+
 export default (config = {}) => {
   const isLoggedIn = useSelector(state => !!state.user.currentUser);
   const { url, handleAction, httpConfig } = config;
@@ -14,33 +15,30 @@ export default (config = {}) => {
       let i = 0;
       let errCount = 0;
       opt.label = `${opt.label || "selection"}${ids.length > 1 ? "s" : ""}`;
-
-      for (let _id of ids) {
-        const id = _id.id || _id;
-        setActiveDelItem(opt.activeItem || id);
-        handleAction && handleAction("filter", _id, true, i);
+      for (let item of ids) {
+        setActiveDelItem(opt.activeItem || item.id || item);
+        handleAction && handleAction("filter", { document: item });
       }
+      setActiveDelItem("");
       handleAction("close");
-      for (let _id of ids) {
-        const id = _id.id || _id;
+      for (let item of ids) {
+        const id = item.id || item;
         try {
-          _url = _url || url;
-          const t = await http.delete(
-            _url.url
-              ? _url.url + `/${id}?${_url.searchParams}`
-              : _url + `/${id}`,
-            opt._httpConfig || httpConfig
-          );
-          handleAction && handleAction("clear-cache", id, i);
+          let __url = _url || url;
+          __url = __url.url
+            ? __url.url + `/${id}?${__url.searchParams || ""}`
+            : __url + `/${id}`;
+
+          await http.delete(__url, opt._httpConfig || httpConfig);
+          handleAction && handleAction("clear-cache", { document: id });
         } catch (message) {
-          if (message === CANCELED_REQUEST_MSG) continue;
+          if (!message || message === CANCELED_REQUEST_MSG) continue;
           else {
             errCount++;
-            handleAction && handleAction("new", id, "delete");
+            handleAction && handleAction("new", { document: item });
           }
         } finally {
           i++;
-          if (i === ids.length) setActiveDelItem("");
         }
       }
       if (errCount)
@@ -57,6 +55,7 @@ export default (config = {}) => {
   );
   return {
     handleDelete,
-    activeDelItem
+    activeDelItem,
+    isProcessingDelete: !!activeDelItem
   };
 };

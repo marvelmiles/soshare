@@ -3,6 +3,8 @@ import PropTypes from "prop-types";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import Button from "@mui/material/Button";
+import { reloadBrowser } from "utils";
+import BrandIcon from "components/BrandIcon";
 
 const EmptyData = ({
   centerEmptyText = true,
@@ -11,7 +13,9 @@ const EmptyData = ({
       moment.`,
   maxWidth = "280px",
   sx,
-  className
+  className,
+  withReload,
+  nullifyBrand
 }) => (
   <Stack
     className={`custom-empty-data ${className}`}
@@ -39,11 +43,31 @@ const EmptyData = ({
         width: "100%"
       }}
     >
-      {onClick ? (
+      {withReload ? (
         <div>
-          <Typography variant="h5">Something went wrong. Try again</Typography>
-          <Button variant="contained" sx={{ mt: 1 }} onClick={onClick}>
+          {nullifyBrand ? null : <BrandIcon staticFont sx={{ mb: 1 }} to="" />}
+          <Typography variant="h5">
+            Something went wrong, but don’t fret — let’s give it another shot.
+          </Typography>
+          <Button
+            variant="contained"
+            sx={{ mt: 1 }}
+            onClick={onClick || reloadBrowser}
+          >
             Reload
+          </Button>
+        </div>
+      ) : onClick ? (
+        <div>
+          <Typography variant="h5" color="primary.main">
+            Something went wrong. Try again
+          </Typography>
+          <Button
+            variant="contained"
+            sx={{ mt: 1, color: "primary.main" }}
+            onClick={onClick}
+          >
+            Retry
           </Button>
         </div>
       ) : (

@@ -21,7 +21,7 @@ const schema = new mongoose.Schema(
     followers: {
       type: [
         {
-          type: mongoose.Types.ObjectId,
+          type: String,
           ref: "user"
         }
       ],
@@ -30,7 +30,7 @@ const schema = new mongoose.Schema(
     following: {
       type: [
         {
-          type: mongoose.Types.ObjectId,
+          type: String,
           ref: "user"
         }
       ],
@@ -44,7 +44,7 @@ const schema = new mongoose.Schema(
     location: String,
     occupation: String,
     recommendationBlacklist: {
-      type: [{ type: mongoose.Types.ObjectId, ref: "user" }],
+      type: [{ type: String, ref: "user" }],
       default: []
     },
     lastLogin: Date,
@@ -58,16 +58,16 @@ const schema = new mongoose.Schema(
     provider: String,
     resetToken: String,
     resetDate: Date,
-    shortsCount: {
+    shortCount: {
       type: Number,
       default: 0
     },
-    postsCount: {
+    postCount: {
       type: Number,
       default: 0
     },
     settings: {
-      type: mongoose.Schema.Types.Mixed,
+      type: Object,
       default: {}
     }
   },
@@ -77,18 +77,27 @@ const schema = new mongoose.Schema(
     versionKey: false,
     toJSON: {
       minimize: false,
-      transform(_, ret) {
+      transform(doc, ret) {
         ret.id = ret._id;
         delete ret._id;
         delete ret.password;
         if (ret.settings) delete ret.settings._id;
         if (ret.socials) delete ret.socials._id;
+
+        ret.blacklistCount =
+          doc.blacklistCount === undefined && doc.recommendationBlacklist
+            ? doc.recommendationBlacklist.length
+            : doc.blacklistCount;
+
+        if (ret.postCount < 0) ret.postCount = 0;
+
+        if (ret.shortCount < 0) ret.shortCount = 0;
       }
     }
   }
 );
 
-// index all string fields
+// index all string fieldss
 schema.index({ "$**": "text" });
 const User = mongoose.model("user", schema);
 export default User;

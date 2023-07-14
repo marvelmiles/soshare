@@ -1,10 +1,11 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { isDOMElement } from "../utils/validators";
 
 const useViewIntersection = (targetRef, options) => {
   const [entry, setEntry] = useState({
     isIntersecting: false,
-    key: false
+    key: false,
+    intersectionKey: ""
   });
   const stateRef = useRef({
     nodeKey: options?.nodeKey
@@ -16,35 +17,22 @@ const useViewIntersection = (targetRef, options) => {
         dataset: {}
       }
     };
+
     let key = stateRef.current.nodeKey
       ? entry.target.dataset[stateRef.current.nodeKey] ||
         entry.target.getAttribute(stateRef.current.nodeKey) ||
         ""
       : entry.target.id || entry.target.dataset.id || "";
 
-    if (entry.isIntersecting) {
-      if (!key) {
-        key = Date.now();
-        entry.target.dataset.id = key;
-      }
+    if (entry.isIntersecting && !key) {
+      key = Date.now();
+      entry.target.dataset.id = key;
     }
+
     entry.intersectionKey = key;
 
     setEntry(entry);
   };
-
-  const unObserveTarget = useCallback((entryOpt, currentTarget, observer) => {
-    const state = stateRef.current;
-    if (currentTarget && (observer = observer || state.observer)) {
-      observer.unobserve(currentTarget);
-      observer.disconnect();
-    }
-    if (state.observer && state.target) {
-      state.observer.unobserve(state.target);
-      state.observer.disconnect();
-    }
-    entryOpt && setEntry(entryOpt);
-  }, []);
 
   useEffect(() => {
     let observer,
@@ -59,7 +47,13 @@ const useViewIntersection = (targetRef, options) => {
         rootMargin: "0px",
         threshold: 0.8,
         ...options,
-        root: options?.root ? options.root.current || options.root : null
+        root: options?.root
+          ? options.root.current
+            ? options.root.current || null
+            : isDOMElement(options.root)
+            ? options.root
+            : null
+          : null
       });
 
       stateRef.current.observer = observer;
@@ -68,10 +62,13 @@ const useViewIntersection = (targetRef, options) => {
       observer.observe(currentTarget);
     }
 
-    return () => unObserveTarget();
-  }, [targetRef, options, unObserveTarget]);
-
-  entry.unObserveTarget = unObserveTarget;
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+        observer.disconnect();
+      }
+    };
+  }, [targetRef, options]);
 
   return entry;
 };

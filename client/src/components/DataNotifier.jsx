@@ -7,6 +7,7 @@ import Avatar from "@mui/material/Avatar";
 import ReactDom from "react-dom";
 import { Link } from "react-router-dom";
 import Typography from "@mui/material/Typography";
+import { isDOMElement } from "utils/validators";
 
 Avatar.defaultProps = {
   sx: {
@@ -32,7 +33,7 @@ const DataNotifier = ({
       ? containerRef.current || containerRef
       : document.documentElement;
 
-    if (node)
+    if (isDOMElement(node))
       setPortal(
         ReactDom.createPortal(
           <Button
@@ -48,7 +49,11 @@ const DataNotifier = ({
               top: 0,
               transition: `transform 0.3s ease-out`,
               transform: `translate(-50%,${open ? yCoords : -(yCoords * 2)}px)`,
-              position: "absolute"
+              position:
+                position ||
+                (node.nodeName === "HTML" || node.nodeName === "BODY"
+                  ? "fixed"
+                  : "absolute")
             }}
             onClick={e => {
               e.stopPropagation();
@@ -82,7 +87,7 @@ const DataNotifier = ({
               {message}
             </Typography>
           </Button>,
-          node.parentElement || node
+          node.nodeName === "HTML" ? document.body : node
         )
       );
   }, [containerRef, data, message, open, sx, yCoords, position, closeNotifier]);

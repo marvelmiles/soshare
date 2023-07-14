@@ -16,8 +16,9 @@ export const isOverflowing = (node = document.documentElement, root) => {
 
 export const checkVisibility = (
   { visibility, user: { id: uid } },
-  { id: cid, following }
+  currentUser = {}
 ) => {
+  const { id: cid, following = [] } = currentUser;
   switch (visibility) {
     case "everyone":
       return true;
@@ -36,4 +37,28 @@ export const isObject = obj =>
   obj &&
   (typeof obj.toString === "function"
     ? obj.toString() === "[object Object]"
-    : typeof obj === "object" && obj !== null && obj.length === undefined);
+    : typeof obj === "object" && obj.length === undefined);
+
+export const hasAudio = (video, cb) => {
+  const _hasAudio = () =>
+    !!(
+      video &&
+      (!!video.mozHasAudio ||
+        video.webkitAudioDecodedByteCount ||
+        (video.audioTracks && video.audioTracks.length))
+    );
+
+  if (_hasAudio()) cb(true);
+  else {
+    const _id = setTimeout(() => {
+      video.play().catch(_ => {});
+      const id = setTimeout(() => {
+        video.pause();
+        video.currentTime = 0;
+        clearTimeout(id);
+        cb(_hasAudio());
+      }, 100);
+      clearTimeout(_id);
+    }, 0);
+  }
+};

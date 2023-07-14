@@ -2,7 +2,8 @@ import rootAxios, { AxiosError } from "axios";
 import {
   API_ENDPOINT,
   CANCELED_REQUEST_MSG,
-  HTTP_403_MSG
+  HTTP_403_MSG,
+  TOKEN_EXPIRED_MSG
 } from "context/config";
 
 let isRefreshing = false;
@@ -10,14 +11,18 @@ let requestQueue = [];
 
 const cancelRequests = [];
 
-export const createRelativeURL = (keyToRemove, searchParams = "") => {
+export const createRelativeURL = (
+  keyToRemove,
+  searchParams = "",
+  withPath = true
+) => {
   const params = new URLSearchParams(window.location.search);
   keyToRemove && params.delete(keyToRemove);
+  const search = params.toString();
   return (
-    window.location.pathname +
-    "?" +
-    params.toString() +
-    (searchParams ? "&" + searchParams : "") +
+    (withPath ? window.location.pathname : "") +
+    ("?" + search) +
+    (searchParams ? (search.length ? "&" : "") + searchParams : "") +
     window.location.hash
   );
 };
@@ -30,10 +35,12 @@ export const processQueue = (err, data) => {
   requestQueue = [];
 };
 
-export const getHttpErrMsg = err => {
-  let message = "Something went wrong. Check your network and try again.";
+export const getHttpErrMsg = (err, rejectAll) => {
+  console.log(err);
+  let message = "Something went wrong. Try again.";
   if (err instanceof AxiosError) {
-    switch (err.code) {
+    if (err.config) rejectAll = err.config.url === "/auth/reset-password";
+    switch (err.code?.toLowerCase()) {
       case "auth/popup-closed-by-user":
         message = "Popup closed by you";
         break;
@@ -46,7 +53,10 @@ export const getHttpErrMsg = err => {
         } else if (err.status !== 500) message = err.message || message;
         break;
     }
-  } else message = err;
+  } else message = err.message || err;
+
+  if (message.indexOf("Cast") > -1) message = "Something went wrong!";
+  if (!rejectAll && message === TOKEN_EXPIRED_MSG) message = "";
 
   return message;
 };
@@ -70,7 +80,7 @@ export const handleCancelRequest = (
 
 export const refetchHasVisitor = (err, originalRequest, method = "get") => {
   if (
-    originalRequest.withCredentials &&
+    !originalRequest._refetchedHasVisitor &&
     originalRequest.method === method &&
     originalRequest.url !== "/auth/refresh-token"
   ) {
@@ -81,7 +91,10 @@ export const refetchHasVisitor = (err, originalRequest, method = "get") => {
   return Promise.reject(getHttpErrMsg(err));
 };
 
-export const handleRefreshToken = (requestConfig, refetchHasVisitior) => {
+export const handleRefreshToken = (
+  requestConfig,
+  refetchHasVisitior = true
+) => {
   isRefreshing = true;
   return http
     .get(`/auth/refresh-token`, {
@@ -90,18 +103,13 @@ export const handleRefreshToken = (requestConfig, refetchHasVisitior) => {
     .then(res => {
       requestConfig && (requestConfig._refreshed = true);
       processQueue(null);
-      return requestConfig
-        ? http
-            .request(requestConfig)
-            .then(d => Promise.resolve(d))
-            .catch(err => refetchHasVisitor(err, requestConfig))
-        : Promise.resolve(res);
+      return requestConfig ? http.request(requestConfig) : Promise.resolve(res);
     })
     .catch(err => {
       err = getHttpErrMsg(err);
-      processQueue(refetchHasVisitior ? "visitor" : err);
-      return refetchHasVisitior
-        ? refetchHasVisitor("visitor", requestConfig)
+      processQueue(err);
+      return refetchHasVisitior && requestConfig
+        ? refetchHasVisitor(err, requestConfig)
         : Promise.reject(err);
     })
     .finally(() => {
@@ -111,6 +119,7 @@ export const handleRefreshToken = (requestConfig, refetchHasVisitior) => {
 const http = rootAxios.create({
   baseURL: API_ENDPOINT + "/api"
 });
+let f;
 http.interceptors.request.use(function(config) {
   /delete|put|post|patch/.test(config.method) &&
     (config.withCredentials = true);
@@ -119,37 +128,37 @@ http.interceptors.request.use(function(config) {
   source.url = config.url;
   config.cancelToken = source.token;
   cancelRequests.push(source);
+  f = config.url;
   return config;
 });
 http.interceptors.response.use(
   response => Promise.resolve(response.data),
   async err => {
-    // console.log(err.response?.data, err.message, err.code);
-    if (!(err instanceof AxiosError) || rootAxios.isCancel(err))
+    if (!(err instanceof AxiosError) || rootAxios.isCancel(err)) {
+      console.log(f, " cancelled url ");
       return Promise.reject(getHttpErrMsg(err));
-    const originalRequest = err.config;
-    if (!originalRequest._refreshed || !originalRequest._refetchedHasVisitor) {
-      if (err.response?.status === 401 && !originalRequest._noRefresh) {
-        if (isRefreshing) {
-          return new Promise(function(resolve, reject) {
-            requestQueue.push({ resolve, reject, url: originalRequest.url });
-          })
-            .then(_ =>
-              http
-                .request(originalRequest)
-                .then(res => Promise.resolve(res))
-                .catch(err => refetchHasVisitor(err, originalRequest))
-            )
-            .catch(_err =>
-              _err === "visitor"
-                ? refetchHasVisitor(err, originalRequest)
-                : Promise.reject(err)
-            );
-        } else if (originalRequest.withCredentials)
-          return handleRefreshToken(originalRequest, true);
-      }
     }
-    originalRequest._refreshed = undefined;
+    const originalRequest = err.config;
+    if (err.response?.status === 401) {
+      if (isRefreshing) {
+        return new Promise(function(resolve, reject) {
+          requestQueue.push({ resolve, reject, url: originalRequest.url });
+        })
+          .then(_ =>
+            http
+              .request(originalRequest)
+              .then(res => Promise.resolve(res))
+              .catch(err => refetchHasVisitor(err, originalRequest))
+          )
+          .catch(_err =>
+            _err === "visitor"
+              ? refetchHasVisitor(err, originalRequest)
+              : Promise.reject(err)
+          );
+      } else if (originalRequest.withCredentials && !originalRequest._noRefresh)
+        return handleRefreshToken(originalRequest);
+    }
+
     originalRequest._refetchedHasVisitor = undefined;
     return Promise.reject(getHttpErrMsg(err));
   }

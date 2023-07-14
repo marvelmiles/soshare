@@ -4,7 +4,7 @@ import { verifyToken } from "../utils/middlewares.js";
 import {
   signup,
   signin,
-  userExist,
+  userExists,
   refreshTokens,
   signout,
   recoverPwd,
@@ -27,9 +27,9 @@ router
   )
   .post("/signin", signin)
   .patch("/signout", verifyToken, signout)
-  .post("/user-exist", userExist)
+  .post("/user-exists", userExists)
   .post("/recover-password", recoverPwd)
   .post("/verify-token", verifyUserToken)
-  .post("/reset-password", resetPwd)
+  .post("/reset-password/:token/:userId", resetPwd)
   .get("/refresh-token", refreshTokens);
 export default router;

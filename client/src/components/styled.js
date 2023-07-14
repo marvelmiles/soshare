@@ -9,43 +9,34 @@ export const StyledLink = styled(Link, {
     switch (prop) {
       case "textEllipsis":
       case "hoverDecoration":
+      case "sx":
         return false;
       default:
         return true;
     }
   }
-})(
-  ({
-    theme: {
-      typography,
-      palette: {
-        primary: { main }
-      }
-    },
-    variant,
-    textEllipsis,
-    hoverDecoration
-  }) => {
-    let styles = {
-      textDecoration: "none",
-      display: "inline-block",
-      color: main,
-      ...(typography[variant] || {}[variant])
-    };
-    textEllipsis &&
-      (styles = {
-        ...styles,
-        textOverflow: "ellipsis",
-        overflow: "hidden",
-        whiteSpace: "nowrap"
-      });
-    !hoverDecoration &&
-      (styles["&:hover"] = {
-        textDecoration: "underline"
-      });
-    return styles;
-  }
-);
+})(({ theme, variant, textEllipsis, hoverDecoration }) => {
+  const { typography, palette } = theme;
+
+  let styles = {
+    textDecoration: "none",
+    display: "inline-block",
+    color: palette && palette.primary?.main,
+    ...(typography ? typography[variant] || {}[variant] : undefined)
+  };
+  textEllipsis &&
+    (styles = {
+      ...styles,
+      textOverflow: "ellipsis",
+      overflow: "hidden",
+      whiteSpace: "nowrap"
+    });
+  !hoverDecoration &&
+    (styles["&:hover"] = {
+      textDecoration: "underline"
+    });
+  return styles;
+});
 
 export const StyledTypography = styled(Typography, {
   shouldForwardProp: prop => {
@@ -63,6 +54,7 @@ export const StyledTypography = styled(Typography, {
     variant,
     textEllipsis,
     theme: {
+      typography,
       palette: {
         primary: { main }
       }
@@ -93,6 +85,8 @@ export const StyledTypography = styled(Typography, {
           display: "inline-block",
           cursor: "pointer",
           color: main,
+          marginBottom: 0,
+          ...typography.caption,
           "&:hover": {
             textDecoration: "underline"
           }
@@ -102,6 +96,7 @@ export const StyledTypography = styled(Typography, {
     return styles;
   }
 );
+
 export const WidgetContainer = styled(Box, {
   shouldForwardProp: prop => {
     switch (prop) {
@@ -112,30 +107,43 @@ export const WidgetContainer = styled(Box, {
         return true;
     }
   }
-})(({ theme: { palette: { background: { alt } } }, plainWidget }) => {
-  return {
-    width: "100%",
-    minHeight: "300px",
-    borderRadius: "8px",
-    padding: "16px",
-    backgroundColor: alt,
-    marginBottom: "24px",
-    maxHeight: "450px",
-    overflow: "auto",
-    position: "relative",
+})(
+  ({
+    theme: {
+      palette: {
+        background: { alt }
+      }
+    },
+    plainWidget,
+    sx,
+    ty,
+    ...rest
+  }) => {
+    ty && console.log(sx, rest);
+    return {
+      width: "100%",
+      minHeight: "300px",
+      borderRadius: "8px",
+      padding: "16px",
+      backgroundColor: alt,
+      marginBottom: "24px",
+      maxHeight: "450px",
+      overflow: "auto",
+      position: "relative",
 
-    ...(plainWidget && {
-      overflow: "none",
-      marginInline: "auto",
-      maxHeight: "none",
-      borderRadius: "0",
-      marginBottom: 0,
-      backgroundColor: "transparent",
-      height: "inherit",
-      minHeight: "inherit"
-    })
-  };
-});
+      ...(plainWidget && {
+        overflow: "none",
+        marginInline: "auto",
+        maxHeight: "none",
+        borderRadius: "0",
+        marginBottom: 0,
+        backgroundColor: "transparent",
+        height: "inherit",
+        minHeight: "inherit"
+      })
+    };
+  }
+);
 
 export const Image = styled("img")`
   width: 100%;
@@ -155,7 +163,6 @@ export const StyledMenuItem = styled(MenuItem, {
         return true;
     }
   }
-  // component: Link
 })(() => {
   return {
     "&.Mui-selected": {
@@ -171,7 +178,6 @@ export const StyledBadge = styled(Badge)(({ theme }) => ({
     border: `2px solid ${theme.palette.background.paper}`,
     padding: "0 4px",
     color: theme.palette.primary.contrastText
-    // fontWeight: ""
   }
 }));
 
@@ -232,3 +238,28 @@ export const zoom = keyframes`
     opacity:0
   }
   `;
+
+export const StyledAvatar = styled(Box)`
+  ${({
+    theme: {
+      palette: { divider, ...rest },
+      ...theme
+    }
+  }) => {
+    return `
+   width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  padding:2px;
+  border: 3px solid transparent;
+  border-color: ${divider};
+
+  & > .MuiAvatar-root,
+  & > img, & .styled-avatar-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%; 
+  }
+   `;
+  }}
+`;

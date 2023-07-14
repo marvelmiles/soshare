@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import { WidgetContainer } from "components/styled";
 import EmptyData from "components/EmptyData";
@@ -7,95 +7,62 @@ import { Typography, Stack } from "@mui/material";
 import { useContext } from "context/store";
 import { useSelector } from "react-redux";
 import InfiniteScroll from "components/InfiniteScroll";
-import { checkVisibility } from "utils/validators";
+import useCallbacks from "hooks/useCallbacks";
+import { filterDocsByUserSet } from "utils";
+
 const ShortsView = ({
   title,
   miniShort = true,
-  plainWidget,
   infiniteScrollProps,
   url = "/shorts",
   loop,
   sx,
   mx,
-  centerEmptyText,
   scrollNodeRef,
-  privateView
+  privateUid,
+  componentProps
 }) => {
-  plainWidget = plainWidget === undefined ? !miniShort : plainWidget;
-  centerEmptyText = plainWidget ? true : centerEmptyText;
   const currentUser = useSelector(state => state.user.currentUser || {});
-  const { socket, composeDoc, setComposeDoc } = useContext();
+  const {
+    socket,
+    context: { composeDoc, blacklistedUsers }
+  } = useContext();
+
   const infiniteScrollRef = useRef();
   const stateRef = useRef({
-    cachedData: {},
-    registeredIds: {},
     url
   });
 
-  const _handleAction = useCallback(
-    (reason, short, uid, cacheData = true) => {
-      const { setData, data } = infiniteScrollRef.current;
-      let entries = miniShort || reason !== "new" ? null : 1;
-      switch (reason) {
-        case "new":
-          console.log(" in view ");
-          const _id = short.id || short;
-          if (stateRef.current.registeredIds[_id]) return;
-          stateRef.current.registeredIds[_id] = _id;
-          if (stateRef.current.cachedData[_id]) {
-            data.data.splice(
-              stateRef.current.cachedData[_id].index,
-              0,
-              stateRef.current.cachedData[_id].data
-            );
-            delete stateRef.current.cachedData[_id];
-            entries = undefined;
-          } else data.data = [short, ...data.data];
-          break;
-        case "filter":
-          data.data = data.data.filter((s, i) => {
-            if (s.id === short || s.user.id === uid) {
-              delete stateRef.current.registeredIds[short];
-              if (cacheData)
-                stateRef.current.cachedData[short] = {
-                  index: i,
-                  data: s
-                };
-              return false;
-            }
-            return true;
-          });
-          break;
-        case "clear-cache":
-          delete stateRef.current.cachedData[short];
-          delete stateRef.current.registeredIds[short];
-          break;
-        case "update":
-          data.data = data.data.map(s =>
-            s.id === short.id ? { ...s, ...short } : s
-          );
-          break;
-        default:
-          break;
-      }
-      setData(
-        {
-          ...data
-        },
-        entries
-      );
-    },
-    [miniShort]
-  );
+  const { _handleAction } = useCallbacks(infiniteScrollRef, {
+    stateCtx: stateRef.current,
+    currentUser
+  });
   useEffect(() => {
-    socket.on("short", short => {
-      if (!checkVisibility(short, currentUser)) return;
-      _handleAction("new", short);
-    });
-    socket.on("filter-short", id => {
-      _handleAction("filter", id);
-    });
-  }, [socket, currentUser, _handleAction]);
+    if (socket) {
+      const handleFilter = document => {
+        _handleAction("filter", { document, cacheData: false });
+      };
+
+      const handleAppend = short => {
+        (privateUid ? privateUid === short.user.id : true) &&
+          _handleAction("new", { document: short });
+      };
+
+      const handleUpdateUser = user => _handleAction("update", { user });
+
+      socket.on("short", handleAppend);
+      socket.on("filter-short", handleFilter);
+      socket.on("update-user", handleUpdateUser);
+
+      return () => {
+        socket
+          .removeEventListener("short", handleAppend)
+          .removeEventListener("filter-short", handleFilter)
+          .removeEventListener("update-user", handleUpdateUser);
+      };
+    }
+  }, [socket, _handleAction, privateUid]);
+
   useEffect(() => {
     let taskId, timeId;
     let date = new Date();
@@ -116,56 +83,67 @@ const ShortsView = ({
         });
       };
       filterOlders();
-      taskId = setInterval(filterOlders, 60 * 1000);
+      taskId = setInterval(filterOlders, 60000);
+      clearTimeout(timeId);
     }, (60 - sec) * 1000);
-    if (composeDoc) {
+
+    if (composeDoc)
       switch (composeDoc.reason) {
-        case "blacklisted-user":
-          _handleAction(composeDoc.action, composeDoc.id, composeDoc.user.id);
+        case "new":
+          if (composeDoc.docType === "short")
+            _handleAction("new", {
+              document: composeDoc.document
+            });
           break;
         default:
-          if (composeDoc.docType === "short" && composeDoc.document)
-            _handleAction("update", composeDoc.document);
           break;
       }
-    }
 
     return () => {
-      if (timeId) {
-        clearTimeout(timeId);
-        taskId && clearInterval(taskId);
-      }
-      if (composeDoc?.docType === "short") setComposeDoc(undefined);
+      timeId && clearTimeout(timeId);
+      taskId && clearInterval(taskId);
     };
-  }, [composeDoc, setComposeDoc, _handleAction]);
+  }, [composeDoc, _handleAction]);
+
+  useEffect(() => {
+    filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
+  }, [blacklistedUsers]);
 
   return (
     <InfiniteScroll
+      key={"infinite-shorts-" + miniShort}
       url={stateRef.current.url}
-      Component={WidgetContainer}
-      componentProps={{
-        plainWidget,
-        sx: sx
-      }}
-      notifierDelay={composeDoc?.user.id === currentUser.id ? -1 : undefined}
+      sx={
+        miniShort
+          ? {
+              minHeight: undefined,
+              ...sx
+            }
+          : sx
+      }
+      componentProps={componentProps}
+      Component={miniShort ? WidgetContainer : undefined}
+      notifierDelay={
+        !currentUser.id || currentUser.id !== composeDoc?.document?.user?.id
+          ? undefined
+          : -1
+      }
       {...infiniteScrollProps}
       ref={infiniteScrollRef}
-      verify={!miniShort}
-      searchId={
-        miniShort
-          ? undefined
-          : composeDoc?.docType === "short" &&
-            composeDoc.reason === "fetch" &&
-            composeDoc.id
-      }
-      handleAction={_handleAction}
       name="shorts"
       scrollNodeRef={scrollNodeRef}
-      key={"infinite-shorts-" + miniShort}
       withCredentials={!!currentUser.id}
-      handleAction={_handleAction}
+      readyState={
+        composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
+      }
+      searchId={
+        composeDoc?.docType === "short"
+          ? (composeDoc.url && composeDoc.document?.id) ||
+            (composeDoc.reason === "search" && composeDoc.document.id)
+          : undefined
+      }
     >
-      {({ data: { data, paging }, setObservedNode }) => {
+      {({ data: { data }, setObservedNode }) => {
         return data.length ? (
           <>
             {title && miniShort && (
@@ -182,40 +160,51 @@ const ShortsView = ({
             )}
 
             <Stack
-              flexWrap="wrap"
-              justifyContent="normal"
+              justifyContent={"normal"}
               alignItems="flex-start"
-              gap={"8px"}
-              p={plainWidget ? 2 : 0}
+              sx={
+                miniShort
+                  ? {
+                      flexWrap: "wrap"
+                    }
+                  : {
+                      flexDirection: "column",
+                      gap: {
+                        xs: 0,
+                        md: 2
+                      },
+                      py: {
+                        xs: 0,
+                        md: 1
+                      }
+                    }
+              }
             >
-              {data.map((s, i) => (
-                <div
-                  key={i + miniShort}
-                  ref={
-                    i === data.length - 1
-                      ? node => setObservedNode(node)
-                      : undefined
-                  }
-                >
-                  {s.id} {s.text} {data.length}
+              {data.map((s, i) => {
+                return (
                   <Short
-                    loop={loop}
-                    i={i}
+                    id={s.id}
                     key={i + miniShort}
+                    stateCtx={stateRef.current}
+                    ref={
+                      i === data.length - 1
+                        ? node => setObservedNode(node)
+                        : undefined
+                    }
+                    loop={loop}
                     short={s}
                     handleAction={_handleAction}
                     miniShort={miniShort}
                     mx={mx}
-                    paging={paging}
                   />
-                </div>
-              ))}
+                );
+              })}
             </Stack>
           </>
         ) : (
           <EmptyData
             label={
-              privateView
+              privateUid
                 ? `You don't have any short at the moment!`
                 : `We're sorry it seems there is no shorts at the moment`
             }

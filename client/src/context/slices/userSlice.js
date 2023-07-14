@@ -1,18 +1,25 @@
 import { createSlice } from "@reduxjs/toolkit";
 import http from "api/http";
 
+export const defaultUser = {
+  following: [],
+  followers: [],
+  recommendationBlacklist: [],
+  socials: {},
+  settings: {}
+};
+
 const initialState = {
-  previewUser: null,
-  currentUser: null
+  previewUser: undefined,
+  currentUser: defaultUser
 };
 
 const userSlice = createSlice({
   initialState,
   name: "user",
   reducers: {
-    logoutUser(state) {
-      const isLoggedIn = !!state.currentUser;
-      if (isLoggedIn)
+    signoutUser(state) {
+      if (!!state.currentUser.id)
         http
           .patch(
             "/auth/signout",
@@ -25,13 +32,15 @@ const userSlice = createSlice({
           )
           .then(() => {})
           .catch(() => {});
-      state.currentUser = undefined;
+      state.currentUser = defaultUser;
       state.previewUser = undefined;
     },
     loginUser(state, { payload }) {
       state.currentUser = payload;
     },
     updatePreviewUser(state, { payload }) {
+      if (payload.nullify) return (state.previewUser = undefined);
+
       delete payload.avatar;
       payload.socials &&
         (payload.socials = {
@@ -55,6 +64,18 @@ const userSlice = createSlice({
           ...payload.settings
         };
       }
+      if (payload._blacklistCount) {
+        payload.blacklistCount = state.currentUser.blacklistCount
+          ? state.currentUser.blacklistCount - payload._blacklistCount
+          : 0;
+        delete payload._blacklistCount;
+      }
+
+      if (payload.blacklistCount) {
+        payload.blacklistCount =
+          state.currentUser.blacklistCount + payload._blacklistCount;
+      }
+
       state.currentUser = {
         ...state.currentUser,
         ...payload
@@ -79,7 +100,7 @@ const userSlice = createSlice({
 });
 
 export const {
-  logoutUser,
+  signoutUser,
   loginUser,
   updatePreviewUser,
   updateUser,

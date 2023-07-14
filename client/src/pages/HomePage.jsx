@@ -5,6 +5,7 @@ import PostsView from "views/PostsView";
 import MainView from "views/MainView";
 import AddIcon from "@mui/icons-material/Add";
 import { useNavigate } from "react-router-dom";
+
 const HomePage = () => {
   const cid = useSelector(state => (state.user.currentUser || {}).id);
   const navigate = useNavigate();

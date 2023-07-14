@@ -7,7 +7,11 @@ import http from "api/http";
 import ShortFooter from "./ShortFooter";
 import ShortSidebar from "./ShortSidebar";
 import { useNavigate } from "react-router-dom";
+import Typography from "@mui/material/Typography";
 import { useContext } from "context/store";
+import mp4 from "components/video.mp4";
+import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
+import CameraAltIcon from "@mui/icons-material/CameraAlt";
 
 const Short = React.forwardRef(
   (
@@ -19,17 +23,22 @@ const Short = React.forwardRef(
       },
       miniShort,
       handleAction,
-      loop
+      loop,
+      stateCtx
     },
     ref
   ) => {
-    const { setComposeDoc } = useContext();
     const cid = useSelector(state => (state.user.currentUser || {}).id);
     const navigate = useNavigate();
+    const { setContext } = useContext();
     const stateRef = useRef({
-      backdropText: "Unable to play video"
+      backdropText: ""
     });
+    const contRef = useRef(null);
     const [loading, setLoading] = useState(true);
+    const [showVolume, setShowVolume] = useState(!miniShort);
+    const [muted, setMuted] = useState(miniShort);
+
     const onTimeUpdate = useCallback(async () => {
       try {
         if (miniShort || short.views[cid]) return;
@@ -40,86 +49,169 @@ const Short = React.forwardRef(
       } catch (msg) {}
     }, [short.id, short.views, cid, handleAction, miniShort]);
 
+    const onPlay = useCallback(
+      (v, { mouseEnter }) => {
+        setShowVolume(true);
+        if (stateCtx.shouldUnmute) setMuted(mouseEnter ? v.muted : false);
+        stateCtx.shouldUnmute = true;
+      },
+      [stateCtx]
+    );
+
+    const onPause = useCallback(
+      (v, { e }) => {
+        if (e && e.relatedTarget.nodeName !== "BUTTON") {
+          setShowVolume(!miniShort);
+          setMuted(true);
+        }
+      },
+      [miniShort]
+    );
+
     const onLoadedMetadata = useCallback(() => setLoading(false), []);
+
     const onClick = useCallback(
       e => {
+        return;
         e.stopPropagation();
-        console.log(" clicked... ", short.id);
-        miniShort &&
-          setComposeDoc({
-            id: short.id,
-            docType: "short",
-            reason: "fetch"
-          });
-
         window.location.pathname.toLowerCase() !== "/shorts" &&
           navigate(`/shorts`);
+        miniShort &&
+          setContext(prev => ({
+            ...prev,
+            composeDoc: {
+              docType: "short",
+              reason: "search",
+              document: {
+                id: short.id
+              }
+            }
+          }));
       },
-      [navigate, setComposeDoc, short.id, miniShort]
+      [navigate, short.id, setContext, miniShort]
     );
     const onError = useCallback(
-      ({ severity, withReload }) => {
-        if (!withReload) setLoading(false);
-        if (severity === 1) handleAction("filter", short.id, undefined, false);
+      err => {
+        if (!err.withReload) setLoading(false);
+        if (err.severity === 1)
+          handleAction("filter", short.id, undefined, false);
+
+        if (err.name?.toLowerCase() === "notallowederror") {
+          stateCtx.shouldUnmute = false;
+          setMuted(true);
+        }
       },
-      [handleAction, short.id]
+      [handleAction, short.id, stateCtx]
     );
     const onReload = useCallback(() => setLoading(true), []);
+
+    const _handleAction = useCallback(
+      (reason, res) => {
+        switch (reason) {
+          case "toggle-mute":
+            setMuted(!res.value);
+            break;
+          default:
+            handleAction(reason, res);
+            break;
+        }
+      },
+      [handleAction]
+    );
+
+    const maxHeight = "calc(100vh - 90px)";
+
     return (
       <Box
-        id={short.id}
         key={short.id + miniShort + "short"}
-        ref={ref}
         sx={{
           position: "relative",
-          borderRadius: 3,
-          width: miniShort
-            ? {
-                xs: "100%",
-                md: "110px"
-              }
-            : "100%",
-          height: miniShort ? "200px" : "80vh",
-          mb: 1,
           border: "1px solid currentColor",
-          borderColor: "divider"
+          borderColor: "divider",
+          ...(miniShort
+            ? {
+                width: {
+                  xs: "100%",
+                  md: "110px"
+                },
+                borderRadius: "8px",
+                height: "190px"
+              }
+            : {
+                mx: "auto",
+                width: {
+                  xs: "100%",
+                  md: "360px"
+                },
+                borderRadius: {
+                  xs: "0px",
+                  md: "12px"
+                },
+                height: "100vh",
+                maxHeight,
+                minHeight: maxHeight
+              })
+        }}
+        ref={node => {
+          ref && (ref.current = node);
+          contRef.current = node || null;
         }}
       >
         <VideoPlayer
+          contRef={contRef || null}
+          ref={miniShort && { current: {} }}
+          hideControls
           id={short.id}
-          key={short.id + miniShort + "short"}
+          muted={muted}
           loop={loop}
           src={short.url}
           mimetype={short.mimetype}
-          hideControls
           enableIndicator={!miniShort}
           backdrops={{
             RELOAD: true
           }}
           pause={short.pause}
-          autoPlay={!miniShort}
-          withIntersection={!miniShort}
+          withIntersection={miniShort ? undefined : true}
           hoverPlayDelay={miniShort && 500}
           hideTimeline={miniShort}
+          onPlay={onPlay}
+          onPause={onPause}
           onTimeUpdate={onTimeUpdate}
           onClick={onClick}
           onLoadedMetadata={onLoadedMetadata}
           onReload={onReload}
           onError={onError}
-          sx={
-            miniShort
+          sx={{
+            position: undefined,
+            border: "none",
+            ...(miniShort
               ? {
-                  cursor: "pointer"
+                  cursor: loading ? "default" : "pointer",
+                  minHeight: "0px"
                 }
-              : undefined
-          }
-          footerSx={
-            !miniShort && {
+              : {
+                  height: "inherit",
+                  minHeight: "inherit"
+                }),
+            "& .video-player-footer": !miniShort && {
               background: "none",
               py: 0,
-              bottom: "-5.5px"
+              bottom: "-7px",
+              ".MuiSlider-thumb": {
+                opacity: 0,
+                pointerEvents: "none",
+                transition: "opacity 0.5s"
+              },
+              "&:hover .MuiSlider-thumb": {
+                opacity: 1,
+                pointerEvents: "all",
+                transition: "opacity 0.5s"
+              }
+            },
+            "& .custom-media": {
+              borderRadius: "inherit"
             }
-          }
+          }}
         />
 
         <ShortFooter
@@ -135,7 +227,9 @@ const Short = React.forwardRef(
         <ShortSidebar
           id={short.id}
           user={short.user}
-          handleAction={handleAction}
+          muted={muted}
+          withVolume={showVolume}
+          handleAction={_handleAction}
           loading={loading}
           animation={stateRef.current.backdropText ? false : undefined}
         />

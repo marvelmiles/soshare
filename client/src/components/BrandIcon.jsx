@@ -22,15 +22,14 @@ const BrandIcon = ({ to = "/", hasLoader, staticFont, sx }) => {
         variant={hasLoader || staticFont ? "h4" : "h5"}
         sx={{
           display: "inline-flex",
-          fontWeight: "bold",
           alignItems: "center",
           fontWeight: "500",
           "&:hover": {
             textDecoration: "none"
           },
-          cursor: hasLoader || staticFont ? "default" : "pointer"
+          cursor: hasLoader || !to ? "default" : "pointer"
         }}
-        to={hasLoader ? undefined : to}
+        to={hasLoader || !to ? undefined : to}
       >
         <span style={{ fontSize: hasLoader || staticFont ? "24px" : "18px" }}>
           S
@@ -38,7 +37,7 @@ const BrandIcon = ({ to = "/", hasLoader, staticFont, sx }) => {
         <DataUsageOutlinedIcon
           sx={{
             fontSize: hasLoader || staticFont ? "24px" : "20px",
-            minWIdth: 0,
+            minWidth: 0,
             width: "auto",
             color: "currentColor",
             cursor: "inherit",

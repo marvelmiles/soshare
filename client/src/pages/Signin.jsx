@@ -4,11 +4,10 @@ import { Stack, InputBase, Button } from "@mui/material";
 import { WidgetContainer, StyledLink } from "components/styled";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
-import { signInWithPopup } from "@firebase/auth";
-import { auth, provider } from "api/firebase";
+import { signInWithPopupTimeout } from "api/firebase";
 import http from "api/http";
 import { useDispatch } from "react-redux";
-import { loginUser, logoutUser } from "context/slices/userSlice";
+import { loginUser, signoutUser } from "context/slices/userSlice";
 import { useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
 import { useSearchParams } from "react-router-dom";
@@ -19,6 +18,9 @@ import IconButton from "@mui/material/IconButton";
 import LockIcon from "@mui/icons-material/Lock";
 import AccountBoxIcon from "@mui/icons-material/AccountBox";
 import CustomInput from "components/CustomInput";
+import { createRelativeURL } from "api/http";
+import BrandIcon from "components/BrandIcon";
+
 InputBase.defaultProps = {
   value: ""
 };
@@ -37,18 +39,26 @@ const Signin = () => {
     }
   });
   const [searchParams] = useSearchParams();
-  const { setSnackBar } = useContext();
+  const { setSnackBar, locState } = useContext();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [showPwd, setShowPwd] = useState(false);
   const stateRef = useRef({
-    rememberMe: "true"
-  }).current;
+    rememberMe: "true",
+    validateTypeMap: {}
+  });
+
+  let redirect = searchParams.get("redirect") || "";
+  redirect =
+    redirect.toLowerCase().indexOf(encodeURIComponent("/auth/signup")) > -1
+      ? ""
+      : redirect;
+
   useEffect(() => {
-    dispatch(logoutUser());
+    dispatch(signoutUser());
   }, [dispatch]);
 
-  const handleLogin = async e => {
+  const onSubmit = async e => {
     if (e.target) {
       e.preventDefault();
       e.stopPropagation();
@@ -56,10 +66,11 @@ const Signin = () => {
     try {
       let user;
       reset(true, { isSubmitting: true });
-      const url = `/auth/signin?rememberMe=${stateRef.rememberMe || ""}`;
+      const url = `/auth/signin?rememberMe=${stateRef.current.rememberMe ||
+        ""}`;
       switch (e) {
         case "google":
-          user = (await signInWithPopup(auth, provider)).user;
+          user = (await signInWithPopupTimeout()).user;
           user = await http.post(url, {
             username: user.displayName,
             displayName: user.displayName,
@@ -70,42 +81,92 @@ const Signin = () => {
           });
           break;
         default:
-          if (handleSubmit()) user = await http.post(url, formData);
+          if (
+            handleSubmit(undefined, {
+              validateTypeMap: stateRef.current.validateTypeMap
+            })
+          )
+            user = await http.post(url, formData);
           else return;
           break;
       }
       dispatch(loginUser(user));
-      const redirect = decodeURIComponent(searchParams.get("redirect") || "");
-      navigate(redirect || "/");
+      const prop = {
+        state: locState
+      };
+      navigate(redirect || "/", prop);
     } catch (message) {
+      if (message.code) {
+        if (message.code === "auth/popup-closed-by-user")
+          message = "Authentication popup closed by you!";
+        else message = "Something went wrong!";
+      }
       reset(true);
-      if (message === "Account is not registered") stateRef.email = false;
+      if (message === "Account is not registered")
+        stateRef.current.email = false;
       message && setSnackBar(message);
     }
   };
+
+  const onChange = e => {
+    if (e.target.dataset.changed === "false")
+      stateRef.current.validateTypeMap[e.target.name] = e.target.type;
+    else if (stateRef.current.validateTypeMap[e.target.name])
+      delete stateRef.current.validateTypeMap[e.target.name];
+    handleChange(e);
+  };
+
   return (
     <>
       <Stack sx={{ minHeight: "100vh", width: "100%" }}>
-        <WidgetContainer sx={{ maxWidth: "576px", mx: "auto" }}>
+        <WidgetContainer
+          sx={{ maxWidth: "576px", mx: "auto" }}
+          component="form"
+          onSubmit={onSubmit}
+        >
+          <BrandIcon staticFont />
           <CustomInput
             name="placeholder"
             label="Email or username"
             value={formData.placeholder || ""}
-            onChange={handleChange}
+            onChange={onChange}
             error={!!(errors.placeholder || errors.all)}
+            data-changed={!!formData.placeholder}
             sx={{ my: 2 }}
-            startAdornment={<AccountBoxIcon sx={{ cursor: "unset" }} />}
+            startAdornment={
+              <IconButton
+                sx={{
+                  "&:hover": {
+                    background: "none"
+                  }
+                }}
+              >
+                <AccountBoxIcon sx={{ cursor: "unset" }} />
+              </IconButton>
+            }
           />
           <CustomInput
             type={showPwd ? "text" : "password"}
             name="password"
             label="Password"
+            autoComplete="pass testUser4"
             value={formData.password || ""}
-            onChange={handleChange}
+            onChange={onChange}
             error={errors.password}
             data-validate-type={"false"}
             data-min={8}
-            startAdornment={<LockIcon sx={{ cursor: "unset" }} />}
+            data-changed={!!formData.password}
+            startAdornment={
+              <IconButton
+                sx={{
+                  "&:hover": {
+                    background: "none"
+                  }
+                }}
+              >
+                <LockIcon sx={{ cursor: "unset" }} />
+              </IconButton>
+            }
             endAdornment={
               <IconButton onClick={() => setShowPwd(!showPwd)}>
                 {showPwd ? <VisibilityOffIcon /> : <VisibilityIcon />}
@@ -119,7 +180,7 @@ const Signin = () => {
               control={
                 <Checkbox
                   defaultChecked
-                  onChange={(_, bool) => (stateRef.rememberMe = bool)}
+                  onChange={(_, bool) => (stateRef.current.rememberMe = bool)}
                 />
               }
               label="Remember Me"
@@ -131,7 +192,7 @@ const Signin = () => {
             />
             <StyledLink
               state={
-                stateRef.email !== false &&
+                stateRef.current.email !== false &&
                 formData.placeholder && {
                   user: {
                     email: formData.placeholder
@@ -146,7 +207,7 @@ const Signin = () => {
           <Button
             variant="contained"
             sx={{ width: "100%", mt: 2 }}
-            onClick={handleLogin}
+            type="submit"
             disabled={isSubmitting}
           >
             Sigin
@@ -154,14 +215,24 @@ const Signin = () => {
           <Button
             variant="contained"
             sx={{ width: "100%", mt: 2 }}
-            onClick={() => handleLogin("google")}
+            onClick={() => onSubmit("google")}
             disabled={isSubmitting}
           >
             Continue with Google
           </Button>
           <Typography textAlign="center" mt={1}>
             Don't have an account?{" "}
-            <StyledLink to="/auth/signup">signup!</StyledLink>
+            <StyledLink
+              to={`/auth/signup?${
+                redirect
+                  ? `redirect=${encodeURIComponent(
+                      createRelativeURL("view redirect")
+                    )}`
+                  : ""
+              }`}
+            >
+              signup!
+            </StyledLink>
           </Typography>
         </WidgetContainer>
       </Stack>

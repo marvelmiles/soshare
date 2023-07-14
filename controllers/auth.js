@@ -1,11 +1,13 @@
 import User from "../models/User.js";
 import { createError } from "../utils/error.js";
 import bcrypt from "bcrypt";
-import { setTokens, generateToken } from "../utils/index.js";
+import { setTokens, generateToken, hashToken } from "../utils/index.js";
 import { isEmail } from "../utils/validators.js";
 import { sendMail } from "../utils/file-handlers.js";
 import { verifyToken } from "../utils/middlewares.js";
-import { GMAIL_USER } from "../config.js";
+import { TOKEN_EXPIRED_MSG, PWD_RESET_COOKIE_KEY } from "../config.js";
+import jwt from "jsonwebtoken";
+
 export const signup = async (req, res, next) => {
   try {
     if (!isEmail(req.body.email))
@@ -24,6 +26,8 @@ export const signup = async (req, res, next) => {
     );
     req.body.photoUrl = req.file?.publicUrl;
     user = await new User(req.body).save();
+    const io = req.app.get("socketIo");
+    io && io.emit("user", user);
     res.json("Thank you for registering. You can login!");
   } catch (err) {
     next(err);
@@ -43,8 +47,7 @@ export const signin = async (req, res, next) => {
     let user = await User.findOne(query);
     switch (req.body.provider) {
       case "google":
-        if (user) break;
-        user = await new User(req.body).save();
+        if (!user) user = await new User(req.body).save();
         break;
       default:
         if (!user) throw createError("Account is not registered");
@@ -53,11 +56,15 @@ export const signin = async (req, res, next) => {
           throw createError("Invalid credentials");
         break;
     }
-    await user.updateOne({
-      isLogin: true
-    });
+    user = await User.findByIdAndUpdate(
+      { _id: user.id },
+      {
+        isLogin: true
+      },
+      { new: true }
+    );
     await setTokens(res, user.id, req.query.rememberMe);
-    res.json(await User.findOne(query));
+    res.json(user);
   } catch (err) {
     next(err);
   }
@@ -66,7 +73,7 @@ export const signin = async (req, res, next) => {
 export const signout = async (req, res, next) => {
   try {
     setTokens(res);
-    res.json("Signed out successfully");
+    res.json("You just got signed out");
     const user = await User.findByIdAndUpdate(req.user.id, {
       isLogin: false
     });
@@ -87,7 +94,7 @@ export const signout = async (req, res, next) => {
   }
 };
 
-export const userExist = async (req, res, next) => {
+export const userExists = async (req, res, next) => {
   try {
     return res.json(
       !!(await User.findOne(
@@ -139,28 +146,26 @@ export const recoverPwd = async (req, res, next) => {
     });
     if (!user) throw createError("Account isn't registered", 400);
     const token = generateToken();
-    user.resetToken = token;
+    user.resetToken = await hashToken(token);
     const date = new Date();
-    date.setHours(Number(req.query.timeHr) || 1);
+    date.setHours(date.getHours() + (Number(req.query.timeHr) || 1));
     user.resetDate = date;
     await user.save();
     sendMail(
       {
         to: email,
-        from: GMAIL_USER,
+        from: "noreply@gmail.com",
         subject: "Mern-social account password Reset",
         text: `You are receiving this email because you (or someone else) have requested the reset of the password for your account.\n\n
           Please click on the following link, or paste this into your browser to complete the process:\n\n
-          http://${req.headers.origin}/auth/reset-password/${token}\n\n
+          http://${req.headers.origin}/auth/reset-password/${token}/${user.id}\n\n
           If you did not request this, please ignore this email and your password will remain unchanged.\n`
       },
       err => {
         if (err) {
           return next(err);
         } else {
-          return res.json(
-            "An email has been sent to you with further instruction"
-          );
+          return res.json("An email has been sent to you");
         }
       }
     );
@@ -172,21 +177,23 @@ export const recoverPwd = async (req, res, next) => {
 export const verifyUserToken = async (req, res, next) => {
   try {
     const user = await User.findOne({
-      resetToken: req.body.token
+      resetToken: req.params.token,
+      resetDate: { $gt: Date.now() }
     });
-    if (!user) return res.json("Invalid token");
-    const start = new Date();
-    start.setHours(start.getHours() - (Number(req.query.timeHr) || 1));
-    const resetDate = new Date(user.resetDate);
-    if (!(resetDate.getTime() >= start.getTime()))
-      throw createError("Token expired");
-
-    const expires = new Date();
-    expires.setMinutes(30);
-    res.cookie("reset-pwd-token", req.body.token, {
-      httpOnly: true,
-      expires
-    });
+    if (!user) return res.json(TOKEN_EXPIRED_MSG);
+    res.cookie(
+      PWD_RESET_COOKIE_KEY,
+      jwt.sign(
+        {
+          id: user.id
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "30m" }
+      ),
+      {
+        httpOnly: true
+      }
+    );
     res.json(user);
   } catch (err) {
     next(err);
@@ -195,23 +202,27 @@ export const verifyUserToken = async (req, res, next) => {
 
 export const resetPwd = async (req, res, next) => {
   try {
-    const token = req.cookies["reset-pwd-token"];
-    if (!token) throw createError("Forbidden access", 403);
     const user = await User.findOne({
-      token,
-      email: req.body.email
+      _id: req.params.userId,
+      resetDate: { $gt: Date.now() }
     });
-    if (!user) throw createError(`User don't exist`);
+
+    if (!user) throw createError(TOKEN_EXPIRED_MSG);
+
     if (user.provider)
       throw createError(
         `Failed to reset password. Account is registered under a third party provider`
       );
+
+    if (!(await bcrypt.compare(req.params.token, user.resetToken)))
+      throw createError("Authorization credentials is invalid");
+
     await user.updateOne({
       password: await bcrypt.hash(req.body.password, await bcrypt.genSalt()),
       resetDate: null,
       resetToken: null
     });
-    res.clearCookie("reset-pwd-token");
+
     res.json("Password reset successful");
   } catch (err) {
     next(err);

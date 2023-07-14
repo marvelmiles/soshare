@@ -6,15 +6,17 @@ import {
   sendAndUpdateNotification,
   getRoomSockets
 } from "../utils/index.js";
-import { createVisibilityQuery } from "../utils/serializers.js";
 import { deleteFile } from "../utils/file-handlers.js";
 import Notification from "../models/Notification.js";
-import mongoose, { Types } from "mongoose";
 import Short from "../models/Short.js";
-import { verifyToken } from "../utils/middlewares.js";
 import { isObject } from "../utils/validators.js";
 import bcrypt from "bcrypt";
 import { getDocument, getFeedMedias } from "../utils/req-res-hooks.js";
+import { mapToObject } from "../utils/normalizers.js";
+import {
+  getAllIntervally,
+  clearGetAllIntervallyTask
+} from "../utils/schedule-tasks.js";
 
 export const getUser = (req, res, next) =>
   getDocument({
@@ -30,40 +32,44 @@ export const getFollowing = async (req, res, next) => {
     res,
     next,
     model: User,
+    dataKey: "following",
     match: {
-      _id: new Types.ObjectId(req.params.id)
-    },
-    dataKey: "following"
+      _id: req.params.userId
+    }
   });
 };
 
-export const getFollowers = async (req, res, next) =>
-  getFeedMedias({
+export const getFollowers = async (req, res, next) => {
+  return getFeedMedias({
     req,
     res,
     next,
     model: User,
+    dataKey: "followers",
     match: {
-      _id: new Types.ObjectId(req.params.id)
-    },
-    dataKey: "followers"
+      _id: req.params.userId
+    }
   });
+};
 
 export const follow = async (req, res, next) => {
   try {
+    if (!req.params.userId) throw createError("Invalid parameter. Check url");
     if (req.user.id === req.params.userId)
       throw createError("You can't follow yourself");
-    await User.updateOne(
+    const user = await User.findByIdAndUpdate(
       {
         _id: req.user.id
       },
+
       {
         $addToSet: {
           following: req.params.userId
         }
-      }
+      },
+      { new: true }
     );
-    await User.updateOne(
+    const _user = await User.findByIdAndUpdate(
       {
         _id: req.params.userId
       },
@@ -71,15 +77,24 @@ export const follow = async (req, res, next) => {
         $addToSet: {
           followers: req.user.id
         }
-      }
+      },
+      { new: true }
     );
+    const io = req.app.get("socketIo");
+    if (io) {
+      io.emit("update-user", user);
+      io.emit("update-user", _user);
+      io.emit("follow", {
+        from: user,
+        to: _user
+      });
+    }
     res.json("Successfully followed user");
     sendAndUpdateNotification({
       req,
       type: "follow"
     });
   } catch (err) {
-    console.log(err.message);
     next(err);
   }
 };
@@ -88,23 +103,34 @@ export const unfollow = async (req, res, next) => {
   try {
     if (req.params.userId === req.user.id)
       throw createError("You can't unfollow yourself");
-    await User.updateOne(
+    const user = await User.findByIdAndUpdate(
       { _id: req.user.id },
       {
         $pull: {
-          following: new Types.ObjectId(req.params.userId)
+          following: req.params.userId
         }
-      }
+      },
+      { new: true }
     );
 
-    await User.updateOne(
+    const _user = await User.findByIdAndUpdate(
       { _id: req.params.userId },
       {
         $pull: {
-          followers: new Types.ObjectId(req.user.id)
+          followers: req.user.id
         }
-      }
+      },
+      { new: true }
     );
+    const io = req.app.get("socketIo");
+    if (io) {
+      io.emit("update-user", user);
+      io.emit("update-user", _user);
+      io.emit("unfollow", {
+        from: user,
+        to: _user
+      });
+    }
     res.json("Successfully unfollowed user");
     sendAndUpdateNotification({
       req,
@@ -112,31 +138,18 @@ export const unfollow = async (req, res, next) => {
       filter: true
     });
   } catch (err) {
-    console.log(err.message);
     next(err);
   }
 };
 
 export const getUserPosts = async (req, res, next) => {
-  try {
-    if (req.cookies.access_token) verifyToken(req);
-    const f = await getAll({
-      query: req.query,
-      match: await createVisibilityQuery({
-        userId: req.params.id,
-        searchUser: req.user?.id,
-        withSearchUser: req.user && req.user.id !== req.params.id
-      }),
-      model: Post,
-      populate: {
-        path: "user",
-        select: req.query.user_select
-      }
-    });
-    res.json(f);
-  } catch (err) {
-    next(err);
-  }
+  return getFeedMedias({
+    req,
+    res,
+    next,
+    model: Post,
+    isVisiting: true
+  });
 };
 
 export const suggestFollowers = async (req, res, next) => {
@@ -144,45 +157,41 @@ export const suggestFollowers = async (req, res, next) => {
     const { following, recommendationBlacklist } =
       (await User.findById(req.user.id)) || {};
     if (!following) throw createError(`User not found`, 404);
+
     const queryConfig = {
       model: User,
       match: {
         _id: {
-          $ne: new Types.ObjectId(req.user.id),
-          $nin: recommendationBlacklist.concat(following)
+          $nin: following.concat(recommendationBlacklist, req.user.id)
         }
       },
-      query: req.query,
-      t: true
+      query: req.query
     };
     let result = await getAll(queryConfig);
     res.json(result);
     const io = req.app.get("socketIo");
     const socketId = getRoomSockets(io, req.user.id)[0];
+    const mapFn = user => user.id.toString();
     let socket;
     if (
-      false &&
       socketId &&
       (socket = io.sockets.sockets.get(socketId)) &&
-      socket.handshake.withCookies &&
-      !socket.handshake.suggestFollowersTime
+      socket.handshake.withCookies
     ) {
-      socket.handshake.suggestFollowersTime = setTimeout(() => {
-        const suggest = async () => {
-          queryConfig.match._id.$nin = queryConfig.match._id.$nin.concat(
-            result.data.map(({ id }) => new Types.ObjectId(id))
-          );
-          queryConfig.query = {
-            ...queryConfig.query,
-            cursor: result.paging.nextCursor
-          };
-          result = await getAll(queryConfig);
-          io.to(req.user.id).emit("suggest-followers", result);
-        };
-        suggest();
-        socket.handshake.suggestFollowersInterval = setInterval(suggest, 2000);
-      }, 2000);
-    }
+      getAllIntervally(
+        queryConfig,
+        socket,
+        result.paging.nextCursor,
+        "suggestFollowersInterval",
+        {
+          eventName: "suggest-followers",
+          blacklist: result.data.map(mapFn),
+          mapFn
+        }
+      );
+    } else if (socket)
+      // just incase, socket.disconnect should do it.
+      clearGetAllIntervallyTask(socket, "suggestFollowersInterval");
   } catch (err) {
     next(err);
   }
@@ -224,7 +233,7 @@ export const updateUser = async (req, res, next) => {
       new: true
     });
     const io = req.app.get("socketIo");
-    if (io) io.volatile.emit("update-user", user);
+    if (io) io.emit("update-user", user, true);
     res.json(user);
     if (req.file && photoUrl) {
       await deleteFile(photoUrl);
@@ -275,7 +284,6 @@ export const getUserNotifications = async (req, res, next) => {
   }
 };
 
-// trying to avoid multiple api call for a similar purpose
 export const getUnseenAlerts = async (req, res, next) => {
   try {
     const query = {
@@ -309,12 +317,10 @@ export const markNotifications = async (req, res, next) => {
         for (let i = start; i < req.body.length; i++) {
           activeId = req.body[i];
           count = start + 1;
-          await Notification.updateOne(
-            { _id: activeId },
-            {
-              marked: true
-            }
-          );
+          const notice = await Notification.findById(activeId);
+          await notice.updateOne({
+            marked: true
+          });
         }
       } catch (err) {
         if (req.query.sequentialEffect === "true")
@@ -351,45 +357,39 @@ export const markNotifications = async (req, res, next) => {
 };
 
 export const getUserShorts = async (req, res, next) => {
-  try {
-    if (req.cookies.access_token) verifyToken(req);
-    const start = new Date();
-    start.setDate(start.getDate() - (Number(req.query.date) || 1));
-    res.json(
-      await getAll({
-        match: await createVisibilityQuery({
-          userId: req.params.id,
-          searchUser: req.user?.id,
-          query: {
-            createdAt: {
-              $gt: start
-            }
-          }
-        }),
-        model: Short,
-        populate: {
-          path: "user",
-          select: req.query.user_select
-        }
-      })
-    );
-  } catch (err) {
-    next(err);
-  }
+  const start = new Date();
+  start.setDate(start.getDate() - (Number(req.query.date) || 1));
+  getFeedMedias({
+    req,
+    res,
+    next,
+    model: Short,
+    isVisiting: true,
+    match: {
+      createdAt: {
+        $gte: start
+      }
+    }
+  });
 };
 
 export const blacklistUserRecommendation = async (req, res, next) => {
   try {
-    await User.updateOne(
-      {
-        _id: req.user.id
-      },
+    if (req.user.id === req.params.userId)
+      throw createError("You can't blacklist yourself");
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
       {
         $addToSet: {
           recommendationBlacklist: req.params.userId
         }
-      }
+      },
+      { new: true }
     );
+    const io = req.app.get("socketIo");
+
+    io && io.emit("update-user", user);
     res.json("Blacklisted successfully");
   } catch (err) {
     next(err);
@@ -408,32 +408,39 @@ export const deleteUserNotification = async (req, res, next) => {
 };
 
 export const getBlacklist = async (req, res, next) => {
-  try {
-    const result = await getAll({
-      match: {
-        _id: new Types.ObjectId(req.user.id)
-      },
-      model: User,
-      dataKey: "recommendationBlacklist"
-    });
-    res.json(result);
-  } catch (err) {
-    next(err);
-  }
+  return getFeedMedias({
+    req,
+    res,
+    next,
+    model: User,
+    dataKey: "recommendationBlacklist"
+  });
 };
 
 export const whitelistUsers = async (req, res, next) => {
   try {
-    Array.isArray(req.body) &&
-      (await User.updateOne(
-        {
-          _id: req.user.id
-        },
-        {
-          recommendationBlacklist: req.body
-        }
-      ));
-    setTimeout(() => res.json("Whitelisted users successfully"), 4000);
+    let list = (await User.findById(req.user.id))?.recommendationBlacklist;
+
+    if (list) {
+      if (!Array.isArray(req.body))
+        throw createError("Invalid body expect an array of id");
+      if (req.body.length) {
+        const user = await User.findByIdAndUpdate(
+          req.user.id,
+          {
+            recommendationBlacklist: list.filter(
+              _id => mapToObject(req.body)[_id] === undefined
+            )
+          },
+          {
+            new: true
+          }
+        );
+        const io = req.app.get("socketIo");
+        io && io.emit("update-user", user);
+      }
+    }
+    res.json("Whitelisted users successfully");
   } catch (err) {
     next(err);
   }

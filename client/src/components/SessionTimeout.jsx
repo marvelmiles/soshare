@@ -1,15 +1,17 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
-import { logoutUser } from "context/slices/userSlice";
+import { signoutUser } from "context/slices/userSlice";
 import { Box, Typography, Button, Stack } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { createRelativeURL } from "api/http";
+import { useNavigate } from "react-router-dom";
 
 const SessionTimeout = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   useEffect(() => {
-    dispatch(logoutUser());
+    dispatch(signoutUser());
   }, [dispatch]);
   return (
     <Box>
@@ -24,7 +26,7 @@ const SessionTimeout = () => {
           fontWeight: "400"
         }}
       >
-        Sorry, your session has timed out. Please login again to continue
+        Sorry, your session has timeout. Please login again to continue
       </Typography>
       <Stack
         justifyContent="normal"
@@ -54,7 +56,7 @@ const SessionTimeout = () => {
             mr: "8px"
           }}
           component={Link}
-          to={createRelativeURL("view")}
+          to={() => navigate(-1)}
           variant="contained"
         >
           Continue

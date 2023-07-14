@@ -7,45 +7,52 @@ import { verifyToken } from "../utils/middlewares.js";
 import mongoose from "mongoose";
 
 export const search = async (req, res, next) => {
-  try { 
+  try {
     const result = {};
-    if (req.query.q) {
-      const search = {
-        $regex: req.query.q === "all" ? ".*" : req.query.q,
-        $options: "i"
-      };
+    const search = req.query.q
+      ? {
+          $regex: req.query.q,
+          $options: "i"
+        }
+      : {
+          $ne: ""
+        };
 
-      if (req.cookies.access_token) verifyToken(req);
-      for (let key of (req.query.select || "posts users shorts").split(" ")) {
-        switch (key) {
-          case "posts":
-            result.posts = await getAll({
-              model: Post,
-              match: createVisibilityQuery({
-                userId: req.user?.id,
-                query: {
-                  $or: [
-                    {
-                      location: search
-                    },
-                    {
-                      text: search
-                    },
-                    {
-                      moreText: search
-                    },
-                    {
-                      visibility: search
-                    }
-                  ]
-                }
-              })
-            });
-            continue;
-          case "users":
-            result.users = await getAll({
-              model: User,
-              match: {
+    if (req.cookies.access_token) verifyToken(req);
+    for (let key of (req.query.select || "posts users shorts").split(" ")) {
+      switch (key) {
+        case "posts":
+          result.posts = await getAll({
+            model: Post,
+            query: req.query,
+            match: await createVisibilityQuery({
+              userId: req.user?.id,
+              query: {
+                $or: [
+                  {
+                    location: search
+                  },
+                  {
+                    text: search
+                  },
+                  {
+                    moreText: search
+                  },
+                  {
+                    visibility: search
+                  }
+                ]
+              }
+            })
+          });
+          continue;
+        case "users":
+          result.users = await getAll({
+            model: User,
+            query: req.query,
+            match: await createVisibilityQuery({
+              userId: req.user?.id,
+              query: {
                 _id: {
                   $ne: req.user
                     ? new mongoose.Types.ObjectId(req.user.id)
@@ -72,36 +79,44 @@ export const search = async (req, res, next) => {
                   }
                 ]
               }
-            });
-            continue;
-          case "shorts":
-            result.shorts = await getAll({
-              model: Short,
-              match: createVisibilityQuery({
-                userId: req.user?.id,
-                query: {
-                  $or: [
-                    {
-                      location: search
-                    },
-                    {
-                      text: search
-                    },
-                    {
-                      visibility: search
-                    }
-                  ]
-                }
-              })
-            });
-            continue;
-          default:
-            continue;
-        }
+            })
+          });
+          continue;
+        case "shorts":
+          result.shorts = await getAll({
+            model: Short,
+            query: req.query,
+            match: await createVisibilityQuery({
+              userId: req.user?.id,
+              query: {
+                $or: [
+                  {
+                    location: search
+                  },
+                  {
+                    text: search
+                  },
+                  {
+                    visibility: search
+                  }
+                ]
+              }
+            })
+          });
+          continue;
+        default:
+          result[key] = {
+            paging: {
+              nextCursor: null
+            },
+            data: []
+          };
+          continue;
       }
     }
     res.json(result);
   } catch (err) {
+    console.log(err.message);
     next(err);
   }
 };

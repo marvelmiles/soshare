@@ -6,6 +6,7 @@ import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
 import { useSelector, useDispatch } from "react-redux";
 import { updateUser } from "context/slices/userSlice";
+
 const UserSettings = props => {
   const settings = useSelector(state => state.user.currentUser?.settings || {});
   const dispatch = useDispatch();

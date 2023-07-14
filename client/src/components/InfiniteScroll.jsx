@@ -32,25 +32,31 @@ const InfiniteScroll = React.forwardRef(
       defaultShowEnd = false,
       endElement,
       notifierDuration = 30000,
-      notifierDelay = 500,
+      notifierDelay = 5000,
       Component,
       componentProps,
       httpConfig,
       dataKey,
-      withCredentials = true,
+      withCredentials,
       maxSize,
       maxSizeElement,
-      limit = 1,
+      limit = 20,
       scrollNodeRef,
-      withError = true,
       searchId,
       randomize,
       nodeKey,
-      validatePublicDatum,
-      withIntersection = false,
       NotifierComponent = DataNotifier,
-      exclude,
-      className
+      exclude = "",
+      className = "",
+      withShowRetry = true,
+      notifierProps,
+      centerOnEmpty = true,
+      contentSx,
+      withOverflowShowEndOnly = true,
+      withOverflowShowNotifierOnly = true,
+      excludeSep = ",",
+      withMatchedDocs,
+      shallowLoading
     },
     ref
   ) => {
@@ -69,6 +75,10 @@ const InfiniteScroll = React.forwardRef(
     const containerRef = useRef();
     const { setSnackBar } = useContext();
     const stateRef = useRef({
+      limit,
+      randomize,
+      withMatchedDocs,
+      withShowRetry,
       intersection: intersectionProp
         ? undefined
         : {
@@ -76,214 +86,295 @@ const InfiniteScroll = React.forwardRef(
             threshold: 0.3,
             nodeKey
           },
+      exclude,
       infinitePaging: {},
-      prevNotice: []
+      prevNotice: [],
+      retryCount: 0,
+      maxRetry: 10,
+      sep: excludeSep,
+      withDefaultData: !!defaultData
     });
     const { intersectionKey } = useViewIntersection(
       observedNode,
       stateRef.current.intersection || intersectionProp
     );
-
     const reachedMax = useMemo(() => data.data.length === maxSize, [
       data.data.length,
       maxSize
     ]);
 
     const determineFlowing = useCallback(() => {
-      setShowEnd(() => {
-        return isOverflowing(
-          scrollNodeRef === null
-            ? document.documentElement
-            : scrollNodeRef
-            ? scrollNodeRef.current
-            : containerRef.current
-        );
-      });
-    }, [scrollNodeRef]);
+      withOverflowShowEndOnly &&
+        setShowEnd(() => {
+          return isOverflowing(
+            scrollNodeRef === null
+              ? document.documentElement
+              : scrollNodeRef
+              ? scrollNodeRef.current
+              : containerRef.current
+          );
+        });
+    }, [scrollNodeRef, withOverflowShowEndOnly]);
 
-    const closeNotifier = useCallback((resetDelay = 500, e) => {
+    const fetchData = useCallback(
+      (retry, fetchConfig) => {
+        setData(data => {
+          if (readyState !== "ready") return data;
+          const sep = stateRef.current.sep;
+          if (fetchConfig)
+            stateRef.current = {
+              ...stateRef.current,
+              ...fetchConfig,
+              infinitePaging: {
+                ...stateRef.current.infinitePaging,
+                ...fetchConfig.infinitePaging
+              }
+            };
+
+          const infinitePaging = stateRef.current.infinitePaging;
+          const shouldSearch =
+            searchId && searchId !== stateRef.current.searchId;
+          const shouldFetch =
+            retry ||
+            (!stateRef.current.isFetching &&
+              (infinitePaging.matchedDocs === undefined ||
+                (!reachedMax &&
+                  (shouldSearch
+                    ? true
+                    : infinitePaging.matchedDocs
+                    ? data.data.length < infinitePaging.matchedDocs &&
+                      intersectionKey
+                    : intersectionKey && data.paging.nextCursor !== null))));
+          console.clear();
+          console.log(
+            shouldFetch,
+            { ...stateRef.current },
+            { ...data },
+            intersectionKey
+          );
+
+          if (shouldFetch) {
+            let {
+              randomize,
+              limit,
+              withMatchedDocs,
+              withShowRetry
+            } = stateRef.current;
+
+            setLoading(true);
+            let withFetch = true,
+              withEq = true,
+              defaultCursor = "";
+
+            randomize =
+              randomize === undefined ? !intersectionKey : !!randomize;
+            withMatchedDocs =
+              withMatchedDocs === undefined ? "" : withMatchedDocs;
+
+            if (shouldSearch) {
+              stateRef.current.searchId = searchId;
+              const index = data.data.findIndex(
+                d => d.id === searchId || d === searchId
+              );
+              if (index === -1) {
+                withMatchedDocs = true;
+                randomize = false;
+                withEq = true;
+                data.data = [];
+                defaultCursor = searchId;
+                delete data.paging;
+              } else {
+                data.data = data.data
+                  .slice(index)
+                  .filter(
+                    item =>
+                      new Date(item.createdAt).getTime() <=
+                      new Date(data.data[index].createdAt).getTime()
+                  );
+
+                if (intersectionKey) {
+                  randomize = false;
+                  withEq = false;
+                }
+
+                if (
+                  (data.paging.nextCursor
+                    ? false
+                    : infinitePaging.matchedDocs
+                    ? data.data.length === infinitePaging.matchedDocs
+                    : true) ||
+                  (limit =
+                    data.data.length > limit
+                      ? limit || Infinity
+                      : limit > data.data.length
+                      ? limit - data.data.length
+                      : limit) === 0
+                ) {
+                  data.paging.nextCursor = null;
+                  withFetch = false;
+                  setLoading(false);
+                } else {
+                  data.paging.nextCursor = data.data[data.data.length - 1].id;
+                  withFetch = intersectionKey;
+                }
+                stateRef.current.shallowUpdate = true;
+              }
+            }
+
+            if (withFetch) {
+              (async () => {
+                try {
+                  stateRef.current.isFetching = true;
+                  let _data = await http.get(
+                    url +
+                      `?limit=${limit}&cursor=${data.paging?.nextCursor ||
+                        defaultCursor}&withEq=${withEq}&randomize=${randomize}&withMatchedDocs=${withMatchedDocs}&exclude=${
+                        stateRef.current.exclude
+                      }&${
+                        searchParams
+                          ? searchParams
+                          : dataKey
+                          ? `select=${dataKey}`
+                          : ""
+                      }`,
+                    {
+                      withCredentials,
+                      ...httpConfig
+                    }
+                  );
+
+                  dataKey && (_data = _data[dataKey]);
+
+                  stateRef.current.dataChanged =
+                    !data.paging?.nextCursor ||
+                    data.paging.nextCursor !== _data.paging.nextCursor ||
+                    data.data.length !== _data.data.length;
+
+                  if (isObject(_data)) {
+                    if (
+                      _data.paging?.nextCursor !== undefined &&
+                      Array.isArray(_data.data)
+                    ) {
+                      if (
+                        !infinitePaging.matchedDocs &&
+                        _data.paging.matchedDocs > -1
+                      ) {
+                        infinitePaging.withMatchedCursor =
+                          _data.paging.nextCursor;
+                        infinitePaging.matchedDocs = _data.paging.matchedDocs;
+                      }
+                    } else return;
+
+                    const exclude = stateRef.current.exclude || "";
+                    setData(data => {
+                      const set =
+                        !stateRef.current.withDefaultData && exclude
+                          ? (() => {
+                              const set = {};
+                              exclude.split(sep).forEach(item => {
+                                return (set[item] = true);
+                              });
+                              return set;
+                            })()
+                          : {};
+
+                      data = {
+                        ..._data,
+                        data: stateRef.current.withDefaultData
+                          ? addToSet(
+                              [..._data.data, ...data.data],
+                              undefined,
+                              set
+                            )
+                          : data.data.concat(
+                              addToSet(_data.data, undefined, set)
+                            )
+                      };
+                      let e = "";
+                      if (set)
+                        for (const key in set) {
+                          e += `${e.length ? sep + key : key}`;
+                        }
+                      stateRef.current.exclude = e;
+                      stateRef.current.shallowUpdate = false;
+                      stateRef.current.withDefaultData = undefined;
+                      return data;
+                    });
+                  }
+                } catch (msg) {
+                  if (msg) {
+                    if (
+                      stateRef.current.retryCount < stateRef.current.maxRetry &&
+                      (withShowRetry === undefined ? true : withShowRetry)
+                    ) {
+                      stateRef.current.retryCount++;
+                      setShowRetry(true);
+                    } else stateRef.current.isFetching = true;
+                    window.location.pathname.toLowerCase() !== "/auth/signin" &&
+                      setSnackBar(msg);
+                  }
+                } finally {
+                  setLoading(false);
+                  stateRef.current.isFetching = false;
+                }
+              })();
+            }
+          }
+
+          if (withCredentials ? false : !httpConfig?.withCredentials) {
+            const valid = [];
+            let e = stateRef.current.exclude;
+            for (const item of data.data) {
+              if (item.visibility && item.visibility !== "everyone") {
+                const id =
+                  item.id ||
+                  item._id ||
+                  (typeof item === "string" ? item : JSON.stringify(item));
+                e += `${e.length ? sep + id : id}`;
+                continue;
+              }
+              valid.push(item);
+            }
+            stateRef.current.exclude = e;
+            data.data = valid;
+          }
+          return { ...data };
+        });
+      },
+      [
+        readyState,
+        intersectionKey,
+        reachedMax,
+        searchId,
+        searchParams,
+        url,
+        dataKey,
+        withCredentials,
+        httpConfig,
+        setSnackBar
+      ]
+    );
+
+    const clearNotifierState = (clearPrev = true) => {
+      clearPrev && (stateRef.current.prevNotice = []);
+      if (stateRef.current.dataNoticeStartTaskId) {
+        clearTimeout(stateRef.current.dataNoticeStartTaskId);
+        clearTimeout(stateRef.current.dataNoticeEndTaskId);
+      }
+    };
+
+    const closeNotifier = useCallback((resetDelay = 500, clearPrev, e) => {
       e && e.stopPropagation();
+      clearNotifierState(clearPrev);
       setNotifier(notifier => ({
         ...notifier,
         open: false
       }));
       let timerId = setTimeout(() => {
-        if (timerId) clearTimeout(timerId);
         setNotifier(notifier => ({ ...notifier, data: [] }));
+        if (timerId) clearTimeout(timerId);
       }, resetDelay);
     }, []);
-
-    const fetchData = useCallback(() => {
-      setData(data => {
-        const dataChanged = intersectionKey !== data.paging?.nextCursor;
-        const infinitePaging = stateRef.current.infinitePaging;
-        const shouldSearch = searchId && searchId !== stateRef.current.searchId;
-        const shouldFetch =
-          !stateRef.current.isFetching &&
-          !stateRef.current.preventFetch &&
-          !reachedMax &&
-          (withIntersection || shouldSearch
-            ? true
-            : infinitePaging.matchedDocs
-            ? data.data.length < infinitePaging.matchedDocs && intersectionKey
-            : data.paging?.nextCursor === undefined ||
-              (intersectionKey && data.paging.nextCursor !== null));
-
-        if (shouldFetch) {
-          setLoading(true);
-          let withFetch = true;
-          let withEq = true;
-          let _randomize =
-            randomize === undefined ? !intersectionKey : !!randomize;
-          let _limit = limit;
-
-          if (shouldSearch) {
-            stateRef.current.searchId = searchId;
-            const index = data.data.findIndex(
-              d => d.id === searchId || d === searchId
-            );
-            if (index === -1) {
-              _randomize = true;
-              withEq = true;
-              data.data = [];
-              delete data.paging;
-            } else {
-              data.data = data.data
-                .slice(index)
-                .filter(
-                  item =>
-                    new Date(item.createdAt).getTime() <=
-                    new Date(data.data[index].createdAt).getTime()
-                );
-
-              if (intersectionKey) {
-                _randomize = false;
-                withEq = false;
-              }
-
-              if (
-                (data.paging.nextCursor
-                  ? false
-                  : infinitePaging.matchedDocs
-                  ? data.data.length === infinitePaging.matchedDocs
-                  : true) ||
-                (_limit =
-                  data.data.length > _limit
-                    ? _limit || Infinity
-                    : _limit > data.data.length
-                    ? _limit - data.data.length
-                    : _limit) === 0
-              ) {
-                data.paging.nextCursor = null;
-                withFetch = false;
-              } else {
-                data.paging.nextCursor = data.data[data.data.length - 1].id;
-                withFetch = intersectionKey;
-              }
-
-              handleAction &&
-                handleAction("data", {
-                  currentData: data,
-                  shallowUpdate: true,
-                  dataSize: data.data.length
-                });
-            }
-          }
-          if (withFetch) {
-            (async () => {
-              try {
-                stateRef.current.isFetching = true;
-
-                const _url =
-                  url +
-                  `?limit=${_limit || ""}&cursor=${data.paging?.nextCursor ||
-                    ""}&withEq=${withEq}&randomize=${_randomize}&exclude=${(
-                    exclude || []
-                  )
-                    .concat(data.data || [])
-                    .map(d => d.id || d._id || d)
-                    .join(",")}&${
-                    searchParams
-                      ? searchParams
-                      : dataKey
-                      ? `select=${dataKey}`
-                      : ""
-                  }`;
-
-                let _data = await http.get(_url, {
-                  withCredentials,
-                  ...httpConfig
-                });
-                stateRef.current.dataChanged =
-                  !data.paging?.nextCursor ||
-                  data.paging.nextCursor !== _data.paging.nextCursor ||
-                  data.data.length !== _data.data.length;
-
-                stateRef.current.isNewData = stateRef.current.dataChanged;
-
-                if (isObject(_data)) {
-                  if (_data.paging) {
-                    if (_data.paging.matchedDocs) {
-                      infinitePaging.withMatchedCursor =
-                        _data.paging.nextCursor;
-                      infinitePaging.matchedDocs = _data.paging.matchedDocs;
-                    }
-                  } else setShowRetry(true);
-
-                  handleAction &&
-                    handleAction("data", {
-                      currentData: _data,
-                      shallowUpdate: false,
-                      dataSize: _data.data.length
-                    });
-                  data = {
-                    ..._data,
-                    data: data.data.concat(addToSet(_data.data))
-                  };
-
-                  setData(data);
-                } else setShowRetry(true);
-              } catch (msg) {
-                console.log(msg, " msg ");
-                setShowRetry(true);
-                (withCredentials || withError) && setSnackBar(msg);
-              } finally {
-                stateRef.current.isFetching = false;
-                setLoading(false);
-              }
-            })();
-          }
-        }
-        if (withCredentials === false) {
-          // get only public data during session timeout
-          // or user isn't logged in
-          data.data = data.data.filter(
-            typeof validatePublicDatum === "function"
-              ? validatePublicDatum
-              : item =>
-                  item.visibility ? item.visibility === "everyone" : true
-          );
-        }
-        return dataChanged ? { ...data } : data;
-      });
-    }, [
-      url,
-      withCredentials,
-      httpConfig,
-      dataKey,
-      limit,
-      searchParams,
-      intersectionKey,
-      withIntersection,
-      searchId,
-      validatePublicDatum,
-      setSnackBar,
-      handleAction,
-      reachedMax,
-      randomize,
-      exclude,
-      withError
-    ]);
 
     const propMemo = useMemo(
       () => ({
@@ -293,83 +384,94 @@ const InfiniteScroll = React.forwardRef(
         data,
         loading,
         reachedMax,
+        setLoading,
         willRefetch: !!(data.data.length && data.paging?.nextCursor),
         dataChanged: stateRef.current.dataChanged,
-        isNewData: stateRef.current.isNewData,
         infinitePaging: stateRef.current.infinitePaging,
+        shallowUpdate: stateRef.current.shallowUpdate,
         setObservedNode: (nodeOrFunc, strictMode = true) => {
-          if (strictMode ? nodeOrFunc && stateRef.current.dataChanged : true) {
-            determineFlowing();
-            setObservedNode(node => (node !== nodeOrFunc ? nodeOrFunc : node));
-          }
-        },
-        setData: (prop, numberOfEntries, preventFetch) => {
-          const handleNotice = _data => {
-            numberOfEntries =
-              numberOfEntries === undefined
-                ? _data.length > data.data.length
-                  ? 1
-                  : 0
-                : numberOfEntries;
-            if (_data.length && numberOfEntries && notifierDelay > -1) {
-              if (stateRef.current.dataNoticeStartTaskId) {
-                clearTimeout(stateRef.current.dataNoticeStartTaskId);
-                clearTimeout(stateRef.current.dataNoticeEndTaskId);
-              }
-              stateRef.current.prevNotice = _data
-                .slice(0, numberOfEntries)
-                .concat(stateRef.current.prevNotice || []);
-              stateRef.current.dataNoticeStartTaskId = setTimeout(() => {
-                setNotifier(notifier => ({
-                  ...notifier,
-                  data: stateRef.current.prevNotice,
-                  open: true
-                }));
-                stateRef.current.prevNotice = [];
-
-                stateRef.current.dataNoticeEndTaskId = setTimeout(() => {
-                  setNotifier(notifier => ({
-                    ...notifier,
-                    open: false
-                  }));
-                }, notifierDuration);
-              }, notifierDelay);
-            }
-          };
-          const setState = dataSize => {
-            if (dataSize < data.data.length)
-              stateRef.current.preventLoading = true;
-            else stateRef.current.preventLoading = false;
-            stateRef.current.preventFetch = preventFetch;
-          };
-          if (typeof prop === "function") {
-            setData(prev => {
-              const data = prop(prev);
-              if (data.data.length) handleNotice(data.data);
-              else {
-                setShowEnd(false);
-                setObservedNode(null);
-              }
-              setState(data.data.length);
-              return data;
-            });
-          } else {
-            if (prop.data.length) handleNotice(prop.data);
-            else {
-              setShowEnd(false);
-              setObservedNode(null);
-            }
-            setState(prop.data.length);
-            setData(prop);
-          }
-        },
-        setObservedNode: (nodeOrFunc, withDataChanged = true) => {
-          if (
-            withDataChanged ? nodeOrFunc && stateRef.current.dataChanged : true
-          ) {
+          if (strictMode ? stateRef.current.dataChanged : true) {
             setObservedNode(nodeOrFunc);
             determineFlowing();
           }
+        },
+        setData: (prop, options = {}) => {
+          let {
+            numberOfEntries,
+            preventFetch,
+            withStateDeterminant = true,
+            exclude
+          } = options;
+
+          let nullify;
+
+          const setPropsAndNotice = prop => {
+            const dataSize = prop.data.length;
+
+            //init state
+            if (withStateDeterminant && dataSize < data.data.length) {
+              const size = stateRef.current.infinitePaging.matchedDocs;
+              size &&
+                (stateRef.current.infinitePaging.matchedDocs = dataSize
+                  ? size - (data.data.length - dataSize)
+                  : 0);
+
+              stateRef.current.infinitePaging.matchedDocs === dataSize &&
+                !stateRef.current.isFetching &&
+                (nullify = true);
+            }
+
+            stateRef.current.dataChanged = dataSize !== data.data.length;
+            preventFetch !== undefined &&
+              (stateRef.current.isFetching = preventFetch);
+
+            exclude !== undefined &&
+              (stateRef.current.exclude += `${stateRef.current.sep}${exclude}`);
+
+            stateRef.current.shallowUpdate = true;
+
+            if (nullify && prop.data.paging) prop.data.paging.nextCursor = null;
+
+            // handle new entries and notify
+            if (dataSize) {
+              const _data = prop.data;
+              numberOfEntries =
+                numberOfEntries === undefined
+                  ? _data.length > data.data.length
+                    ? 1
+                    : 0
+                  : numberOfEntries;
+
+              if (_data.length && numberOfEntries && notifierDelay > -1) {
+                clearNotifierState(false);
+                stateRef.current.prevNotice = _data
+                  .slice(0, numberOfEntries)
+                  .concat(stateRef.current.prevNotice || []);
+                stateRef.current.dataNoticeStartTaskId = setTimeout(() => {
+                  setNotifier(notifier => ({
+                    ...notifier,
+                    data: stateRef.current.prevNotice,
+                    open: true
+                  }));
+                  stateRef.current.prevNotice = [];
+                  stateRef.current.dataNoticeEndTaskId = setTimeout(
+                    () => closeNotifier(undefined, false),
+                    notifierDuration
+                  );
+                }, notifierDelay);
+              } else closeNotifier(undefined, false);
+            } else {
+              // no entries
+              setShowEnd(false);
+              setObservedNode(null);
+            }
+
+            return prop;
+          };
+
+          if (typeof prop === "function")
+            setData(prev => setPropsAndNotice(prop(prev)));
+          else setData(setPropsAndNotice(prop));
         }
       }),
       [
@@ -385,16 +487,17 @@ const InfiniteScroll = React.forwardRef(
     );
 
     const nullifyChildren =
+      shallowLoading ||
       stateRef.current.readyState === "pending" ||
-      data.paging?.nextCursor === undefined;
+      stateRef.current.infinitePaging.matchedDocs === undefined ||
+      (data.paging?.nextCursor === undefined && !data.data.length);
 
     const isEnd =
-      data.paging?.nextCursor === null &&
       data.data.length &&
       !loading &&
       (stateRef.current.infinitePaging.matchedDocs
         ? data.data.length >= stateRef.current.infinitePaging.matchedDocs
-        : true);
+        : data.paging?.nextCursor === null);
 
     useEffect(() => {
       fetchData();
@@ -406,6 +509,22 @@ const InfiniteScroll = React.forwardRef(
         ref.current = propMemo;
       }
     }, [propMemo, ref]);
+
+    useEffect(() => {
+      handleAction &&
+        stateRef.current.dataChanged &&
+        handleAction("data", {
+          currentData: data,
+          dataSize: data.data.length,
+          shallowUpdate: stateRef.current.shallowUpdate
+        });
+    }, [handleAction, data]);
+
+    const handleRefetch = e => {
+      e.stopPropagation();
+      fetchData(true);
+    };
+
     endElement = isEnd
       ? endElement || (
           <Typography
@@ -420,96 +539,91 @@ const InfiniteScroll = React.forwardRef(
           </Typography>
         )
       : null;
-    const fullHeight = nullifyChildren || !data.data.length;
+    const fullHeight =
+      nullifyChildren || (data.data.length ? false : centerOnEmpty);
+
+    const shouldRefresh = !loading && !isEnd;
+
     return (
       <Box
         key={url}
         className={`data-scrollable ${className}`}
+        ref={containerRef}
+        component={Component}
+        {...componentProps}
         sx={{
-          position: "relative",
-          overflow: "hidden",
           height: "inherit",
           minHeight: "inherit",
-          display: "flex",
-          flexDirection: "column",
+          position: "relative",
+          overflow: "hidden",
+          flex: 1,
+          width: "100%",
+          "&,.data-scrollable-content": {
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: fullHeight ? "center" : "normal",
+            flexDirection: "column"
+          },
           ...sx
         }}
       >
-        {data.data.length}
-        <Box
-          ref={containerRef}
-          component={Component}
-          {...componentProps}
-          sx={{
-            display: "flex",
-            minHeight: "inherit",
-            height: "inherit",
-            flex: "inherit",
-            flexDirection: "column"
+        {notifierDelay > -1 &&
+        (withOverflowShowNotifierOnly ? showEnd : true) ? (
+          <NotifierComponent
+            containerRef={
+              scrollNodeRef === undefined ? containerRef : scrollNodeRef
+            }
+            {...notifierProps}
+            open={notifier.open}
+            data={notifier.data}
+            message={notifier.message}
+            closeNotifier={closeNotifier}
+          />
+        ) : null}
+
+        <div
+          className="data-scrollable-content"
+          style={{
+            flex: "none",
+            ...contentSx
           }}
-          className="data-scrollable-container"
         >
-          {notifierDelay > -1 ? (
-            <NotifierComponent
-              containerRef={
-                scrollNodeRef === undefined ? containerRef : scrollNodeRef
+          {shouldRefresh &&
+          stateRef.current.retryCount === stateRef.current.maxRetry ? (
+            <EmptyData nullifyBrand withReload onClick={handleRefetch} />
+          ) : shouldRefresh && showRetry && !data.data.length ? (
+            <EmptyData
+              sx={{
+                p: 3
+              }}
+              onClick={handleRefetch}
+            />
+          ) : nullifyChildren ? null : (
+            children(propMemo)
+          )}
+        </div>
+        <div>
+          {loading || shallowLoading ? (
+            <Loading
+              className={
+                data.data.length ? "custom-more-loading" : "custom-loading"
               }
-              open={notifier.open}
-              data={notifier.data}
-              message={notifier.message}
-              closeNotifier={closeNotifier}
+            />
+          ) : shouldRefresh && showRetry && data.data.length ? (
+            <EmptyData
+              sx={{
+                height: "120px",
+                minHeight: "120px"
+              }}
+              onClick={handleRefetch}
             />
           ) : null}
-          <div
-            className="data-scrollable-content-container"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              flex: 1
-            }}
-          >
-            <Box
-              className="data-scrollable-content"
-              sx={{
-                display: "flex",
-                flexDirection: "column",
-                flex: 1,
-                justifyContent: fullHeight ? "center" : "normal"
-              }}
-            >
-              {showRetry && !data.data.length ? (
-                <EmptyData
-                  sx={{
-                    p: 3
-                  }}
-                  onClick={e => {
-                    e.stopPropagation();
-                  }}
-                />
-              ) : nullifyChildren ? null : (
-                children(propMemo)
-              )}
-            </Box>
-            {loading && !stateRef.current.preventLoading ? (
-              <Loading
-                className={
-                  data.data.length ? "custom-more-loading" : "custom-loading"
-                }
-              />
-            ) : showRetry && data.data.length ? (
-              <EmptyData
-                sx={{
-                  height: "120px",
-                  minHeight: "120px"
-                }}
-                onClick={e => {
-                  e.stopPropagation();
-                }}
-              />
-            ) : null}
-          </div>
-          {reachedMax ? maxSizeElement : isEnd && showEnd ? endElement : null}
-        </Box>
+          {reachedMax
+            ? maxSizeElement
+            : isEnd && (withOverflowShowEndOnly ? showEnd : true)
+            ? endElement
+            : null}
+        </div>
       </Box>
     );
   }

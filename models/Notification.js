@@ -1,10 +1,11 @@
 import mongoose from "mongoose";
+import { mediaSchema } from "./Media.js";
 
 const schema = new mongoose.Schema(
   {
     type: {
       type: String,
-      enum: ["follow", "like", "comment"]
+      enum: ["follow", "like", "comment", "delete"]
     },
     to: {
       type: String,
@@ -29,7 +30,17 @@ const schema = new mongoose.Schema(
       required: function() {
         return !!this.document;
       }
-    }
+    },
+    cacheType: String,
+    cacheDocs: [
+      {
+        type: new mongoose.Schema({
+          text: String,
+          media: mediaSchema
+        })
+      }
+    ],
+    expireAt: Date
   },
   {
     collection: "notification",
@@ -44,11 +55,7 @@ const schema = new mongoose.Schema(
     }
   }
 );
-schema.index(
-  {
-    expireAt: 1
-  },
-  { expireAfterSeconds: 0 }
-);
+
+schema.index({ createdAt: 1 });
 
 export default mongoose.model("notification", schema);

@@ -8,6 +8,7 @@ import {
   deleteDocument
 } from "../utils/req-res-hooks.js";
 import User from "../models/User.js";
+
 export const createShort = async (req, res, next) => {
   try {
     if (!req.file) throw createError("Invalid request expect a video file");
@@ -15,22 +16,20 @@ export const createShort = async (req, res, next) => {
     req.body.url = req.file.publicUrl;
     req.body.mimetype = req.file.mimetype;
     let short = await new Short(req.body).save();
-    await User.updateOne(
-      {
-        _id: short.user
-      },
+    const user = await User.findByIdAndUpdate(
+      short.user,
       {
         $inc: {
-          shortsCount: 1
+          shortCount: 1
         }
-      }
+      },
+      { new: true }
     );
-    console.log("creaitng short....");
-    short = await short.populate("user");
+    short.user = user;
     res.json(short);
     const io = req.app.get("socketIo");
-    if (io && short.visibility !== "private") {
-      io.emit("short", short);
+    if (io) {
+      short.visibility !== "private" && io.emit("short", short);
       io.emit("update-user", short.user);
     }
   } catch (err) {
@@ -40,7 +39,7 @@ export const createShort = async (req, res, next) => {
 
 export const getFeedShorts = async (req, res, next) => {
   const start = new Date();
-  start.setDate(start.getDate() - 3);
+  start.setDate(start.getDate() - 1);
   return getFeedMedias({
     model: Short,
     req,

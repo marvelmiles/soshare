@@ -16,7 +16,6 @@ import shortRoutes from "./routes/short.js";
 import miscRoutes from "./routes/misc.js";
 import commentRoutes from "./routes/comment.js";
 import cookieParser from "cookie-parser";
-import { users, posts } from "./data.js";
 import { CLIENT_ENDPOINT } from "./config.js";
 import socket from "./socket.js";
 import { createError } from "./utils/error.js";
@@ -58,24 +57,26 @@ app.use("/api/users", userRoutes);
 app.use("/api/shorts", shortRoutes);
 app.use("/api/comments", commentRoutes);
 app.use("/api", miscRoutes);
-app.get("/", function(req, res) {
+app.get("/*", function(req, res) {
   res.sendFile(path.join(__dirname, "./client/build/index.html"));
 });
 
 app.use((err, req, res, next) => {
-  console.log(err.message, " power ");
   if (res.headersSent) {
     console.warn(
-      "[SERVER_ERROR]: ",
+      "[SERVER_ERROR: HEADER SENT]",
       req.headers.origin,
       req.originalUrl,
       " at ",
       new Date()
     );
   } else {
-    err = err.status ? err : createError(err);
-    if (err) return res.status(err.status).json(err.message);
+    err = err.status
+      ? err
+      : (err.message ? (err.url = req.url || "-") : true) && createError(err);
+    if (err) res.status(err.status).json(err.message);
   }
+
   if (req.file) deleteFile(req.file.publicUrl);
   if (req.files)
     for (const { publicUrl } of req.files) {
@@ -100,5 +101,9 @@ mongoose
     // Post.insertMany(posts);
   })
   .catch(error =>
-    console.log(`${error.message} did not connect at ${new Date()}`)
+    console.log(
+      `[SERVER_ERROR: DB_CONNECT_ERR] ${
+        error.message
+      } did not connect at ${new Date()}`
+    )
   );

@@ -86,12 +86,12 @@ export const LoadingDot = ({ label, color = "primary.main", sx }) => {
   );
 };
 
-const Loading = ({ sx, className }) => {
+const Loading = ({ sx, className, ...rest }) => {
   return (
     <Stack
       justifyContent="center"
       sx={{
-        color: "primary.dark",
+        color: "primary.main",
         width: "100%",
         minWidth: "100%",
         height: "inherit",
@@ -103,10 +103,11 @@ const Loading = ({ sx, className }) => {
       className={className}
     >
       <CircularProgress
-        sx={{
-          width: "60px",
-          height: "60px"
-        }}
+        value={60}
+        thickness={4}
+        size={20}
+        {...rest}
+        sx={{ color: "primary.main" }}
       />
     </Stack>
   );

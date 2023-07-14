@@ -1,134 +1,111 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef } from "react";
 import PropTypes from "prop-types";
 import PostWidget from "components/PostWidget";
 import { useContext } from "context/store";
 import { useSelector } from "react-redux";
-import { WidgetContainer } from "components/styled";
 import EmptyData from "components/EmptyData";
 import { Typography } from "@mui/material";
 import InfiniteScroll from "components/InfiniteScroll";
-import { checkVisibility } from "utils/validators";
+import useCallbacks from "hooks/useCallbacks";
+import { filterDocsByUserSet } from "utils";
+
 const PostsView = ({
-  plainWidget = true,
   title,
   url,
   sx,
   postSx,
   children,
-  centerEmptyText,
   scrollNodeRef,
   infiniteScrollProps,
-  privateView
+  privateUid
 }) => {
-  const { socket, composeDoc, setComposeDoc } = useContext();
+  const {
+    socket,
+    context: { composeDoc, blacklistedPosts, blacklistedUsers }
+  } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const infiniteScrollRef = useRef();
   const stateRef = useRef({
-    url: url || "/posts",
-    cachedData: {},
-    registeredIds: {}
+    url: url || "/posts"
   });
-  const _handleAction = useCallback(
-    (reason, post, _uid, cacheData = true) => {
-      const { setData, data } = infiniteScrollRef.current;
-      switch (reason) {
-        case "new":
-          if (stateRef.current.registeredIds[post]) return;
-          stateRef.current.registeredIds[post] = post;
-          const cache = stateRef.current.cachedData[post];
-          if (stateRef.current.cachedData[post]) {
-            data.data.splice(cache.index, 0, cache.data);
-          } else {
-            data.data = [post, ...data.data];
-          }
-          setData(
-            {
-              ...data
-            },
-            cache || post.user?.id === currentUser.id ? undefined : 1
-          );
-          break;
-        case "filter":
-          setData({
-            ...data,
-            data: data.data.filter((p, i) => {
-              if (_uid === p.user.id || p.id === post) {
-                delete stateRef.current.registeredIds[post];
-                if (cacheData)
-                  stateRef.current.cachedData[post] = {
-                    index: i,
-                    data: p
-                  };
-                return false;
-              }
-              return true;
-            })
-          });
-          break;
-        case "clear-cache":
-          delete stateRef.current.cachedData[post];
-          delete stateRef.current.registeredIds[post];
-          break;
-        case "update":
-          setData({
-            ...data,
-            data: data.data.map(p => (p.id === post.id ? { ...p, ...post } : p))
-          });
-          break;
-        default:
-          break;
-      }
-    },
-    [currentUser.id]
-  );
+  const { _handleAction } = useCallbacks(infiniteScrollRef, {
+    currentUser,
+    stateCtx: stateRef.current
+  });
   useEffect(() => {
-    socket.on("post", post => {
-      if (!checkVisibility(post, currentUser)) return;
-      _handleAction("new", post);
-    });
-    socket.on("update-post", post => {
-      _handleAction("update", post);
-    });
-    socket.on("filter-post", id => {
-      _handleAction("filter", id);
-    });
-  }, [socket, currentUser, _handleAction]);
+    if (socket) {
+      const handleFilter = ({ id }) => {
+        _handleAction("filter", { document: id, cacheData: false });
+      };
+
+      const handleAppend = post => {
+        (privateUid ? post.user.id === privateUid : true) &&
+          _handleAction("new", { document: post });
+      };
+
+      const handleUpdate = post => {
+        _handleAction("update", { document: post });
+      };
+
+      socket.on("post", handleAppend);
+      socket.on("update-post", handleUpdate);
+      socket.on("filter-post", handleFilter);
+
+      return () => {
+        socket.removeEventListener("filter-post", handleFilter);
+        socket.removeEventListener("post", handleAppend);
+        socket.removeEventListener("update-post", handleUpdate);
+      };
+    }
+  }, [socket, _handleAction, privateUid]);
 
   useEffect(() => {
-    if (composeDoc) {
+    if (composeDoc && composeDoc.docType === "post") {
       switch (composeDoc.reason) {
-        case "blacklisted-user":
-          _handleAction(composeDoc.action, composeDoc.id, composeDoc.user.id);
+        case "new":
+          _handleAction("new", { document: composeDoc.document });
+          break;
+        case "request":
+          _handleAction("update", composeDoc.document);
           break;
         default:
-          if (composeDoc.docType === "post" && composeDoc.document)
-            _handleAction("update", composeDoc.document);
           break;
       }
     }
-    return () => {
-      if (composeDoc?.docType === "post") setComposeDoc(undefined);
-    };
-  }, [composeDoc, _handleAction, setComposeDoc]);
+  }, [composeDoc, _handleAction]);
+
+  useEffect(() => {
+    filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
+  }, [blacklistedUsers]);
 
   return (
     <InfiniteScroll
+      exclude={Object.keys(blacklistedPosts).join(",")}
       root={document.documentElement}
-      Component={WidgetContainer}
-      componentProps={{
-        plainWidget,
-        sx: sx
-      }}
+      sx={sx}
       url={stateRef.current.url}
       ref={infiniteScrollRef}
-      notifierDelay={composeDoc?.user.id === currentUser.id ? -1 : undefined}
+      notifierDelay={
+        !currentUser.id || currentUser.id !== composeDoc?.document?.user?.id
+          ? undefined
+          : -1
+      }
       scrollNodeRef={scrollNodeRef}
       {...infiniteScrollProps}
-      handleAction={_handleAction}
       key={"infinite-posts"}
       withCredentials={!!currentUser.id}
+      readyState={
+        composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
+      }
+      searchId={
+        composeDoc?.docType === "post"
+          ? composeDoc.url
+            ? composeDoc.url && composeDoc.document.id
+            : undefined
+          : undefined
+      }
     >
-      {({ data: { data, paging }, setObservedNode, dataChanged }) => {
+      {({ data: { data, paging }, setObservedNode }) => {
         return paging?.nextCursor !== undefined || data.length ? (
           <>
             {title && (
@@ -138,32 +115,27 @@ const PostsView = ({
             )}
             {children}
             {data.length ? (
-              data.map((post, i) =>
-                post.user ? (
+              data.map((post, i) => {
+                return post.user ? (
                   <PostWidget
                     post={post}
                     maxHeight="none"
                     handleAction={_handleAction}
                     key={i}
                     ref={
-                      dataChanged && i === data.length - 1
+                      i === data.length - 1
                         ? node => node && setObservedNode(node)
                         : undefined
                     }
                     sx={postSx}
                     index={i}
                   />
-                ) : null
-              )
+                ) : null;
+              })
             ) : (
               <EmptyData
-                centerEmptyText={centerEmptyText}
-                sx={{
-                  minHeight: "calc(80vh -  202px)",
-                  height: "normal"
-                }}
                 label={
-                  privateView
+                  privateUid
                     ? `You don't have any post at the moment!`
                     : `We're sorry it seems there is no posts at the moment`
                 }
@@ -172,9 +144,8 @@ const PostsView = ({
           </>
         ) : (
           <EmptyData
-            centerEmptyText={centerEmptyText}
             label={
-              privateView
+              privateUid
                 ? `You don't have any post at the moment!`
                 : `We're sorry it seems there is no posts at the moment`
             }

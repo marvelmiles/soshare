@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { mediaSchema } from "./Media.js";
 
 const schema = new mongoose.Schema(
   {
@@ -49,19 +50,7 @@ const schema = new mongoose.Schema(
       }
     },
     media: {
-      type: new mongoose.Schema(
-        {
-          url: {
-            type: String,
-            required: "media url is required"
-          },
-          mimetype: {
-            type: String,
-            required: "media mimetype is required"
-          }
-        },
-        { _id: false, id: false }
-      ),
+      type: mediaSchema,
       required() {
         return this.media
           ? false
@@ -89,11 +78,7 @@ const schema = new mongoose.Schema(
       ref: "user",
       default: []
     },
-    thread: Object,
-    threadDepth: {
-      type: Number,
-      default: 0
-    }
+    thread: Object
   },
   {
     collection: "comment",

@@ -1,5 +1,5 @@
 import React, { useRef, useMemo, useEffect } from "react";
-import { useSearchParams, Navigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import Carousel from "react-multi-carousel";
@@ -10,19 +10,29 @@ import FollowMeWidget from "components/FollowMeWidget";
 
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = useMemo(
-    () => (searchParams.get("tab") || "posts").toLowerCase(),
-    [searchParams]
-  );
-  const q = useMemo(() => searchParams.get("q") || "", [searchParams]);
+  const { q, tab } = useMemo(() => {
+    let tab = (searchParams.get("tab") || "").toLowerCase();
+    switch (tab) {
+      case "posts":
+      case "shorts":
+      case "users":
+        break;
+      default:
+        tab = "";
+    }
+    return {
+      tab,
+      q: searchParams.get("q") || ""
+    };
+  }, [searchParams]);
 
   const carouselRef = useRef();
   const stateRef = useRef({
-    hasMounted: false
-  }).current;
+    withActiveTab: !!tab
+  });
   useEffect(() => {
     if (carouselRef.current) {
-      stateRef.hasMounted = true;
+      stateRef.current.withActiveTab = true;
       carouselRef.current.goToSlide(
         {
           posts: 0,
@@ -34,13 +44,8 @@ const Search = () => {
         }
       );
     }
-  }, [tab, stateRef]);
-  if (!q) return <Navigate to={-1} />;
-  const viewSx = {
-    p: 0,
-    minHeight: "inherit",
-    height: "auto"
-  };
+  }, [tab]);
+
   return (
     <MainView
       borderline
@@ -53,6 +58,7 @@ const Search = () => {
       <Tabs
         value={tab}
         onChange={(e, value) => {
+          e.stopPropagation();
           searchParams.set("tab", value);
           setSearchParams(searchParams);
         }}
@@ -81,15 +87,18 @@ const Search = () => {
         }}
         ref={carouselRef}
         beforeChange={current => {
-          searchParams.set(
-            "tab",
-            {
-              0: "posts",
-              1: "users",
-              2: "shorts"
-            }[current]
-          );
-          setSearchParams(searchParams);
+          if (stateRef.current.hasChange) {
+            searchParams.set(
+              "tab",
+              {
+                0: "posts",
+                1: "users",
+                2: "shorts"
+              }[current]
+            );
+            setSearchParams(searchParams);
+          }
+          stateRef.current.hasChange = true;
         }}
       >
         <PostsView
@@ -97,45 +106,49 @@ const Search = () => {
             dataKey: tab,
             searchParams: `q=${q}&select=posts`,
             url: `/search`,
-            readyState: q
-              ? tab === "posts" && stateRef.hasMounted
+            readyState:
+              tab === "posts" && stateRef.current.withActiveTab
                 ? "ready"
-                : "pending"
-              : false
-          }}
-          sx={viewSx}
-          postSx={{
-            "&:first-of-type": {
-              borderTop: "1px solid currentColor",
-              borderColor: "divider"
-            }
+                : "pending",
+            verify: true,
+            scrollNodeRef: null
           }}
           key={"serach-posts"}
         />
         <FollowMeWidget
           variant="block"
+          emptyDataMessage={
+            "We're sorry it seems there is no one to follow at the moment"
+          }
           infiniteScrollProps={{
             dataKey: tab,
             searchParams: `q=${q}&select=users`,
             url: `/search`,
             readyState:
-              tab === "users" && stateRef.hasMounted ? "ready" : "pending",
-            componentProps: {
-              plainWidget: true
-            }
+              tab === "users" && stateRef.current.withActiveTab
+                ? "ready"
+                : "pending",
+            scrollNodeRef: null
           }}
           key={"serach-users"}
+          widgetProps={{
+            plainWidget: true
+          }}
         />
         <ShortsView
-          plainWidget
           infiniteScrollProps={{
             dataKey: tab,
             searchParams: `q=${q}&select=shorts`,
             url: `/search`,
             readyState:
-              tab === "shorts" && stateRef.hasMounted ? "ready" : "pending"
+              tab === "shorts" && stateRef.current.withActiveTab
+                ? "ready"
+                : "pending",
+            scrollNodeRef: null
           }}
-          sx={viewSx}
+          componentProps={{
+            plainWidget: true
+          }}
           key={"serach-shorts"}
         />
       </Carousel>

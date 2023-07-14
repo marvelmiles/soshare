@@ -1,14 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import PropTypes from "prop-types";
-import useForm, { isEmail } from "hooks/useForm";
+import useForm from "hooks/useForm";
 import Button from "@mui/material/Button";
-import {
-  WidgetContainer,
-  StyledTypography,
-  StyledLink
-} from "components/styled";
+import { WidgetContainer, StyledLink } from "components/styled";
 import Loading from "components/Loading";
-import { InputBase, Stack, debounce } from "@mui/material";
+import { Stack, debounce } from "@mui/material";
 import Typography from "@mui/material/Typography";
 import http from "api/http";
 import { useContext } from "context/store";
@@ -16,6 +12,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import DoneIcon from "@mui/icons-material/Done";
 import { useLocation } from "react-router-dom";
 import EmailIcon from "@mui/icons-material/Email";
+import CustomInput from "components/CustomInput";
 
 const verifyUser = debounce(async (v, cb, relevance = "placeholder") => {
   try {
@@ -23,7 +20,7 @@ const verifyUser = debounce(async (v, cb, relevance = "placeholder") => {
       cb(
         undefined,
         await http.post(
-          `/auth/user-exist?relevance=${relevance}`,
+          `/auth/user-exists?relevance=${relevance}`,
           {
             [relevance]: v
           },
@@ -41,18 +38,102 @@ const VerificationMail = props => {
   const { user } = useLocation().state || {};
   const {
     formData,
-    errors,
     isSubmitting,
     handleSubmit,
+    errors: { all: withErr },
     handleChange,
     reset
   } = useForm({
     required: true,
     placeholders: user
   });
-  const { setSnackBar } = useContext();
-  const [isVerifying, setIsVerifying] = useState("");
-  const err = isVerifying === "close";
+  const { setSnackBar, setContext, closeSnackBar } = useContext();
+  const [verifyState, setVerifyState] = useState("");
+  const stateRef = useRef({ err: true });
+  const hasError = stateRef.current.err || withErr;
+  const verifyMsg = {
+    message: (
+      <span>
+        Verification mail isn't registered to an account.
+        <br />{" "}
+        {stateRef.current.isEmail ? (
+          <>
+            <StyledLink
+              to="/auth/signup"
+              onClick={() =>
+                setContext(prev => ({
+                  ...prev,
+                  userPlaceholder: formData,
+                  userPlaceholderMethod: "post"
+                }))
+              }
+            >
+              Signup
+            </StyledLink>{" "}
+            for a new account
+          </>
+        ) : null}{" "}
+      </span>
+    ),
+    severity: "error",
+    onClose() {}
+  };
+  const onChange = e => {
+    handleChange(e, ({ error }) => {
+      if (error) {
+        stateRef.current.err = true;
+        stateRef.current.isEmail = false;
+        setVerifyState("");
+        const id = setTimeout(() => {
+          setSnackBar(error);
+          clearTimeout(id);
+        }, 0);
+      } else {
+        stateRef.current.isEmail = true;
+        setVerifyState("pending");
+        verifyUser(
+          e.target.value,
+          (err, bool) => {
+            if (err) {
+              setSnackBar(err);
+              setVerifyState("");
+            } else if (bool) {
+              stateRef.current.err = false;
+              setVerifyState("valid");
+              closeSnackBar();
+            } else {
+              stateRef.current.err = true;
+              setVerifyState("invalid");
+              setSnackBar(verifyMsg);
+            }
+          },
+          "email"
+        );
+      }
+    });
+  };
+  const onSubmit = async e => {
+    const formData = handleSubmit(e);
+    if (formData) {
+      try {
+        setSnackBar({
+          message: (await http.post("/auth/recover-password", formData)) + ".",
+          severity: "success"
+        });
+        stateRef.current.isEmail = undefined;
+        stateRef.current.err = true;
+        setVerifyState("");
+        reset();
+      } catch (err) {
+        if (err === "Account isn't registered") {
+          stateRef.current.err = true;
+          err = verifyMsg;
+        }
+        setSnackBar(err);
+        reset(true);
+      }
+    }
+  };
 
   return (
     <Stack sx={{ minHeight: "100vh", width: "100%" }}>
@@ -64,114 +145,70 @@ const VerificationMail = props => {
           minHeight: "0"
         }}
         component="form"
-        onSubmit={async e => {
-          const formData = handleSubmit(e);
-          if (formData) {
-            try {
-              setSnackBar(await http.post("/auth/recover-password", formData));
-              reset();
-            } catch (err) {
-              if (err === "Account isn't registered") {
-                err = (
-                  <Typography>
-                    Please{" "}
-                    <StyledLink
-                      state={
-                        isEmail(formData.email)
-                          ? {
-                              user: formData
-                            }
-                          : undefined
-                      }
-                      to="/auth/signup"
-                    >
-                      signup
-                    </StyledLink>{" "}
-                    account before proceeding with verification.
-                  </Typography>
-                );
-              }
-              setSnackBar(err);
-              reset(true);
-            }
-          }
-        }}
+        onSubmit={onSubmit}
       >
-        <Typography variant="h5" textAlign="center">
+        <Typography variant="h5" textAlign="center" my color="text.secondary">
           Verification Mail
         </Typography>
-        <Typography variant="caption" color="warning.main">
+        <Typography variant="caption" color="text.secondary">
           Your email needs to be registered before you can proceed with
-          verification. Thank you for your cooperation
+          verification.
         </Typography>
-        <InputBase
-          sx={{ py: "5px", mb: err ? 0 : undefined }}
-          name="email"
-          placeholder="Verification mail"
-          value={formData.email || ""}
-          onInput={async e => {
-            handleChange(e);
-            verifyUser(
-              e.target.value,
-              (err, bool) => {
-                if (err) setSnackBar(err);
-                else if (bool) {
-                  if (bool === "pending") setIsVerifying(bool);
-                  setIsVerifying("done");
-                } else setIsVerifying("close");
-              },
-              "email"
-            );
-          }}
+        <CustomInput
+          label="Verification Mail"
           type="email"
-          error={!!(errors.email || errors.all || err)}
+          error={stateRef.current.isEmail !== undefined && hasError}
+          name="email"
+          value={formData.email || ""}
+          onChange={onChange}
           endAdornment={
-            isVerifying && (
-              <Stack style={{ paddingRight: "8px" }}>
-                {isVerifying === "pending" ? (
+            verifyState && (
+              <Stack
+                className="input-svg-container"
+                sx={{
+                  "& svg": {
+                    cursor: "default"
+                  }
+                }}
+              >
+                {verifyState === "pending" ? (
                   <Loading />
                 ) : (
                   {
-                    close: (
+                    invalid: (
                       <CloseIcon
                         sx={{
                           color: "error.main"
                         }}
                       />
                     ),
-                    done: (
+                    valid: (
                       <DoneIcon
                         sx={{
-                          fill: "success.main"
+                          color: "success.main"
                         }}
                       />
                     )
-                  }[isVerifying]
+                  }[verifyState]
                 )}
               </Stack>
             )
           }
           startAdornment={
-            <Stack sx={{ p: 1 }}>
+            <Stack>
               <EmailIcon />
             </Stack>
           }
         />
-        {err ? (
-          <StyledTypography variant="caption" color="error">
-            Email isn't registered
-          </StyledTypography>
-        ) : null}
-
         <Button
           variant="contained"
-          disabled={isSubmitting}
+          disabled={hasError || isSubmitting}
           sx={{
             width: "100%"
           }}
           type="submit"
         >
-          Send token
+          Continue
         </Button>
       </WidgetContainer>
     </Stack>

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import Stack from "@mui/material/Stack";
 import { StyledTypography } from "../styled";
@@ -10,12 +10,14 @@ import useFollowDispatch from "hooks/useFollowDispatch";
 import useDeleteDispatch from "hooks/useDeleteDispatch";
 import Skeleton from "@mui/material/Skeleton";
 import { Link } from "react-router-dom";
+
 CircularProgress.defaultProps = {
   size: 20,
   sx: {
     color: "primary.dark"
   }
 };
+
 const ShortFooter = ({
   miniShort,
   text = "",
@@ -27,36 +29,57 @@ const ShortFooter = ({
   animation
 }) => {
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
-  const { id: cid } = useSelector(state => state.user.currentUser || {});
-  const { toggleFollow, isProcessingFollow, isFollowing } = useFollowDispatch(
-    user
-  );
+  const {
+    id: cid,
+    settings: { hideDelDialog }
+  } = useSelector(state => state.user.currentUser);
+  const {
+    handleToggleFollow,
+    isProcessingFollow,
+    isFollowing
+  } = useFollowDispatch({
+    user,
+    docId: id
+  });
+
   const { handleDelete } = useDeleteDispatch({
     handleAction
   });
   const isOwner = user.id === cid;
-  const _handleAction = async reason => {
-    const closeDialog = () => {
-      handleAction("update", { id, pause: false });
-      setOpenDeleteDialog(false);
-    };
-    closeDialog();
-    switch (reason) {
-      case "delete":
-        handleDelete(`/shorts`, [id]);
-        break;
-      default:
-        break;
-    }
-  };
+  const _handleAction = useCallback(
+    (reason, options) => {
+      if (reason === "mounted") return;
+      const closeDialog = () => {
+        const taskId = setTimeout(() => {
+          handleAction("update", { document: { id, pause: false } });
+          clearTimeout(taskId);
+        }, 0);
+        setOpenDeleteDialog(false);
+      };
+      switch (reason) {
+        case "delete":
+          handleDelete(`/shorts`, [id], { label: "short" });
+          closeDialog();
+          break;
+        case "close":
+          closeDialog();
+          break;
+        default:
+          handleAction && handleAction(reason, options);
+          break;
+      }
+    },
+    [handleAction, handleDelete, id]
+  );
+
   return (
     <>
       <Stack
         sx={{
           position: "absolute",
           width: "100%",
-          bottom: 0,
-          p: 1,
+          bottom: "0",
+          p: miniShort ? "4px" : 1,
           alignItems: "flex-start",
           flexWrap: "wrap",
           borderBottomLeftRadius: "inherit",
@@ -72,13 +95,12 @@ const ShortFooter = ({
             variant="circular"
             width={30}
             height={30}
-            sx={{ backgroundColor: "common.blend" }}
             animation={animation}
           />
         ) : (
           <Avatar
             src={user.photoUrl}
-            alt={`$${user.username} photo`}
+            alt={`${user.username} photo`}
             variant="sm"
           />
         )}
@@ -96,7 +118,7 @@ const ShortFooter = ({
             />
           ) : (
             <StyledTypography
-              variant="h5"
+              variant="caption"
               maxLine={2}
               component={Link}
               onClick={e => e.stopPropagation()}
@@ -114,14 +136,15 @@ const ShortFooter = ({
           ) : (
             <StyledTypography
               component="div"
-              variant={miniShort ? "caption" : "h6"}
-              maxLine={2}
+              variant="caption"
+              className="textarea-readOnly"
+              textEllipsis={miniShort}
             >
               {text}
             </StyledTypography>
           )}
 
-          <Stack justifyContent="normal" pt="8px">
+          <Stack justifyContent="normal" pt="2px">
             {loading ? (
               <Skeleton
                 variant="text"
@@ -137,17 +160,17 @@ const ShortFooter = ({
                   <Button
                     variant="contained"
                     onClick={() => {
-                      handleAction("update", { id, pause: true });
-                      setOpenDeleteDialog(true);
+                      handleAction("update", { document: { id, pause: true } });
+
+                      hideDelDialog
+                        ? _handleAction("delete")
+                        : setOpenDeleteDialog(true);
                     }}
                   >
                     Delete
                   </Button>
                 ) : (
-                  <Button
-                    variant="contained"
-                    onClick={isProcessingFollow ? undefined : toggleFollow}
-                  >
+                  <Button variant="contained" onClick={handleToggleFollow}>
                     {isProcessingFollow ? (
                       <CircularProgress />
                     ) : isFollowing ? (
@@ -168,6 +191,7 @@ const ShortFooter = ({
           </Stack>
         </div>
       </Stack>
+
       <DeleteDialog
         open={openDeleteDialog}
         openFor="delete"

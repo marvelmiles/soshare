@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   Stack,
   Typography,
@@ -11,7 +11,12 @@ import {
   Popover
 } from "@mui/material";
 import { useSelector } from "react-redux";
-import { useNavigate, Link, useLocation } from "react-router-dom";
+import {
+  useNavigate,
+  Link,
+  useSearchParams,
+  useParams
+} from "react-router-dom";
 import SearchIcon from "@mui/icons-material/Search";
 import { useTheme } from "@mui/material";
 import { useDispatch } from "react-redux";
@@ -44,6 +49,7 @@ import { mapValidItems } from "utils";
 import Box from "@mui/material/Box";
 import UserSettings from "components/UserSettings";
 import { useMediaQuery } from "@mui/material";
+import { signoutUser } from "context/slices/userSlice";
 
 Popover.defaultProps = {
   open: false,
@@ -54,7 +60,7 @@ const Navbar = ({ routePage = "homePage" }) => {
   const {
     palette: { mode }
   } = useTheme();
-  const { socket, setSnackBar } = useContext();
+  const { socket, setSnackBar, prevPath } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const stateRef = useRef({
     notifications: {
@@ -70,9 +76,10 @@ const Navbar = ({ routePage = "homePage" }) => {
   const [unseens, setUnseens] = useState({
     notifications: 0
   });
+  const { userId } = useParams();
+  const [searchParams] = useSearchParams();
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const navigate = useNavigate();
-  const noHistory = useLocation().key === "default";
 
   useEffect(() => {
     (async () => {
@@ -83,31 +90,36 @@ const Navbar = ({ routePage = "homePage" }) => {
               withCredentials: true
             })) || {}
           );
-      } catch (message) {
-        setSnackBar(message);
-      }
+      } catch (_) {}
     })();
   }, [setSnackBar, currentUser.id]);
 
   useEffect(() => {
-    if (currentUser.id) {
-      socket.on("notification", (n, { filter, isNew }) => {
+    if (socket) {
+      const handleAppendNotification = (n, { filter, isNew }) => {
         if (isNew && !filter && n.to.id === currentUser.id) {
-          let notified = false;
+          let count = 0;
           setUnseens(unseens => {
-            if (notified) return unseens;
-            notified = true;
+            if (count) {
+              unseens.notifications = count;
+              return unseens;
+            }
+            count = unseens.notifications + 1;
             return {
               ...unseens,
-              notifications: unseens.notifications + 1
+              notifications: count
             };
           });
-          stateRef.current.notifications.unmarked = {
-            data: [n]
-          };
+          if (popover.openFor !== "notifications")
+            stateRef.current.notifications.unmarked = {
+              data: [n].concat(
+                stateRef.current.notifications.unmarked.data || []
+              )
+            };
         }
-      });
-      socket.on("filter-notifications", notices => {
+      };
+
+      const handleDeleteNotifications = notices => {
         let notified = false;
         setUnseens(unseens => {
           if (notified) {
@@ -123,17 +135,32 @@ const Navbar = ({ routePage = "homePage" }) => {
                 : 0
           };
         });
-      });
+      };
+
+      if (currentUser.id) {
+        socket.on("notification", handleAppendNotification);
+        socket.on("filter-notifications", handleDeleteNotifications);
+      }
+
+      return () => {
+        socket.removeEventListener("notification", handleAppendNotification);
+        socket.removeEventListener(
+          "filter-notifications",
+          handleDeleteNotifications
+        );
+      };
     }
-  }, [socket, currentUser.id]);
+  }, [socket, currentUser.id, popover.openFor]);
 
   useEffect(() => {
-    isMd && setOpenDrawer(false);
+    setOpenUserSelect(false);
+    setOpenDrawer(false);
+    setPopover(prev => ({ ...prev, open: false }));
   }, [isMd]);
 
-  const toggleTheme = () => {
+  const toggleTheme = useCallback(() => {
     dispatch(toggleThemeMode());
-  };
+  }, [dispatch]);
   const handleDrawer = open => e => {
     if (e && e.type === "keydown" && (e.key === "Tab" || e.key === "Shift"))
       return;
@@ -151,11 +178,14 @@ const Navbar = ({ routePage = "homePage" }) => {
     }, 5000);
   };
 
-  const handleSubmit = e => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (query) navigate(`/search?q=${query}`);
-  };
+  const handleSearch = useCallback(
+    e => {
+      e.preventDefault();
+      e.stopPropagation();
+      navigate(`/search?q=${query}&tab=${searchParams.get("tab") || "posts"}`);
+    },
+    [searchParams, navigate, query]
+  );
 
   const markNotification = async (
     index,
@@ -197,7 +227,6 @@ const Navbar = ({ routePage = "homePage" }) => {
       to && navigate(to);
       await http.patch(`/users/notifications/mark`, filter.map(({ id }) => id));
     } catch (err) {
-      console.log(err, "errr");
       const validList = mapValidItems(err, filter);
       if (validList.length)
         if (cacheType) stateRef.current.notifications[cacheType].filter = true;
@@ -231,14 +260,29 @@ const Navbar = ({ routePage = "homePage" }) => {
     setOpenUserSelect(true);
   };
 
-  const loginPath = `/auth/signin?redirect=${encodeURIComponent(
+  const handleSignOut = () => {
+    dispatch(signoutUser());
+    setOpenDrawer(false);
+    navigate("/");
+  };
+
+  const signinPath = `/auth/signin?redirect=${encodeURIComponent(
     createRelativeURL()
   )}`;
+
+  const createProfileParam = (value, key = "view") =>
+    `/u/${userId || currentUser.id}?${key}=${value}${
+      userId === currentUser.id ? "" : `&wc=true`
+    }`;
 
   const selectElem = currentUser.id ? (
     <FormControl
       variant="outlined"
-      sx={{ width: "100%", minWidth: "180px", px: 2 }}
+      sx={{
+        width: "100%",
+        minWidth: "180px",
+        px: 2
+      }}
     >
       <Select
         onClose={closeUserSelect}
@@ -252,6 +296,8 @@ const Navbar = ({ routePage = "homePage" }) => {
           borderRadius: "0.25rem",
           p: "0.25rem 1rem",
           gap: 2,
+          border: "1px solid currentColor",
+          borderColor: "divider",
           "& .MuiSvgIcon-root": {
             fontSize: "32px"
           },
@@ -282,22 +328,28 @@ const Navbar = ({ routePage = "homePage" }) => {
         {{
           profilePage: [
             {
-              to: `/u/${currentUser.id}?compose=create-post`,
+              to: `/u/${currentUser.id}`,
+              label: "Me",
+              icon: PersonIcon,
+              nullify: currentUser.id === userId
+            },
+            {
+              to: createProfileParam("create-post", "compose"),
               label: "Create Post",
               icon: AddIcon
             },
             {
-              to: `/u/${currentUser.id}?compose=create-short`,
+              to: createProfileParam("create-short", "compose"),
               label: "Create Short",
               icon: AddToQueueIcon
             },
             {
-              to: `/u/${currentUser.id}?view=user-posts`,
+              to: createProfileParam("user-posts"),
               label: "My Posts",
               icon: ListAltIcon
             },
             {
-              to: `/u/${currentUser.id}?view=user-shorts`,
+              to: createProfileParam("user-shorts"),
               label: "My Shorts",
               icon: VideoLibraryIcon
             }
@@ -305,7 +357,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           homePage: [
             {
               to: `/u/${currentUser.id}`,
-              label: "Profile",
+              label: "Me",
               icon: PersonIcon
             }
           ]
@@ -348,8 +400,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           sx={{
             py: "16px"
           }}
-          component={StyledLink}
-          to={"/auth/signin"}
+          onClick={handleSignOut}
         >
           <LogoutIcon />
           <Typography>Signout</Typography>
@@ -359,7 +410,7 @@ const Navbar = ({ routePage = "homePage" }) => {
   ) : (
     <IconButton
       component={Link}
-      to={loginPath}
+      to={signinPath}
       sx={{
         display: {
           xs: "none",
@@ -393,7 +444,7 @@ const Navbar = ({ routePage = "homePage" }) => {
           }
         }}
         component="form"
-        onSubmit={handleSubmit}
+        onSubmit={handleSearch}
       >
         <InputBase
           placeholder="Search..."
@@ -447,7 +498,7 @@ const Navbar = ({ routePage = "homePage" }) => {
 
   const handleGoBack = e => {
     e.stopPropagation();
-    navigate(-1);
+    navigate(-1, { state: null, replace: true });
   };
 
   return (
@@ -471,11 +522,11 @@ const Navbar = ({ routePage = "homePage" }) => {
             md: 1
           }}
         >
-          {noHistory ? null : (
+          {prevPath ? (
             <IconButton title="Go back" onClick={handleGoBack}>
               <KeyboardBackspaceIcon />
             </IconButton>
-          )}
+          ) : null}
           <BrandIcon
             sx={{
               display: {
@@ -497,6 +548,10 @@ const Navbar = ({ routePage = "homePage" }) => {
         >
           <IconButton onClick={toggleTheme}>
             {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}
+          </IconButton>
+
+          <IconButton component={StyledLink} to="/shorts">
+            <SlideshowIcon />
           </IconButton>
           {currentUser.id ? (
             <>
@@ -528,12 +583,12 @@ const Navbar = ({ routePage = "homePage" }) => {
                   <MessageIcon />
                 </StyledBadge>
               </IconButton>
+
               <IconButton onClick={showUserSettings}>
                 <ManageAccountsIcon />
               </IconButton>
             </>
           ) : null}
-
           {!openDrawer && selectElem}
         </Stack>
 
@@ -616,9 +671,18 @@ const Navbar = ({ routePage = "homePage" }) => {
               onClick: toggleTheme
             },
             {
+              title: "Shorts",
+              icon: SlideshowIcon,
+              to: "/shorts"
+            },
+            {
               title: currentUser.id ? "Signout" : "Signin",
               icon: currentUser.id ? LogoutIcon : LoginIcon,
-              to: currentUser.id ? "/auth/signin" : loginPath
+              onClick: currentUser.id
+                ? handleSignOut
+                : () => {
+                    navigate(signinPath);
+                  }
             }
           ].map((l, i) =>
             l.nullify ? null : (
@@ -626,7 +690,7 @@ const Navbar = ({ routePage = "homePage" }) => {
                 key={i}
                 component={l.to ? Link : "li"}
                 to={l.to}
-                onClick={l.onClick}
+                onClick={l.to ? () => setOpenDrawer(false) : l.onClick}
               >
                 <ListItemIcon>
                   <StyledBadge
@@ -663,19 +727,21 @@ const Navbar = ({ routePage = "homePage" }) => {
         {openDrawer && selectElem}
         {searchElem}
       </SwipeableDrawer>
-      <Popover
-        open={popover.open}
-        anchorEl={popover.anchorEl}
-        PaperProps={{
-          sx: {
-            width: "100%",
-            maxWidth: 450
-          }
-        }}
-        onClose={closePopover}
-      >
-        {renderPopover()}
-      </Popover>
+      {currentUser.id ? (
+        <Popover
+          open={popover.open}
+          anchorEl={popover.anchorEl}
+          PaperProps={{
+            sx: {
+              width: "100%",
+              maxWidth: 420
+            }
+          }}
+          onClose={closePopover}
+        >
+          {renderPopover()}
+        </Popover>
+      ) : null}
     </>
   );
 };

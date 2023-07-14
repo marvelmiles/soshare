@@ -19,3 +19,15 @@ export const removeFirstItemFromArray = (item, array = []) => {
   }
   return array;
 };
+
+export const mapToObject = (arr = []) => {
+  const map = {};
+  for (let i = 0; i < arr.length; i++) {
+    const key =
+      arr[i].id || arr[i]._id || typeof arr[i] === "string"
+        ? arr[i]
+        : JSON.stringify(arr[i]);
+    map[key] = i;
+  }
+  return map;
+};

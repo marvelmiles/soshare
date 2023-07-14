@@ -1,60 +1,69 @@
-import { createVisibilityQuery, mergeThread } from "./serializers.js";
+import { createVisibilityQuery } from "./serializers.js";
 import { verifyToken } from "../utils/middlewares.js";
 import {
   getAll,
   sendAndUpdateNotification,
-  handleMiscDelete
+  handleMiscDelete,
+  getThreadsByRelevance
 } from "./index.js";
 import { createError } from "./error.js";
 import User from "../models/User.js";
 import { deleteFile } from "./file-handlers.js";
-import { isObjectId } from "./validators.js";
+
 export const getFeedMedias = async ({
   req,
   res,
   next,
   model,
   match,
-  withFallbackVisibility,
   dataKey,
   populate,
+  refPath,
+  isVisiting,
+  vet,
   ...rest
 }) => {
   try {
-    req.query.randomize = req.query.randomize || "true";
     req.query.randomize = "false";
+    req.query.withMatchedDocs = "true";
     if (req.cookies?.access_token) verifyToken(req);
+
     if (!match && req.params.documentId) {
       match = {
         document: req.params.documentId
       };
     }
+    dataKey && refPath === undefined && (refPath = "_id");
+
+    match = await createVisibilityQuery({
+      refPath,
+      isVisiting,
+      query: match,
+      userId: req.params.userId,
+      searchUser: req.user ? req.user.id : undefined
+    });
+
     const result = await getAll({
       model,
       populate,
       dataKey,
-      match: await createVisibilityQuery({
-        query: match,
-        userId: req.user?.id,
-        withFallbackVisibility:
-          withFallbackVisibility || model.modelName !== "user"
-      }),
+      match,
       query: req.query,
       userId: req.user?.id,
       ...rest
     });
     if (req.query.withThread === "true") {
-      let i = 0;
       if (req.query.ro || req.query.threadPriorities) {
-        for (let doc of result.data.slice(
-          req.query.threadSkip || 0,
-          req.query.threadLimit || Number(req.query.limit) || 20
-        )) {
-          result.data[i] = await mergeThread(model, doc, req.query, populate);
-          i++;
+        for (let i = 0; i < result.data.length; i++) {
+          result.data[i].threads = await getThreadsByRelevance(
+            result.data[i].id,
+            req.query,
+            model
+          );
         }
       }
     }
+
     res.json(result);
   } catch (err) {
     next(err);
@@ -63,41 +72,25 @@ export const getFeedMedias = async ({
 
 export const likeMedia = async (model, req, res, next) => {
   try {
-    const media = await model.findById(req.params.id);
-    if (media.likes.get(req.user.id))
-      return next(
-        createError(
-          `${model.collection.collectionName} already liked by you`,
-          200
-        )
-      );
-    media.likes.set(req.user.id, true);
-    res.json(
-      (await model.findByIdAndUpdate(
+    const media = await model
+      .findByIdAndUpdate(
         req.params.id,
         {
-          likes: media.likes
+          [`likes.${req.user.id}`]: true
         },
         { new: true }
-      )).likes
-    );
+      )
+      .populate("user");
+
+    const io = req.app.get("socketIo");
+    if (io) io.emit(`update-${model.modelName}`, media);
+    res.json(media.likes);
 
     await sendAndUpdateNotification({
       req,
       type: "like",
       docType: model.modelName,
-      document: media,
-      eventName: `update-${model.modelName}`,
-      docPopulate: [
-        {
-          path: "user document"
-        }
-      ],
-      reportIds: {
-        like: media.likes,
-        comment: media.comments,
-        user: [media.user]
-      }
+      document: media
     });
   } catch (err) {
     next(err);
@@ -106,30 +99,27 @@ export const likeMedia = async (model, req, res, next) => {
 
 export const dislikeMedia = async (model, req, res, next) => {
   try {
-    const media = await model.findById(req.params.id);
-    if (media.likes.get(req.user.id)) media.likes.delete(req.user.id);
-    res.json(
-      (await model.findByIdAndUpdate(
+    const likes = (await model.findById(req.params.id))?.likes;
+    if (!likes) return res.json({});
+    likes.delete(req.user.id);
+    const media = await model
+      .findByIdAndUpdate(
         req.params.id,
         {
-          likes: media.likes
+          likes
         },
         { new: true }
-      )).likes
-    );
-
-    await sendAndUpdateNotification({
+      )
+      .populate("user");
+    const io = req.app.get("socketIo");
+    if (io && media) io.emit(`update-${model.modelName}`, media);
+    res.json(likes);
+    sendAndUpdateNotification({
       req,
       filter: true,
       type: "like",
       docType: model.modelName,
-      document: media,
-      eventName: `update-${model.modelName}`,
-      docPopulate: [
-        {
-          path: "user document"
-        }
-      ]
+      document: media
     });
   } catch (err) {
     next(err);
@@ -145,65 +135,83 @@ export const getDocument = async ({
     {
       path: "user"
     }
-  ],
-  withFallbackVisibility
+  ]
 }) => {
   try {
-    if (!isObjectId(req.params.id))
-      throw createError(`${model.modelName} not found`, 404);
+    const _id = req.params.id || req.params.userId;
+
     if (req.cookies.access_token) verifyToken(req);
     let list = [];
-    if (req.usr) {
+    if (req.user) {
       list = (await User.findById(req.user.id)).recommendationBlacklist;
     }
     const query = await createVisibilityQuery({
-      withFallbackVisibility:
-        withFallbackVisibility || model.modelName !== "user",
       userId: req.user?.id,
-      searchUser: req.params.id,
+      searchUser: req.params.userId,
       query: {
-        _id: req.params.id
+        _id
       },
+      allowDefaultCase: true,
       withBlacklist: false
     });
 
-    const doc = await model.findOne(query);
+    let doc = await model.findOne(query);
     if (!doc) throw createError(`${model.modelName} not found`, 404);
     if (list.includes(doc.user)) throw createError(`owner blacklisted`, 400);
-    res.json(await doc.populate(populate));
+    doc = await doc.populate(populate);
+
+    res.json(doc);
   } catch (err) {
     next(err);
   }
 };
 
-export const deleteDocument = async ({ req, res, next, model }) => {
+export const deleteDocument = async ({
+  req,
+  res,
+  next,
+  model,
+  withCount = true
+}) => {
   try {
     const doc = await model.findById(req.params.id);
-    if (!doc) throw createError(`${model.modelName} not found`);
+    if (!doc) return res.json(`Successfully deleted ${model.modelName}`);
     if (doc.user !== req.user.id)
       throw createError("Delete operation denied", 401);
     await model.deleteOne({
       _id: req.params.id
     });
-    res.json(`Successfully deleted ${model.modelName}`);
-    const io = req.app.get("socketIo");
-    if (doc.user && model.modelName !== "comment") {
-      const user = await User.findByIdAndUpdate(doc.user, {
-        $inc: {
-          [`${model.modelName}Count`]: -1
+
+    setTimeout(() => {
+      res.json(`Successfully deleted ${model.modelName}`);
+      (async () => {
+        const user = await User.findByIdAndUpdate(
+          {
+            _id: doc.user
+          },
+          withCount
+            ? {
+                $inc: { [`${model.modelName}Count`]: -1 }
+              }
+            : {},
+          { new: true }
+        );
+        const io = req.app.get("socketIo");
+        if (io) {
+          doc.user = user;
+          io.emit(`filter-${model.modelName}`, doc);
+          doc.user && io.emit("update-user", user);
         }
-      });
-      if (io) {
-        io.emit(`filter-${model.modelName}`, doc.id);
-        io.emit("update-user", user);
-      }
-    }
-    handleMiscDelete(doc.id, io, model.modelName !== "short");
-    if (doc.medias) {
-      for (let { url } of doc.medias) {
-        deleteFile(url);
-      }
-    } else if (doc.url) deleteFile(doc.url);
+        handleMiscDelete(doc.id, io, {
+          withComment: model.modelName !== "short"
+        });
+        if (doc.medias) {
+          for (let { url } of doc.medias) {
+            deleteFile(url);
+          }
+        } else if (doc.url) deleteFile(doc.url);
+      })();
+    }, 10000);
   } catch (err) {
     next(err);
   }

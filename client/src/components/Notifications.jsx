@@ -11,7 +11,6 @@ import {
   List,
   ListItemButton,
   Box,
-  useTheme,
   Avatar
 } from "@mui/material";
 import CircleIcon from "@mui/icons-material/Circle";
@@ -27,77 +26,86 @@ import ListItemAvatar from "@mui/material/ListItemAvatar";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import { useContext } from "context/store";
-import { alpha } from "@mui/material/styles";
 import { Link } from "react-router-dom";
+import moment from "moment";
+import PostWidget from "components/PostWidget";
+import { StyledLink } from "./styled";
+import Tooltip from "@mui/material/Tooltip";
+import UserTip from "tooltips/UserTip";
 
 const Notifications = ({
   markNotification,
   defaultType = "unmarked",
-  cache = {},
+  cache = {
+    unmarked: {},
+    marked: {}
+  },
   dataSx,
   sx
 }) => {
+  const t = useRef();
   const { socket } = useContext();
   const [disabled, setDisabled] = useState(true);
-  const [processing, setProcessing] = useState(false);
   const [type, setType] = useState(defaultType);
   const cid = useSelector(state => state.user.currentUser?.id);
   const stateRef = useRef({
-    notiDelKeyData: {}
+    registeredIds: {}
   });
-  const selectedColor = alpha(useTheme().palette.primary.main, "0.08");
-  const _handleAction = useCallback((reason, res, cacheData) => {
+  const _handleAction = useCallback((reason, options = {}) => {
+    const { document, dataSize } = options;
     switch (reason) {
       case "filter":
         infiniteScrollRef.current.setData(data => ({
           ...data,
-          data: data.data.filter((d, i) => {
-            if (d.id === res) {
-              if (cacheData)
-                stateRef.current.notiDelKeyData[res] = {
-                  index: i,
-                  data: d
-                };
+          data: data.data.filter(({ id }, i) => {
+            if (id === document.id) {
+              stateRef.current.registeredIds[id] = i;
               return false;
             }
             return true;
           })
         }));
         break;
-      case "clear-cache":
-        delete stateRef.current.notiDelKeyData[res];
-        break;
       case "new":
-        if (stateRef.current.notiDelKeyData[res]) {
-          infiniteScrollRef.current.data.data.splice(
-            stateRef.current.notiDelKeyData[res].index,
-            0,
-            stateRef.current.notiDelKeyData[res].data
-          );
+        const index = stateRef.current.registeredIds[document.id];
+        if (index > -1) {
+          infiniteScrollRef.current.data.data.splice(index, 0, document);
           infiniteScrollRef.current.setData(data => ({
             ...data
           }));
         }
         break;
+
       case "data":
-        console.log(res);
-        if (res.dataSize) setDisabled(false);
+        if (dataSize) setDisabled(false);
+        else setDisabled(true);
         break;
       case "close":
-        setProcessing(false);
-        setDisabled(stateRef.current.disabled || false);
+        setDisabled(true);
         break;
       default:
         break;
     }
   }, []);
-  const { handleDelete, activeDelItem } = useDeleteDispatch({
+  const { handleDelete, isProcessingDelete } = useDeleteDispatch({
     handleAction: _handleAction
   });
   const infiniteScrollRef = useRef();
 
   useEffect(() => {
-    socket.on("notification", (n, { filter, isNew }) => {
+    const handleFilter = notices => {
+      infiniteScrollRef.current.setData({
+        ...infiniteScrollRef.data,
+        data: infiniteScrollRef.current.data.data.filter(
+          ({ id }) => !notices.includes(id)
+        )
+      });
+    };
+
+    let appended = false;
+    const handleAppend = (n, { filter, isNew }) => {
+      if (appended) return;
+      appended = true;
       if (n.to.id === cid && type === "unmarked") {
         if (filter)
           infiniteScrollRef.current.setData({
@@ -117,23 +125,17 @@ const Notifications = ({
           });
         }
       }
-    });
-    socket.on("filter-notifications", notices => {
-      infiniteScrollRef.current.setData({
-        ...infiniteScrollRef.data,
-        data: infiniteScrollRef.current.data.data.filter(
-          ({ id }) => !notices.includes(id)
-        )
-      });
-    });
+    };
+
+    socket.on("notification", handleAppend);
+    socket.on("filter-notifications", handleFilter);
+
+    return () => {
+      socket.removeEventListener("notification", handleAppend);
+      socket.removeEventListener("filter-notifications", handleFilter);
+    };
   }, [socket, type, cid]);
 
-  const handleTabSwitch = (type, e = {}) => {
-    e && e.stopPropagation && e.stopPropagation();
-    setProcessing(false);
-    setDisabled(e.disabled !== false);
-    type && setType(type);
-  };
   useEffect(() => {
     if (cache[type].filter) {
       const cachedData = cache[type].data;
@@ -145,48 +147,43 @@ const Notifications = ({
       });
       cache[type] = {};
     }
+    cache[type].data = [];
   }, [cache, type]);
+
+  const handleTabSwitch = (type, e = {}) => {
+    e && e.stopPropagation && e.stopPropagation();
+    setDisabled(e.disabled !== false);
+    type && setType(type);
+  };
 
   const handleDeleteAll = e => {
     e.stopPropagation();
-    stateRef.current.disabled = true;
-    setProcessing(true);
     const data = infiniteScrollRef.current.data.data;
-    data.forEach((d, i) => {
-      stateRef.current.notiDelKeyData[d.id] = {
-        index: i,
-        data: d
-      };
-    });
     infiniteScrollRef.current.setData({
       ...infiniteScrollRef.current.data,
       data: []
     });
+    setDisabled(true);
     handleDelete(`/users/notifications`, data, {
       label: "notification"
     });
   };
 
-  const deleteOne = id => e => {
+  const deleteOne = notice => e => {
     e.stopPropagation();
-    if (activeDelItem !== "all" && activeDelItem !== id) {
-      setProcessing(true);
-      handleDelete(`/users/notifications`, [id], {
-        label: "notification"
-      });
-    }
+    handleDelete(`/users/notifications`, [notice], {
+      label: "notification"
+    });
   };
 
   const markOne = (i, to) => e => {
     e.stopPropagation();
-    if (type === "unmarked") {
-      setProcessing(true);
+    if (type === "unmarked")
       markNotification(i, infiniteScrollRef.current, {
         to,
         handleState: handleTabSwitch,
         cacheType: "marked"
       });
-    }
   };
 
   return (
@@ -203,8 +200,10 @@ const Notifications = ({
         }
         handleAction={_handleAction}
         sx={sx}
+        withCredentials={!!cid}
+        exclude={(cache[type].data || []).map(n => n.id).join(",")}
       >
-        {({ setObservedNode, data: { data }, dataChanged }) => {
+        {({ setObservedNode, data: { data } }) => {
           return (
             <>
               <Stack
@@ -229,7 +228,7 @@ const Notifications = ({
                     Notices
                   </Typography>
                 </Stack>
-                {processing ? (
+                {isProcessingDelete ? (
                   <LoadingDot sx={{ p: 1 }} />
                 ) : type === "unmarked" ? (
                   <Button disabled={disabled} onClick={markOne(-1)}>
@@ -246,50 +245,120 @@ const Notifications = ({
                   <List sx={{ mt: 0, p: 0 }}>
                     {data.map((n, i) => {
                       const renderMsg = () => {
+                        let withRo;
+                        const formatedDate = moment(n.createdAt).fromNow();
+                        const moreInfo = (
+                          <span>
+                            {
+                              {
+                                like: " liked",
+                                comment: ` soshared a ${n.docType} on`
+                              }[n.type]
+                            }{" "}
+                            {n.document?.user?.id === cid ||
+                            (withRo = n.document?.document?.user?.id === cid)
+                              ? "your"
+                              : "a"}{" "}
+                            {withRo ? (
+                              <StyledLink
+                                style={{ color: "inherit" }}
+                                to={`/${n.document.docType}s/${n.document.document.id}`}
+                              >
+                                {n.document.docType}
+                              </StyledLink>
+                            ) : n.document ? (
+                              n.docType
+                            ) : (
+                              <StyledLink
+                                style={{ color: "inherit" }}
+                                to={`/${n.docType}s/${n.document?.id || ""}`}
+                              >
+                                {n.docType}
+                              </StyledLink>
+                            )}{" "}
+                            {formatedDate}.
+                          </span>
+                        );
+                        const username = (
+                          <Tooltip
+                            arrow={false}
+                            title={
+                              <UserTip
+                                user={n.users[0]}
+                                isOwner={cid === n.users[0].id}
+                              />
+                            }
+                          >
+                            <span>{n.users[0].username}</span>
+                          </Tooltip>
+                        );
                         switch (n.type) {
                           case "like":
                           case "comment":
                             const usersLen = n.users.length - 1;
-                            const moreInfo = ` ${
-                              {
-                                like: "liked",
-                                comment: "shared their view about"
-                              }[n.type]
-                            } your ${
-                              n.docType === "comment"
-                                ? "comment"
-                                : n.document.user?.id === cid
-                                ? n.docType
-                                : ""
-                            }`;
-                            return `@${n.users[0].username}${
-                              usersLen
-                                ? ` and ${
-                                    usersLen - 1
-                                      ? `${usersLen} others ${moreInfo} `
-                                      : ` @${n.users[1].username} ${moreInfo}`
-                                  }`
-                                : moreInfo
-                            }`;
+                            return (
+                              <div>
+                                @{username}
+                                {usersLen
+                                  ? ` and ${
+                                      usersLen - 1
+                                        ? `${usersLen} others${moreInfo} `
+                                        : ` @${n.users[1].username}${moreInfo}`
+                                    }`
+                                  : moreInfo}
+                              </div>
+                            );
+                          case "follow":
+                            return (
+                              <div>
+                                @{username} followed
+                                {n.to.id === cid ? " you " : " a friend "}
+                                {formatedDate}.
+                              </div>
+                            );
+                          case "delete":
+                            return (
+                              <div>
+                                @{username} deleted your
+                                {n.cacheType +
+                                  (n.cacheDocs.length > 1 ? " s " : " ")}
+                                on their{" "}
+                                <StyledLink
+                                  to={`/${n.docType}s/${n.document.id}`}
+                                >
+                                  {n.docType}
+                                </StyledLink>{" "}
+                                {formatedDate}.
+                              </div>
+                            );
                           default:
-                            break;
+                            return (
+                              <div>
+                                @{username}
+                                {moreInfo}
+                              </div>
+                            );
                         }
                       };
                       return (
                         <ListItemButton
                           key={n.id}
+                          disableRipple
                           ref={
-                            dataChanged && i === data.length - 1
+                            i === data.length - 1
                               ? node => node && setObservedNode(node)
                               : undefined
                           }
                           component="li"
                           sx={{
-                            borderBottom: "1px solid currentColor",
-                            borderBottomColor: "divider",
-                            alignItems: "flex-start",
+                            "&": {
+                              borderBottom: "1px solid currentColor",
+                              borderBottomColor: "divider",
+                              alignItems: "flex-start",
+                              zIndex: 2
+                            },
                             "&:hover": {
-                              backgroundColor: selectedColor
+                              backgroundColor: "common.selectedHover"
                             }
                           }}
                           onClick={markOne(
@@ -338,28 +407,10 @@ const Notifications = ({
                               ))}
                             </Stack>
                             <Typography sx={{ mt: 1 }}>
-                              {
-                                {
-                                  follow: `@${n.users[0].username} followed  ${
-                                    n.to.id === cid ? "you" : ""
-                                  }`,
-                                  like: renderMsg(),
-                                  comment: renderMsg()
-                                }[n.type]
-                              }
+                              {renderMsg()}
                             </Typography>
-                            {n.document?.text ? (
-                              <Box sx={{ mt: "4px" }}>
-                                <Typography
-                                  variant="h5"
-                                  sx={{ display: "inline" }}
-                                >
-                                  {n.document.text}...
-                                </Typography>
-                                {n.document.moreText ? (
-                                  <Typography component="span">...</Typography>
-                                ) : null}
-                              </Box>
+                            {n.document ? (
+                              <PostWidget post={n.document} enableSnippet />
                             ) : null}
                           </Box>
                           <Box
@@ -378,7 +429,7 @@ const Notifications = ({
                                 sx={{
                                   backgroundColor: "action.selected"
                                 }}
-                                onClick={deleteOne(n.id)}
+                                onClick={deleteOne(n)}
                               >
                                 <DeleteIcon />
                               </IconButton>
@@ -436,7 +487,7 @@ const Notifications = ({
       >
         <Button
           sx={{
-            backgroundColor: type === "unmarked" ? selectedColor : undefined
+            backgroundColor: type === "unmarked" ? "common.hover" : undefined
           }}
           onClick={e => handleTabSwitch("unmarked", e)}
         >
@@ -444,7 +495,7 @@ const Notifications = ({
         </Button>
         <Button
           sx={{
-            backgroundColor: type === "marked" ? selectedColor : undefined
+            backgroundColor: type === "marked" ? "common.hover" : undefined
           }}
           onClick={e => handleTabSwitch("marked", e)}
         >

@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import { isObject } from "utils/validators";
+
 export const isEmail = str => {
   return /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/i.test(
     str
@@ -13,23 +15,15 @@ export const isNumber = str => {
 };
 
 export const isPassword = str => {
-  let strongPassword = new RegExp(
-    "(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])(?=.{8,})"
-  );
-  let mediumPassword = new RegExp(
-    "((?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^A-Za-z0-9])(?=.{6,}))|((?=.*[a-z])(?=.*[A-Z])(?=.*[^A-Za-z0-9])(?=.{8,}))"
-  );
-  if (strongPassword.test(str)) return "Strong";
-  else if (mediumPassword.test(str)) return "Medium";
+  if (
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/.test(
+      str
+    )
+  )
+    return "Strong";
+  else if (/(?=.*[a-zA-Z]).{8,}/.test(str)) return "Medium";
   else return "Weak";
 };
-
-export const isObject = obj =>
-  obj &&
-  typeof obj === "object" &&
-  (obj.toString
-    ? obj.toString() === "[object Object]"
-    : obj.length === undefined);
 
 export const isLink = str => {
   try {
@@ -39,24 +33,17 @@ export const isLink = str => {
   }
 };
 
-export const toSeconds = (duration, shallow = true) => {
-  if (Number.isInteger(duration)) {
-    return duration * (shallow ? 1 : 1000); // Multiply integer input by 1 second
-  } else if (typeof duration === "number") {
-    // media duration in minutes and seconds
-    return Math.floor(duration / 60) * 60 + (duration % 60);
-  } else {
-    return NaN;
-  }
-};
-
-export const mergeFileList = (a, b) => {
+export const mergeFileList = (a = "", b = "") => {
   const dt = new DataTransfer();
-  const { files } = a;
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    dt.items.add(file);
+  for (let i = 0; i < a.length; i++) {
+    dt.items.add(a[i]);
   }
+  if (b.length) {
+    for (let i = 0; i < b.length; i++) {
+      dt.items.add(b[i]);
+    }
+  } else if (b) dt.items.add(b);
+
   return dt.files;
 };
 
@@ -69,29 +56,29 @@ export const splitNumberAndText = input => {
 };
 
 export const isFileList = obj => {
-  return obj && obj.toString() === "[object FileList]";
+  return (
+    obj && (obj.toString() === "[object FileList]" || obj[0] instanceof File)
+  );
 };
 
 const useForm = (config = {}) => {
   const {
     placeholders,
     required,
-    exclude,
-    returnFormObject,
     returnFilesArray = false,
     mergeFile = false,
-    keepNonStrongPwdStatus,
     dataSize,
-    withPlaceholders = true,
-    strictStateCheck = true,
     maxUpload,
     maxDuration,
-    withRequired = true
+    withInvalidField,
+    stateCheck = true,
+    withStrongPwdOnly,
+    ignoreMap
   } = config;
-  const [stateChanged, setStateChanged] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState(withPlaceholders && placeholders);
+  const [formData, setFormData] = useState(placeholders);
   const [errors, setErrors] = useState({});
+
   const deletePathFromObject = (obj, key, dataName, dataType) => {
     switch (dataType) {
       case "object":
@@ -104,86 +91,140 @@ const useForm = (config = {}) => {
         delete obj[key];
         break;
     }
+    return obj;
   };
-  const handleSubmit = useCallback(
-    e => {
-      if (e && (e.currentTarget || e.target)) {
-        e.preventDefault();
-        e.stopPropagation();
-      }
-      if (stateChanged || required) {
-        let form = returnFormObject ? new FormData() : undefined;
-        if (formData) {
-          const validate = (key, formName, dataType) => {
-            let _required;
-            if (exclude) {
-              _required = !(
-                {
-                  object: exclude[key]?.[formName]
-                }[dataType] ||
-                exclude[key] ||
-                true
-              );
-            }
-            if (_required === undefined) {
-              _required = required
-                ? {
-                    object: required[key]?.[formName]
-                  }[dataType] ||
-                  required[key] ||
-                  true
-                : false;
-            }
-            if (_required && typeof _required !== "string")
-              _required = "required";
 
+  const handleSubmit = useCallback(
+    (e, options = {}) => {
+      try {
+        const {
+          formData: form,
+          dataTypeMap,
+          validateTypeMap,
+          errDelMap,
+          withStrongPwdOnly,
+          bareMessage,
+          excludeMap,
+          errMap
+        } = options;
+        if (e && (e.currentTarget || e.target)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        let withErr;
+        setIsSubmitting(true);
+        const validate = (key, dataName, dataType) => {
+          if (
+            {
+              ...excludeMap,
+              confirmPassword: true
+            }[key]
+          )
+            deletePathFromObject(formData, key, dataName, dataType);
+          else {
             const keyValue =
               {
-                object: formData[key]
+                object: formData[key]?.[dataName]
               }[dataType] || formData[key];
 
-            const errValue =
-              {
-                object: errors[key]?.[formName]
-              }[dataType] || errors[key];
-            if (
-              keyValue
-                ? !(keyValue[formName] || keyValue) && _required
-                : _required
-            ) {
-              if (formName) errors[key][formName] = _required;
-              else errors[key] = _required;
-            } else if (
-              !keepNonStrongPwdStatus &&
-              (errValue === "Weak password" || errValue === "Medium password")
-            )
-              deletePathFromObject(errors, key, formName, dataType);
             if (keyValue) {
-              if (form) {
-                let isFilelist;
-                if (
-                  dataType === "object" ||
-                  (isFilelist = isFileList(keyValue))
-                ) {
-                  for (let prop in keyValue) {
-                    if (isFilelist ? Number(prop) : true) {
-                      if (!form.get(`${key}[${prop}]`))
-                        form.append(`${key}[${prop}]`, keyValue[prop]);
-                    }
-                  }
-                } else form.set(key, keyValue);
-              }
-            } else deletePathFromObject(formData, key, formName, dataType);
-          };
+              const _key = dataName || key;
 
-          for (let key in {
+              if (
+                errDelMap
+                  ? errDelMap[key]
+                  : !withStrongPwdOnly && key === "password"
+              )
+                delete errors[key];
+              else if (validateTypeMap && !errors[_key]) {
+                switch (validateTypeMap[key]) {
+                  case "email":
+                    if (!isEmail(keyValue)) {
+                      errors[_key] = "Invalid Email address";
+                      withErr = true;
+                    }
+                    break;
+                  case "password":
+                    const status = isPassword(keyValue);
+                    if (withStrongPwdOnly && status !== "Strong") {
+                      errors[_key] = `${status} password`;
+                      withErr = true;
+                    }
+                    if (formData.confirmPassword) {
+                      if (keyValue === formData.confirmPassword)
+                        delete errors.confirmPassword;
+                      else errors.confirmPassword = `password don't match`;
+                    }
+                    break;
+                  case "confirmPassword":
+                    if (keyValue !== formData.password) {
+                      errors[key] = `password don't match.`;
+                      withErr = true;
+                    }
+                    break;
+                  default:
+                    if (errMap) {
+                      withErr = true;
+                      for (const key in errMap) {
+                        errors[key] = errMap[key];
+                      }
+                    }
+                    break;
+                }
+              }
+            } else {
+              if (required) {
+                withErr = true;
+
+                errors[dataName || key] =
+                  required[dataName || key] ||
+                  (bareMessage
+                    ? "required"
+                    : `${(dataName || key).slice(0, 1).toUpperCase()}${(
+                        dataName || key
+                      ).slice(1)} is required`);
+              } else if (!withInvalidField) {
+                deletePathFromObject(formData, key, dataName, dataType, true);
+                setErrors(errors => {
+                  deletePathFromObject(errors, key, dataName, dataType);
+                  return {
+                    ...errors
+                  };
+                });
+              }
+            }
+            if (!withErr) {
+              if (form?.append) {
+                if (
+                  dataType === "array" ||
+                  dataType === "fileList" ||
+                  isFileList(keyValue)
+                ) {
+                  for (const prop in keyValue) {
+                    if (Number(prop) > -1 && keyValue[prop])
+                      form.append(`${key}`, keyValue[prop]);
+                  }
+                } else if (dataType === "object") {
+                  for (const prop in keyValue) {
+                    form.append(`${key}[${prop}]`, keyValue[prop]);
+                  }
+                } else if (
+                  keyValue.length === undefined ? keyValue : keyValue.length
+                )
+                  form.set(key, keyValue);
+              }
+            }
+          }
+        };
+        if (formData)
+          for (const key in {
             ...formData,
-            ...required
+            ...(required === true ? {} : required)
           }) {
-            const dataType = config.dataType?.[key];
+            const dataType = dataTypeMap && dataTypeMap[key];
             switch (dataType) {
               case "object":
-                for (let _key in formData[key]) {
+                for (const _key in formData[key]) {
                   validate(key, _key, dataType);
                 }
                 break;
@@ -192,59 +233,51 @@ const useForm = (config = {}) => {
                 break;
             }
           }
-        } else if (required === true) {
-          errors.all = "required";
-        } else if (required) {
-          for (const key in required) {
-            errors[key] =
-              typeof required[key] === "string" ? required[key] : "required";
-          }
+        else {
+          withErr = true;
+          errors.all = true;
         }
-        const hasError = Object.keys(errors).length;
-        !hasError && setIsSubmitting(true);
-        setErrors({
-          ...errors
-        });
-        const _formData = {
-          ...formData
-        };
-        return hasError
-          ? null
-          : form || (delete _formData.confirmPassword && _formData);
+
+        if (withErr) setErrors({ ...errors });
+
+        return !required || !withErr
+          ? form?.append
+            ? form
+            : form
+            ? Object.assign(form, formData)
+            : formData
+          : null;
+      } catch (err) {
+        console.log(err);
       }
-      return null;
     },
-    [
-      stateChanged,
-      errors,
-      formData,
-      required,
-      exclude,
-      returnFormObject,
-      config.dataType,
-      keepNonStrongPwdStatus
-    ]
+    [formData, required, withInvalidField, errors]
   );
 
   const handleChange = useCallback(
     (e, validate) => {
       e.stopPropagation();
-      const node = e.target;
-      const key = node.name;
+      const node = e.currentTarget || e.target;
+      const key = node.name || node.dataset.name || node.getAttribute("name");
       const dataType = config.dataType?.[key];
       let {
         name: dataName,
         min: dataMin,
         max: dataMax,
-        validateType = "true"
+        validateType = "true",
+        innerText
       } = node.dataset;
+
       validateType = validateType === "true";
-      let value =
+      innerText = innerText === "true";
+
+      const value =
         node.type === "file"
           ? node.multiple
             ? node.files
             : node.files?.[0]
-          : node.value;
+          : node.value || (innerText ? node.innerText : "");
+
       const _required = required
         ? required === true ||
           {
@@ -253,10 +286,10 @@ const useForm = (config = {}) => {
           required[key]
         : false;
       setFormData((formData = {}) => {
-        let lastErr;
+        let withErr;
         const addError = (error, _key, index) => {
           if (!error) return;
-          lastErr = error;
+          withErr = true;
           setErrors(errors => {
             _key = _key || key;
             if (index !== undefined) {
@@ -277,7 +310,6 @@ const useForm = (config = {}) => {
           });
         };
         setIsSubmitting(false);
-
         let keyValue =
           {
             object: {
@@ -299,30 +331,46 @@ const useForm = (config = {}) => {
           return errors;
         });
 
-        if (value || _required) {
-          if (node.type === "file") {
-            if (!node.multiple || !mergeFile)
-              setErrors(errors => {
-                delete errors[key];
-                delete errors[key + "-duration"];
-                delete errors[key + "-upload"];
-                return {
-                  ...errors
-                };
-              });
-            if (keyValue && (keyValue.length || keyValue.name)) {
+        if (keyValue || _required) {
+          if (_required && !keyValue)
+            addError(
+              typeof _required === "string"
+                ? _required
+                : `${key.slice(0, 1).toUpperCase()}${key.slice(1)} is required`,
+              key
+            );
+          else {
+            if (dataMin) {
+              dataMin = Number(dataMin) || 0;
+              if (keyValue.length < dataMin) {
+                addError(`Minimum of ${dataMin} characters`, key);
+                if (key === "password" && formData.confr)
+                  addError(`Password don't match`, "confirmPassword");
+              }
+            }
+
+            if (dataMax) {
+              dataMax = Number(dataMax) || 0;
+              if (dataMax && keyValue.length > dataMax) {
+                keyValue = formData[key];
+                withErr = true;
+              }
+            }
+
+            if (node.type === "file") {
+              validateType = false;
               const validateFileMax = (text, type) => {
                 let digit;
                 const isUp = type === "upload";
                 const obj = splitNumberAndText(text);
                 const errKey = key + "-" + type;
-                if (!obj.number) addError(`max ${type} exceeded`, errKey);
+                if (!obj.number) addError(`Maximum ${type} exceeded`, errKey);
                 else {
                   digit = isUp
                     ? { mb: 1000000, gb: 1000000000 }[obj.text]
                     : { s: 1, h: 3600, m: 60 }[obj.text] || NaN;
                   if (digit) digit = obj.number * digit;
-                  else addError(`max ${type} exceeded`, errKey);
+                  else addError(`Maximum ${type} exceeded`, errKey);
                 }
 
                 if (digit) {
@@ -331,257 +379,228 @@ const useForm = (config = {}) => {
                       if (
                         file.type.indexOf("video") >= 0 ||
                         file.type.indexOf("audio") >= 0
-                      )
+                      ) {
                         // invalidate key until loaded and validated
-                        lastErr = true;
-                      const url = URL.createObjectURL(file);
-                      const audio = new Audio(url);
-                      const metadataListener = () => {
-                        if (audio.duration > digit) {
-                          addError(`max duration exceeded`, errKey, index);
-                          if (strictStateCheck) setStateChanged(false);
-                        } else
-                          setErrors(errors => {
-                            detStateChange(errors, 1);
-                            return errors;
-                          });
+                        withErr = true;
+                        setErrors(errors => {
+                          if (index > -1) {
+                            if (!errors[errKey]) errors[errKey] = {};
+                            errors[errKey][index] = "";
+                          } else errors[errKey] = "";
+                          return {
+                            ...errors
+                          };
+                        });
+                        const url = URL.createObjectURL(file);
+                        const audio = new Audio(url);
+                        const metadataListener = () => {
+                          if (audio.duration > digit) {
+                            addError(
+                              `Maximum duration exceeded`,
+                              errKey,
+                              index
+                            );
+                          } else
+                            setErrors(errors => {
+                              if (errors[errKey] !== undefined) {
+                                if (index > -1) {
+                                  delete errors[errKey][index];
+                                  !Object.keys(errors[errKey]).length &&
+                                    delete errors[errKey];
+                                } else delete errors[errKey];
+                                return {
+                                  ...errors
+                                };
+                              } else return errors;
+                            });
 
-                        URL.revokeObjectURL(url);
-                        audio.removeEventListener(
+                          URL.revokeObjectURL(url);
+                          audio.removeEventListener(
+                            "loadedmetadata",
+                            metadataListener,
+                            false
+                          );
+                        };
+
+                        const errorListener = ({ target: { error } }) => {
+                          addError(
+                            {
+                              message: error.message,
+                              code: error.code,
+                              name: error.name
+                            },
+                            errKey,
+                            index
+                          );
+                          URL.revokeObjectURL(url);
+                          audio.removeEventListener(
+                            "error",
+                            errorListener,
+                            false
+                          );
+                        };
+                        audio.addEventListener(
                           "loadedmetadata",
                           metadataListener,
                           false
                         );
-                      };
-
-                      const errorListener = ({ target: { error } }) => {
-                        addError(error, errKey);
-                        URL.revokeObjectURL(url);
-                        audio.removeEventListener(
-                          "error",
-                          errorListener,
-                          false
-                        );
-                      };
-                      audio.addEventListener(
-                        "loadedmetadata",
-                        metadataListener,
-                        false
-                      );
-                      audio.addEventListener("error", errorListener, false);
+                        audio.addEventListener("error", errorListener, false);
+                      }
                     };
                     if (node.multiple) {
-                      for (let key in keyValue) {
-                        if (Number(key) >= 0) validateDur(keyValue[key], key);
+                      for (const index in keyValue) {
+                        if (Number(index) > -1)
+                          validateDur(keyValue[index], index);
                       }
                     } else validateDur(keyValue);
                   } else {
                     if (node.multiple) {
-                      for (let prop in keyValue) {
-                        if (Number(prop) >= 0 && keyValue[prop].size > digit)
-                          addError(`max upload exceeded`, errKey, prop);
+                      for (const index in keyValue) {
+                        if (Number(index) > -1 && keyValue[index].size > digit)
+                          addError(`Maximum upload exceeded`, errKey, index);
                       }
                     } else if (keyValue.size > digit)
-                      addError(`max upload exceeded`, errKey);
+                      addError(`Maximum upload exceeded`, errKey);
                   }
                 }
               };
               if (maxDuration) validateFileMax(maxDuration, "duration");
               if (maxUpload) validateFileMax(maxUpload, "upload");
               if (node.multiple) {
-                if (mergeFile && keyValue) {
+                if (mergeFile) {
                   if (returnFilesArray) {
-                    const isList = keyValue.length;
-                    if (isList) keyValue = Array.from(value);
-                    else keyValue = Array.from(value).concat(keyValue);
-                  } else mergeFileList(value, keyValue);
-                } else if (returnFilesArray) keyValue = Array.from(value);
+                    keyValue = Array.from(formData[key] || "").concat(
+                      keyValue.length ? Array.from(keyValue) : keyValue
+                    );
+                  } else keyValue = mergeFileList(formData[key], keyValue);
+                } else if (returnFilesArray) keyValue = Array.from(keyValue);
               }
-            } else {
-              keyValue = formData[key];
-              node.value = "";
             }
-          }
-        }
-        if (_required) {
-          if (dataMin) {
-            dataMin = Number(dataMin) || 0;
-            if (keyValue.length < dataMin) {
-              addError(`minimum of ${dataMin}`, key);
-              if (key === "password" && formData.confirmPassword)
-                addError(`password don't match`, "confirmPassword");
+            if (!withErr) {
+              const withValidate = typeof validate === "function";
+              const prop = {
+                key,
+                keyValue,
+                value,
+                dataName,
+                dataType
+              };
+              if (validateType) {
+                switch (key === "confirmPassword" ? key : node.type || key) {
+                  case "email":
+                    if (!isEmail(keyValue))
+                      addError((prop.error = "Invalid Email address"));
+                    break;
+                  case "password":
+                    const status = isPassword(keyValue);
+                    if (status !== "Strong")
+                      addError((prop.error = `${status} password`));
+
+                    if (formData.confirmPassword) {
+                      if (keyValue === formData.confirmPassword)
+                        status === "Strong" &&
+                          setErrors(errors => {
+                            deletePathFromObject(errors, "confirmPassword");
+                            return errors;
+                          });
+                      else addError(`Password don't match`, "confirmPassword");
+                    }
+                    break;
+                  case "confirmPassword":
+                    if (keyValue !== formData.password)
+                      addError((prop.error = `Password don't match.`));
+                    break;
+                  default:
+                    break;
+                }
+                withValidate && addError(validate(prop));
+              } else if (withValidate) addError(validate(prop));
             }
-          }
+            if (!withErr)
+              // no error
+              setErrors(errors => {
+                deletePathFromObject(errors, key, dataName, dataType);
+                return errors;
+              });
+          } // with value end of else
+        } else if (!withInvalidField) {
+          setErrors(errors => {
+            deletePathFromObject(errors, key, dataName, dataType);
+            return {
+              ...errors
+            };
+          });
+          deletePathFromObject(formData, key, dataName, dataType);
+          return { ...formData };
         }
-        if (dataMax) {
-          dataMax = Number(dataMax) || 0;
-          if (dataMax && value.length > dataMax) {
-            addError(`maximum of ${dataMax}`);
-            return formData;
-          }
-        }
-        formData = {
+        return {
           ...formData,
           [key]: keyValue
         };
-
-        const detStateChange = (errors = { [key]: lastErr }) => {
-          let stateChanged = false;
-          if (strictStateCheck) {
-            const shallowCheck = () => {
-              stateChanged = Object.keys(errors).length
-                ? false
-                : !!(keyValue.length || keyValue.name);
-            };
-            if (withRequired && isObject(required)) {
-              stateChanged = true;
-              for (const key in required) {
-                if (
-                  (key === "password" && validateType && errors[key]
-                    ? keepNonStrongPwdStatus
-                      ? errors[key]
-                      : !(
-                          errors[key] === "Weak password" ||
-                          errors[key] === "Medium password"
-                        )
-                    : errors[key]) ||
-                  (placeholders || {})[key] === formData[key]
-                ) {
-                  stateChanged = false;
-                  break;
-                }
-              }
-            } else if (lastErr) stateChanged = false;
-            else if (placeholders) {
-              for (const key in formData) {
-                if (placeholders[key] !== formData[key]) {
-                  stateChanged = true;
-                  break;
-                }
-              }
-            } else shallowCheck();
-          } else stateChanged = !Object.keys(formData).length;
-          setStateChanged(stateChanged);
-        };
-        if (value) {
-          if (validateType) {
-            const _validate = !(!value && !_required);
-            switch (node.dataset.controlled === "true" ? "" : key) {
-              case "email":
-                if (_validate && !isEmail(value)) addError("Invalid Email");
-                break;
-              case "fullname":
-                if (_validate && !isFullName(value))
-                  addError("Name must be separated by space");
-                break;
-              case "phone":
-                if (_validate && !isNumber(value))
-                  addError("Invalid phone number");
-                break;
-              case "password":
-                if (_validate) {
-                  if (dataMin && keyValue.length < dataMin) break;
-                  const status = isPassword(value);
-                  if (status !== "Strong") addError(`${status} password`);
-                  if (formData.confirmPassword) {
-                    if (value === formData.confirmPassword)
-                      status === "Strong" &&
-                        setErrors(errors => {
-                          deletePathFromObject(errors, "confirmPassword");
-                          return errors;
-                        });
-                    else addError(`password don't match`, "confirmPassword");
-                  }
-                }
-                break;
-              case "confirmPassword":
-                if (_validate && value !== formData.password)
-                  addError(`password don't match.`);
-
-                break;
-              default:
-                if (typeof validate === "function")
-                  addError(
-                    validate({
-                      key,
-                      value,
-                      dataName,
-                      validate: _validate
-                    })
-                  );
-                break;
-            }
-          }
-          if (!lastErr)
-            setErrors(errors => {
-              deletePathFromObject(errors, key, dataName, dataType);
-
-              detStateChange(errors);
-              return errors;
-            });
-          else detStateChange();
-        } else {
-          if (_required) {
-            console.log("will det change ");
-            addError(typeof _required === "string" ? _required : "required");
-            detStateChange();
-          } else if (formData) {
-            deletePathFromObject(formData, key, dataName, dataType);
-            setErrors(errors => {
-              deletePathFromObject(errors, key, dataName, dataType);
-              detStateChange(errors, " y ");
-              return {
-                ...errors
-              };
-            });
-          }
-        }
-        return formData;
       });
     },
     [
       config.dataType,
-      mergeFile,
-      returnFilesArray,
-      required,
       dataSize,
-      placeholders,
-      strictStateCheck,
+      required,
+      withInvalidField,
       maxUpload,
       maxDuration,
-      withRequired,
-      keepNonStrongPwdStatus
+      mergeFile,
+      returnFilesArray
     ]
   );
   const reset = useCallback((formData, config = {}) => {
-    setStateChanged(
-      typeof config.stateChanged === "boolean" ? config.stateChanged : false
-    );
     setIsSubmitting(
       typeof config.isSubmitting === "boolean" ? config.isSubmitting : false
     );
-    const isObj = isObject(formData);
 
-    (config.resetErrors === true ||
-      (isObj &&
-        (config.resetErrors === false
-          ? false
-          : config.stateChanged !== true))) &&
-      setErrors({});
-    if (isObj) setFormData(formData);
+    config.resetErrors && setErrors({});
+
+    if (isObject(formData)) setFormData(formData);
     else if (!formData) setFormData({});
   }, []);
 
+  let isInValid;
+  if (stateCheck) {
+    isInValid =
+      Object.keys(errors).length -
+        (ignoreMap
+          ? (() => {
+              let count = 0;
+              for (const key in errors) {
+                ignoreMap[key] && count++;
+              }
+              return count;
+            })()
+          : withStrongPwdOnly
+          ? 0
+          : 1) >
+        0 ||
+      Object.keys(formData || {}).length <
+        (ignoreMap ? Object.keys(ignoreMap).length || 1 : 1) ||
+      (required && required !== true
+        ? (() => {
+            let withErr;
+            for (const key in required) {
+              if (!formData[key]) {
+                withErr = true;
+                break;
+              }
+            }
+            return withErr;
+          })()
+        : false);
+  }
   return {
-    formData: formData || {},
+    formData: formData || placeholders || {},
     errors,
     isSubmitting,
-    stateChanged,
     handleChange,
     handleSubmit,
     reset,
     setErrors,
-    setStateChanged
+    isInValid
   };
 };
 

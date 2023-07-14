@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -25,7 +25,8 @@ const DeleteDialog = ({
   openFor,
   title = "medias",
   label,
-  handleAction
+  handleAction,
+  action = "hideDelDialog"
 }) => {
   const [deleting, setDeleting] = useState(false);
   const styles = {
@@ -37,12 +38,15 @@ const DeleteDialog = ({
     },
     content: { pt: "18px !important", pb: 0, width: "100%" }
   };
+  useEffect(() => {
+    open === false && setDeleting(false);
+  }, [open]);
   return (
     <Dialog
       open={open}
       onClose={e => {
         e.stopPropagation();
-        !deleting && handleAction("cancel");
+        !deleting && handleAction("close");
       }}
     >
       {
@@ -68,7 +72,13 @@ const DeleteDialog = ({
                   control={
                     <Checkbox
                       sx={styles.icon}
-                      onChange={(_, bool) => handleAction("checked", bool)}
+                      onChange={(e, bool) =>
+                        e.stopPropagation() ||
+                        handleAction("checked", {
+                          action,
+                          value: bool
+                        })
+                      }
                     />
                   }
                   label="Don't show again"
@@ -76,7 +86,7 @@ const DeleteDialog = ({
                 <Button
                   variant="outlined"
                   disabled={deleting}
-                  onClick={() => handleAction("cancel")}
+                  onClick={() => handleAction("close")}
                 >
                   Cancel
                 </Button>
@@ -115,7 +125,7 @@ const DeleteDialog = ({
                   variant="outlined"
                   onClick={e => {
                     e.stopPropagation();
-                    handleAction("cancel");
+                    handleAction("close");
                   }}
                 >
                   Cancel

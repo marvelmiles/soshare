@@ -8,6 +8,7 @@ import { Readable } from "stream";
 import { getVideoDurationInSeconds } from "get-video-duration";
 
 export const deleteFile = filePath => {
+  if (!filePath) return;
   filePath = decodeURIComponent(path.basename(filePath));
   return storage
     .bucket(FIREBASE_BUCKET_NAME)
@@ -31,13 +32,14 @@ export const uploadFile = (config = {}) => {
     ...config
   };
   return [
-    (req, res, next) =>
-      multer({
+    (req, res, next) => {
+      return multer({
         storage: new multer.memoryStorage()
       })[config.single ? "single" : "array"](
         req.query.fieldName || config.defaultFieldName,
         Number(req.query.maxUpload) || 20
-      )(req, res, next),
+      )(req, res, next);
+    },
     async (req, res, next) => {
       try {
         config.maxDur = req.query.maxDur;
@@ -46,8 +48,10 @@ export const uploadFile = (config = {}) => {
         else if (req.files) {
           const errs = [];
           for (let i = 0; i < req.files.length; i++) {
+            let file;
             try {
-              req.files[i] = await uploadToFirebase(req.files[i], config);
+              file = req.files[i];
+              req.files[i] = await uploadToFirebase(file, config);
             } catch (err) {
               if (req.query.sequentialEffect === "true") throw err;
               else {
@@ -56,7 +60,12 @@ export const uploadFile = (config = {}) => {
                   status: err.status,
                   name: err.name,
                   code: err.code,
-                  errIndex: i
+                  errIndex: i,
+                  file: {
+                    ...file,
+                    buffer: undefined,
+                    stream: undefined
+                  }
                 });
               }
             }
@@ -160,7 +169,9 @@ export const uploadToFirebase = (file, config = {}) => {
     };
 
     if (!(file.buffer || file.stream))
-      throw reject(createError(`Invalid file format`, 409));
+      throw reject(
+        createError(`File content is either damaged or corrupt`, 409)
+      );
 
     if (isImg || !config.maxDur) return uploadFile(file);
     const stream =

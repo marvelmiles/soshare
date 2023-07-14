@@ -11,132 +11,156 @@ const CustomInput = ({
   startAdornment,
   multiline,
   label,
+  value = "",
   sx,
+  rows = multiline ? 1 : 0,
+  type = "text",
   ...props
 }) => {
+  const spanSxOnInput = {
+    fontSize: "12px",
+    transform: "none",
+    top: "3.5px",
+    color: "primary.main"
+  };
   return (
-    <div>
-      <Box
-        sx={{
-          display: "flex",
-          flex: 1,
-          alignItems: "center",
-          border: "1px solid currentColor",
-          borderColor: error
-            ? {
-                "Weak password": "divider",
-                "Medium password": "divider"
-              }[error] || "error.dark"
-            : "divider",
-          borderRadius: "5px",
-          transition: "all 0.2s ease-out",
-          mb: 1,
-          "&:focus-within": {
+    <Box
+      sx={{
+        my: 1,
+        ...sx
+      }}
+    >
+      <div style={{ position: "relative", overflow: "hidden", height: "auto" }}>
+        {props.readOnly ? (
+          <div
+            style={{
+              position: "absolute",
+              height: "100%",
+              width: "100%",
+              zIndex: 1,
+              top: 0,
+              left: 0
+            }}
+          />
+        ) : null}
+        <Box
+          sx={{
+            display: "flex",
+            flex: 1,
+            alignItems: "center",
+            border: "1px solid currentColor",
             borderColor: error
               ? {
-                  "Weak password": "primary.main",
-                  "Medium password": "primary.main"
+                  "Weak password": "divider",
+                  "Medium password": "divider"
                 }[error] || "error.dark"
-              : "primary.main"
-          },
-          "& > label": {
-            flex: 1,
-            cursor: props.readOnly ? "normal" : "pointer",
-            pl: startAdornment ? 0 : 1,
-            pr: endAdornment ? 0 : 1,
-            "& > div.custom-input-content": {
-              display: "block",
-              position: "relative",
-              padding: "28px 0",
-              minHeight:
-                multiline && props.rows ? `${18 + 16 + 22 * props.rows}px` : "", // row=22 + label=16 + contheight=56 - top-fontsize
-              "& > *": {
-                position: "absolute",
-                width: "100%",
-                display: "block"
+              : "divider",
+            borderRadius: "5px",
+            transition: "all 0.2s ease-out",
+            px: "4px",
+            gap: "4px",
+            "&:focus-within": {
+              borderColor: error
+                ? {
+                    "Weak password": "primary.main",
+                    "Medium password": "primary.main"
+                  }[error] || "error.dark"
+                : "primary.main"
+            },
+            "& > label": {
+              flex: 1,
+              cursor: props.readOnly ? "normal" : "pointer",
+              pl: startAdornment ? 0 : 1,
+              pr: endAdornment ? 0 : 1,
+              minHeight: 0,
+              height: "auto",
+              "& *": {
+                fontSize: "12.5px"
               },
-              ".custom-input": {
-                outline: 0,
-                border: 0,
-                width: "100%",
-                bottom: 5,
-                caretColor: "text.primary",
-                color: "text.primary",
-                fontSize: 18,
-                [`&:focus${
-                  props.value.length
-                    ? props.readOnly
-                      ? ",&:not(.custom-input-invalidate)"
-                      : ",&:valid"
-                    : props.readOnly
-                    ? "&:not(:empty)"
-                    : ""
-                }`]: {
-                  "& + span": {
-                    fontSize: "12px",
-                    transform: "none",
-                    top: "8px",
-                    color: "primary.main"
+              "& > div.custom-input-content": {
+                display: "block",
+                position: "relative",
+                paddingTop: "20px",
+                minHeight: multiline && rows ? `${22 + 16 * rows}px` : "", // row=22 + textLabel=16
+                [INPUT_AUTOFILL_SELECTOR]: {
+                  "& + span": spanSxOnInput,
+                  content: '"autofill"'
+                },
+                ".custom-input": {
+                  outline: 0,
+                  border: 0,
+                  width: "100%",
+                  color: "text.primary",
+                  width: "100%",
+                  "&:focus": {
+                    "& + span": spanSxOnInput
                   }
-                }
-              },
+                 },
 
-              [INPUT_AUTOFILL_SELECTOR]: {
-                "& + span": {
-                  fontSize: "12px",
-                  transform: "none",
-                  top: "8px",
-                  color: "primary.main"
+                ".label": {
+                  transition: "all 0.2s ease-out",
+                  pointerEvents: "none",
+                  fontWeight: "normal",
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  "& > span": {
+                    color: "error.dark"
+                  },
+                  top: "55%",
+                  transform: "translateY(-50%)",
+                  ...(value.length ? spanSxOnInput : undefined)
                 }
               },
-              span: {
-                transition: "all 0.2s ease-out",
-                pointerEvents: "none",
-                top: "18px",
-                color: "text.primary",
-                fontWeight: "normal",
-                "& > span": {
-                  color: "error.dark"
-                }
+              "& > span": {
+                float: "right",
+                mb: "3.5px"
               }
             },
-            "& > span": {
-              textAlign: "right",
-              float: "right"
+            "& > div": {
+              mt: "4px",
+              "& svg:not(.input-svg-container svg)": {
+                color: "text.primary"
+              },
+              "& *": {
+                m: 0
+              }
             }
-          },
-          "& > div": {
-            px: 1
-          },
-          ...sx 
-        }} // JzKr2d
-      >
-        {startAdornment ? <div>{startAdornment}</div> : null}
-        <label htmlFor={props.id} className="custom-input-container">
-          <div className="custom-input-content">
-            {multiline ? (
-              <textarea
-                rows={1}
-                {...props}
-                className={`custom-input ${props.className || ""}`}
-              />
-            ) : (
-              <input {...props} className={`custom-input ${props.className}`} />
-            )}
-            <Typography component="span" variant="h5">
-              {label} {required ? <span>*</span> : null}
-            </Typography>
-          </div>
-          {props["data-max"] ? (
-            <Typography component="span" variant="caption">
-              {props.value.length} / {props["data-max"]}
-            </Typography>
-          ) : null}
-        </label>
-        {endAdornment ? <div>{endAdornment}</div> : null}
-      </Box>
-
-      {typeof error === "string" ? (
+          }}
+        >
+          {startAdornment ? <div>{startAdornment}</div> : null}
+          <label htmlFor={props.id} className="custom-input-container">
+            <div className="custom-input-content">
+              {multiline ? (
+                <textarea
+                  {...props}
+                  rows={rows}
+                  value={value}
+                  type={type}
+                  className={`custom-input ${props.className || ""}`}
+                />
+              ) : (
+                <input
+                  {...props}
+                  value={value}
+                  type={type}
+                  className={`custom-input ${props.className || ""}`}
+                />
+              )}
+              <Typography component="span" className="label" variant="h5">
+                {label} {required ? <span>*</span> : null}
+              </Typography>
+            </div>
+            {props["data-max"] ? (
+              <Typography component="span" variant="caption">
+                {value.length} / {props["data-max"]}
+              </Typography>
+            ) : null}
+          </label>
+          {endAdornment ? <div>{endAdornment}</div> : null}
+        </Box>
+      </div>
+      {value && typeof error === "string" ? (
         <Typography
           color={
             error
@@ -146,18 +170,12 @@ const CustomInput = ({
                 }[error] || "error.dark"
               : "transparent"
           }
-          variant="subtitle2"
-          sx={{
-            mt: "-8px"
-          }}
+          variant="caption"
         >
-          {{
-            required: `Field is required`,
-            [`minimum of ${props["data-min"]}`]: `minimum of 8 characters`
-          }[error] || error}
+          {error}
         </Typography>
       ) : null}
-    </div>
+    </Box>
   );
 };
 
