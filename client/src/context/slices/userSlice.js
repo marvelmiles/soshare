@@ -6,7 +6,11 @@ export const defaultUser = {
   followers: [],
   recommendationBlacklist: [],
   socials: {},
-  settings: {}
+  settings: {},
+  blacklistCount: 0,
+  // client properties
+  blockedUsers: {},
+  disapprovedUsers: {}
 };
 
 const initialState = {
@@ -40,46 +44,31 @@ const userSlice = createSlice({
     },
     updatePreviewUser(state, { payload }) {
       if (payload.nullify) return (state.previewUser = undefined);
-
       delete payload.avatar;
-      payload.socials &&
-        (payload.socials = {
-          ...state.previewUser?.socials,
-          ...payload.socials
-        });
-      state.previewUser = {
-        ...state.previewUser,
-        ...payload
-      };
+      updateUser(state, { payload, _path: "previewUser" });
     },
-    updateUser(state, { payload }) {
-      payload.socials &&
-        (payload.socials = {
-          ...state.currentUser.socials,
-          ...payload.socials
-        });
-      if (payload.settings) {
-        payload.settings = {
-          ...state.currentUser.settings,
-          ...payload.settings
+    updateUser(state, { payload, _path = "currentUser" }) {
+      const key = payload.key;
+
+      if (key) {
+        if (payload.whitelist) {
+          const obj = { ...state[_path][key] };
+          delete obj[payload.value];
+          state[_path][key] = { ...obj };
+        } else {
+          state[_path][key] = {
+            ...state[_path][key],
+            ...payload.value
+          };
+        }
+        state[_path] = {
+          ...state[_path]
         };
-      }
-      if (payload._blacklistCount) {
-        payload.blacklistCount = state.currentUser.blacklistCount
-          ? state.currentUser.blacklistCount - payload._blacklistCount
-          : 0;
-        delete payload._blacklistCount;
-      }
-
-      if (payload.blacklistCount) {
-        payload.blacklistCount =
-          state.currentUser.blacklistCount + payload._blacklistCount;
-      }
-
-      state.currentUser = {
-        ...state.currentUser,
-        ...payload
-      };
+      } else
+        state[_path] = {
+          ...state[_path],
+          ...payload
+        };
     },
     deleteFromPreviewUser(state, { payload }) {
       if (state.previewUser) {

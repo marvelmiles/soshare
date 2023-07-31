@@ -107,7 +107,8 @@ const MediaCarousel = forwardRef(
           e.currentTarget.classList.remove("focus-within");
         }}
         onFocus={e => {
-          e.currentTarget.classList.add("focus-within");
+          if (!e.currentTarget.classList.contains("container-overlayed"))
+            e.currentTarget.classList.add("focus-within");
         }}
         sx={{
           display,
@@ -116,6 +117,8 @@ const MediaCarousel = forwardRef(
           position: "relative",
           width: "100%",
           height: "auto",
+          overflow: "hidden",
+          outline: 0,
           "&, & .custom-media-wrapper": {
             maxHeight: "100vh",
             overflow: "hidden"
@@ -137,7 +140,7 @@ const MediaCarousel = forwardRef(
             pointerEvents: "all",
             transition: "opacity 0.25s"
           },
-          "&.focus-within": {
+          "&:hover:not(.container-overlayed),&.focus-within": {
             "& .video-player-footer .video-player-footer-main-box": {
               opacity: 1,
               pointerEvents: "all",
@@ -189,14 +192,14 @@ const MediaCarousel = forwardRef(
             return (
               <Box
                 key={i}
-                id="cont"
                 sx={{
                   borderRadius,
                   position: "relative",
                   minWidth: 0,
                   width: "100%",
                   height: "100%",
-                  "& .content-inherit,& .custom-overlay": {
+                  overflow: "hidden",
+                  "& .custom-overlay": {
                     border: "none"
                   },
                   "& > .custom-media-wrapper": {
@@ -205,13 +208,12 @@ const MediaCarousel = forwardRef(
                     position: "relative",
                     borderRadius: "inherit",
                     backgroundColor: "common.black",
-                    overflow: "hidden",
                     display: "flex",
                     justifyContent: "center",
                     alignItems: "center",
                     border: "1px solid currentColor",
                     borderColor: "divider",
-                    "&  .custom-media-container": {
+                    "& .custom-media-container": {
                       position: "unset",
                       borderRadius: 0,
                       border: "none"
@@ -219,21 +221,25 @@ const MediaCarousel = forwardRef(
                   }
                 }}
               >
-                {showIndicator ? (
+                {showIndicator && medias.length > 1 ? (
                   <IconButton
                     sx={{
                       fontSize: "12px",
                       position: "absolute",
-                      top: 10,
-                      right: 20,
+                      top: 8,
+                      right: 8,
                       borderRadius: "16px",
+                      width: "auto",
+                      height: "auto",
                       minWidth: "30px",
+                      minHeight: "30px",
                       zIndex: 3,
                       border: "1px solid currentColor",
-                      borderColor: "divider"
+                      borderColor: "divider",
+                      padding: "0px 6px"
                     }}
                   >
-                    {i + 1}/{medias.length}
+                    {i + 1} / {medias.length}
                   </IconButton>
                 ) : null}
                 <div className="custom-media-wrapper">
@@ -273,7 +279,7 @@ const MediaCarousel = forwardRef(
                       {contRef.current?.requestFullscreen ? (
                         <IconButton
                           onClick={toggleFullscreen}
-                          sx={{ position: "absolute", bottom: 5, right: 5 }}
+                          sx={{ position: "absolute", bottom: 8, right: 8 }}
                         >
                           {inFullscreen ? (
                             <FullscreenExitIcon />

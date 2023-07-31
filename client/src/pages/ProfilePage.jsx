@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "components/Layout";
 import UserWidget from "components/UserWidget";
-import FollowMeWidget from "components/FollowMeWidget";
+import FollowMeView from "views/FollowMeView";
 import UserProfileForm from "components/UserProfileForm";
 import { useParams, useSearchParams } from "react-router-dom";
 import { useContext } from "context/store";
@@ -10,19 +10,29 @@ import { useSelector } from "react-redux";
 import Loading from "components/Loading";
 import { Stack } from "@mui/material";
 import User404 from "./404/User404";
-import mp4 from "components/video.mp4";
-
 import { useDispatch } from "react-redux";
+import Redirect from "components/Redirect";
+
 const ProfilePage = () => {
   let { userId } = useParams();
   const [searchParams] = useSearchParams();
+
   const { socket } = useContext();
-  const [user, setUser] = useState();
-  const dispatch = useDispatch();
-  const cid = useSelector(state => {
-    return (state.user.currentUser || {}).id;
+
+  const { id: cid, blockedUsers } = useSelector(state => {
+    return state.user.currentUser;
   });
+
+  const [user, setUser] = useState();
+
+  const blocked = !!blockedUsers[(user?.id)];
+
+  const [redirect, setRedirect] = useState(blocked);
+
+  const dispatch = useDispatch();
+
   const isCurrentUser = cid === userId;
+
   const withCid = (searchParams.get("wc") || "").toLowerCase() === "true";
 
   useEffect(() => {
@@ -36,16 +46,22 @@ const ProfilePage = () => {
   }, [userId, cid]);
 
   useEffect(() => {
-    const handleUpdate = u => {
-      if (u.id === user?.id) setUser(u);
-    };
+    if (socket) {
+      const handleUpdate = u => {
+        if (u.id === user?.id) setUser(u);
+      };
 
-    socket.on("update-user", handleUpdate);
+      socket.on("update-user", handleUpdate);
 
-    return () => {
-      socket.removeEventListener("update-user", handleUpdate);
-    };
+      return () => {
+        socket.removeEventListener("update-user", handleUpdate);
+      };
+    }
   }, [isCurrentUser, socket, user?.id, dispatch]);
+
+  useEffect(() => {
+    if (blocked) setRedirect(true);
+  }, [blocked]);
 
   const width = {
     md: "48%"
@@ -57,15 +73,11 @@ const ProfilePage = () => {
         isCurrentUser={isCurrentUser}
         routePage="profilePage"
         key={userId}
+        closeDialog={blocked}
       >
-        {/* <video
-          src={mp4}
-          style={{ border: "1px solid red" }}
-          onLoadedMetadata={e => {
-            console.log(e.target.videoWidth, e.target.videoHeight);
-          }}
-        /> */}
-        {user === undefined ? (
+        {redirect ? (
+          <Redirect />
+        ) : user === undefined ? (
           <Loading />
         ) : user?.id ? (
           <Stack
@@ -108,7 +120,7 @@ const ProfilePage = () => {
               />
             ) : null}
 
-            <FollowMeWidget
+            <FollowMeView
               url="followers"
               title={isCurrentUser ? "Your Followers" : "Followers"}
               secondaryTitle="followers"
@@ -117,7 +129,7 @@ const ProfilePage = () => {
               key="followers"
             />
 
-            <FollowMeWidget
+            <FollowMeView
               url="following"
               title={isCurrentUser ? "People you follow" : "Following"}
               secondaryTitle="following"
@@ -125,15 +137,21 @@ const ProfilePage = () => {
               priority="unfollow"
               variant="flex"
               key="following"
+              infiniteScrollProps={{
+                verify: "m"
+              }}
             />
 
             {isCurrentUser ? (
-              <FollowMeWidget
+              <FollowMeView
                 width={width}
                 variant="flex"
                 key="suggest"
                 title="People to follow"
                 priority="follow"
+                infiniteScrollProps={{
+                  verify: "m"
+                }}
               />
             ) : null}
           </Stack>

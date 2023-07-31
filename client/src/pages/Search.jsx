@@ -1,50 +1,21 @@
-import React, { useRef, useMemo, useEffect } from "react";
+import React from "react";
 import { useSearchParams } from "react-router-dom";
-import Tabs from "@mui/material/Tabs";
-import Tab from "@mui/material/Tab";
-import Carousel from "react-multi-carousel";
+import Tabs from "components/Tabs";
 import PostsView from "views/PostsView";
 import ShortsView from "views/ShortsView";
 import MainView from "views/MainView";
-import FollowMeWidget from "components/FollowMeWidget";
+import FollowMeView from "views/FollowMeView";
+import Box from "@mui/material/Box";
 
 const Search = () => {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { q, tab } = useMemo(() => {
-    let tab = (searchParams.get("tab") || "").toLowerCase();
-    switch (tab) {
-      case "posts":
-      case "shorts":
-      case "users":
-        break;
-      default:
-        tab = "";
-    }
-    return {
-      tab,
-      q: searchParams.get("q") || ""
-    };
-  }, [searchParams]);
+  const [searchParams] = useSearchParams();
+  const q = searchParams.get("q") || "";
 
-  const carouselRef = useRef();
-  const stateRef = useRef({
-    withActiveTab: !!tab
-  });
-  useEffect(() => {
-    if (carouselRef.current) {
-      stateRef.current.withActiveTab = true;
-      carouselRef.current.goToSlide(
-        {
-          posts: 0,
-          users: 1,
-          shorts: 2
-        }[tab],
-        {
-          skipAfterChange: true
-        }
-      );
-    }
-  }, [tab]);
+  const tabsPane = [
+    { value: "posts", label: "Posts" },
+    { value: "users", label: "Users" },
+    { value: "shorts", label: "Shorts" }
+  ];
 
   return (
     <MainView
@@ -55,103 +26,61 @@ const Search = () => {
         }
       }}
     >
-      <Tabs
-        value={tab}
-        onChange={(e, value) => {
-          e.stopPropagation();
-          searchParams.set("tab", value);
-          setSearchParams(searchParams);
+      <Tabs tabsPane={tabsPane} defaultTab="posts">
+        {({ tab }) => {
+          const emptyLabel = (
+            <div>
+              We are sorry it seems there is no {tab.slice(0, -1)} matching{" "}
+              <Box component="span" sx={{ color: "primary.light" }}>
+                "{q}"
+              </Box>
+              .
+            </div>
+          );
+
+          const widgetProps = {
+            plainWidget: true
+          };
+
+          const infiniteScrollProps = {
+            dataKey: tab,
+            searchParams: `q=${q}&select=${tab}`,
+            url: "/search",
+            scrollNodeRef: null
+          };
+
+          return [
+            <PostsView
+              emptyLabel={emptyLabel}
+              infiniteScrollProps={{
+                ...infiniteScrollProps,
+                readyState: tab === "posts" ? "ready" : "pending"
+              }}
+              key={"serach-posts"}
+            />,
+            <FollowMeView
+              emptyLabel={emptyLabel}
+              variant="block"
+              infiniteScrollProps={{
+                ...infiniteScrollProps,
+                readyState: tab === "users" ? "ready" : "pending",
+                verify: "t"
+              }}
+              key={"serach-users"}
+              widgetProps={widgetProps}
+            />,
+            <ShortsView
+              emptyLabel={emptyLabel}
+              infiniteScrollProps={{
+                ...infiniteScrollProps,
+                readyState: tab === "shorts" ? "ready" : "pending"
+              }}
+              componentProps={widgetProps}
+              key={"serach-shorts"}
+            />
+          ];
         }}
-        variant="scrollable"
-        sx={{
-          "& .MuiTab-root": {
-            flex: 1
-          },
-          borderBottomColor: "divider",
-          ".MuiTabs-indicator": {
-            bottom: "-1px"
-          }
-        }}
-      >
-        <Tab value="posts" label="Posts" wrapped />
-        <Tab value="users" label="Users" wrapped />
-        <Tab value="shorts" label="Shorts" wrapped />
       </Tabs>
-      <Carousel
-        arrows={false}
-        responsive={{
-          xs: {
-            items: 1,
-            breakpoint: { min: 0, max: Infinity }
-          }
-        }}
-        ref={carouselRef}
-        beforeChange={current => {
-          if (stateRef.current.hasChange) {
-            searchParams.set(
-              "tab",
-              {
-                0: "posts",
-                1: "users",
-                2: "shorts"
-              }[current]
-            );
-            setSearchParams(searchParams);
-          }
-          stateRef.current.hasChange = true;
-        }}
-      >
-        <PostsView
-          infiniteScrollProps={{
-            dataKey: tab,
-            searchParams: `q=${q}&select=posts`,
-            url: `/search`,
-            readyState:
-              tab === "posts" && stateRef.current.withActiveTab
-                ? "ready"
-                : "pending",
-            verify: true,
-            scrollNodeRef: null
-          }}
-          key={"serach-posts"}
-        />
-        <FollowMeWidget
-          variant="block"
-          emptyDataMessage={
-            "We're sorry it seems there is no one to follow at the moment"
-          }
-          infiniteScrollProps={{
-            dataKey: tab,
-            searchParams: `q=${q}&select=users`,
-            url: `/search`,
-            readyState:
-              tab === "users" && stateRef.current.withActiveTab
-                ? "ready"
-                : "pending",
-            scrollNodeRef: null
-          }}
-          key={"serach-users"}
-          widgetProps={{
-            plainWidget: true
-          }}
-        />
-        <ShortsView
-          infiniteScrollProps={{
-            dataKey: tab,
-            searchParams: `q=${q}&select=shorts`,
-            url: `/search`,
-            readyState:
-              tab === "shorts" && stateRef.current.withActiveTab
-                ? "ready"
-                : "pending",
-            scrollNodeRef: null
-          }}
-          componentProps={{
-            plainWidget: true
-          }}
-          key={"serach-shorts"}
-        />
-      </Carousel>
     </MainView>
   );
 };

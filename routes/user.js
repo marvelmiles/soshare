@@ -13,7 +13,7 @@ import {
   getUnseenAlerts,
   markNotifications,
   getUserShorts,
-  blacklistUserRecommendation,
+  blacklistUser,
   deleteUserNotification,
   getBlacklist,
   whitelistUsers
@@ -45,12 +45,8 @@ router
   )
   .put("/:userId/follow", verifyToken, follow)
   .put("/:userId/unfollow", verifyToken, unfollow)
-  .put(
-    "/recommendation/blacklist/:userId",
-    verifyToken,
-    blacklistUserRecommendation
-  )
-  .patch("/notifications/mark", verifyToken, markNotifications)
-  .patch("/whitelist", verifyToken, whitelistUsers)
+  .put("/notifications/mark", verifyToken, markNotifications)
+  .patch("/whitelist/:action", verifyToken, whitelistUsers)
+  .patch("/blacklist/:action", verifyToken, blacklistUser)
   .delete("/notifications/:id", verifyToken, deleteUserNotification);
 export default router;

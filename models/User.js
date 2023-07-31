@@ -47,6 +47,10 @@ const schema = new mongoose.Schema(
       type: [{ type: String, ref: "user" }],
       default: []
     },
+    blockedUsers: {
+      type: [{ type: String, ref: "user" }],
+      default: []
+    },
     lastLogin: Date,
     isLogin: {
       type: Boolean,

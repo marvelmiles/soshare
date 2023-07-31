@@ -45,8 +45,7 @@ const ResetPwd = props => {
                 `/auth/reset-password/${token}/${userId}`,
                 formData,
                 {
-                  _noRefresh: true,
-                  _rejectAll: true
+                  _noRefresh: true
                 }
               );
               setSnackBar({

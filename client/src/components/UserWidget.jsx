@@ -10,7 +10,6 @@ import WorkOutlinedIcon from "@mui/icons-material/WorkOutlineOutlined";
 import TwitterIcon from "@mui/icons-material/Twitter";
 import LinkedInIcon from "@mui/icons-material/LinkedIn";
 import { useSelector } from "react-redux";
-import { useSearchParams } from "react-router-dom";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import { useContext } from "context/store";
 import { useDispatch } from "react-redux";
@@ -21,21 +20,14 @@ const UserWidget = ({ width, user }) => {
   const { socket } = useContext();
   const { previewUser, currentUser } = useSelector(({ user }) => user);
 
-  const [cUser, setCUser] = useState(
-    user ||
-      currentUser || {
-        following: [],
-        followers: [],
-        recommendationBlacklist: [],
-        socials: {}
-      }
-  );
+  const [cUser, setCUser] = useState(user || currentUser);
   const dispatch = useDispatch();
   const stateRef = useRef({
-    isCurrentUser: user?.id ? user.id === currentUser?.id : true,
     withSocket: !user,
     cid: cUser.id
   });
+
+  const isCurrentUser = user?.id ? user.id === currentUser.id : true;
 
   useEffect(() => {
     if (socket) {
@@ -56,20 +48,20 @@ const UserWidget = ({ width, user }) => {
   }, [socket, dispatch]);
 
   useEffect(() => {
-    stateRef.current.isCurrentUser &&
+    isCurrentUser &&
       setCUser(u => ({
         ...u,
         ...currentUser
       }));
-  }, [currentUser]);
+  }, [currentUser, isCurrentUser]);
 
   useEffect(() => {
-    stateRef.current.isCurrentUser &&
+    isCurrentUser &&
       setCUser(u => ({
         ...u,
         ...previewUser
       }));
-  }, [previewUser]);
+  }, [previewUser, isCurrentUser]);
 
   useEffect(() => {
     setCUser(u => ({
@@ -105,14 +97,14 @@ const UserWidget = ({ width, user }) => {
       <UserTip
         disableSnippet
         actionBar={
-          stateRef.current.isCurrentUser && !user ? (
+          isCurrentUser && !user ? (
             <IconButton component={StyledLink} to={`/u/${cUser.id}`}>
               <ManageAccountsOutlined />
             </IconButton>
           ) : null
         }
         user={cUser}
-        isCurrentUser={stateRef.current.isCurrentUser}
+        isOwner={isCurrentUser}
       />
       {cUser.occupation || cUser.location ? (
         <>
@@ -154,7 +146,7 @@ const UserWidget = ({ width, user }) => {
                 color: "text.secondary"
               }}
             >
-              {cUser.email}Culpa eiusmod tempor ea id ad.
+              {cUser.email}
             </Typography>
             <Typography>Mail Service</Typography>
           </div>
@@ -192,7 +184,7 @@ const UserWidget = ({ width, user }) => {
                     }
                   }}
                 >
-                  {url}Culpa eiusmod tempor ea id ad.
+                  {url}
                 </Typography>
                 <Typography>
                   {

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import http from "api/http";
 import { useContext } from "context/store";
-import { CANCELED_REQUEST_MSG } from "context/config";
+import { CANCELED_REQUEST_MSG } from "context/constants";
 import { useSelector, useDispatch } from "react-redux";
 import { updateUser } from "context/slices/userSlice";
 

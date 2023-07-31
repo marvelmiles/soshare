@@ -8,7 +8,6 @@ import ListItemText from "@mui/material/ListItemText";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
 import DoDisturbAltOutlinedIcon from "@mui/icons-material/DoDisturbAltOutlined";
-import http from "api/http";
 import DeleteIcon from "@mui/icons-material/Delete";
 import DeleteDialog from "components/DeleteDialog";
 import { useContext } from "context/store";
@@ -18,8 +17,8 @@ import useDeleteDispatch from "hooks/useDeleteDispatch";
 import useFollowDispatch from "hooks/useFollowDispatch";
 import EditIcon from "@mui/icons-material/Edit";
 import { Link } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
-import { updateUser } from "context/slices/userSlice";
+import { useSelector } from "react-redux";
+import useContextDispatch from "hooks/useContextDispatch";
 
 const MoreActions = ({
   document = {
@@ -49,8 +48,9 @@ const MoreActions = ({
       settings: currentUser.settings || {}
     };
   });
-  const dispatch = useDispatch();
-  const { setSnackBar, setContext } = useContext();
+  const { setSnackBar } = useContext();
+
+  const { handleContextKeyDispatch } = useContextDispatch();
 
   const { handleDelete } = useDeleteDispatch({
     url: urls.delPath,
@@ -71,50 +71,19 @@ const MoreActions = ({
     unmount && setAnchorEl(null);
   }, [unmount]);
 
-  const handleDontRecommend = useCallback(async () => {
-    const url = `/users/recommendation/blacklist/${document.user.id}`;
-    const handleBlacklist = () => {
-      setContext(context => {
-        return {
-          ...context,
-          blacklistedUsers: {
-            ...context.blacklistedUsers,
-            [document.user.id]: true
-          }
-        };
-      });
-      dispatch(
-        updateUser({
-          blacklistCount: 1
-        })
-      );
-    };
-    if (isLoggedIn) {
-      try {
-        handleBlacklist();
-        await http.put(url);
-      } catch (_) {
-        setSnackBar(
-          `Failed to blacklist @${document.user.username ||
-            "user"}! over the sever`
-        );
-      }
-    } else {
-      setContext(prev => ({
-        ...prev,
-        composeDoc: {
-          url,
-          reason: "request",
-          method: "put",
-          done: false,
-          onSuccess() {
-            handleBlacklist();
-          }
-        }
-      }));
-      setSnackBar();
-    }
-  }, [document, isLoggedIn, setContext, setSnackBar, dispatch]);
+  const handleDisapproveUser = () =>
+    handleContextKeyDispatch(
+      `/users/blacklist/disapprove`,
+      "disapprovedUsers",
+      document.user
+    );
+
+  const handleBlockUser = () =>
+    handleContextKeyDispatch(
+      `/users/blacklist/block`,
+      "blockedUsers",
+      document.user
+    );
 
   const _handleAction = useCallback(
     reason => {
@@ -175,7 +144,7 @@ const MoreActions = ({
         {[
           {
             icon: ShareOutlinedIcon,
-            text: "Share"
+            text: "Download"
           },
           {
             icon: isFollowing ? PersonRemoveIcon : PersonAddAlt1Icon,
@@ -188,7 +157,13 @@ const MoreActions = ({
           {
             icon: DoDisturbAltOutlinedIcon,
             text: `Don't recommend @${document.user.username}`,
-            onClick: handleDontRecommend,
+            onClick: handleDisapproveUser,
+            nullify: isOwner
+          },
+          {
+            icon: DoDisturbAltOutlinedIcon,
+            text: `Block @${document.user.username}`,
+            onClick: handleBlockUser,
             nullify: isOwner
           },
           {

@@ -7,20 +7,28 @@ import { useContext } from "context/store";
 
 const Redirect = ({
   message = `You are not authorized to view this page and will be redirected soon...`,
+  to,
   fallbackPath = "/",
-  to = -1,
   delay = 5000
 }) => {
-  const { prevPath } = useContext();
   const navigate = useNavigate();
+  const { withBackBtn, locState } = useContext();
   useEffect(() => {
     const id = setTimeout(() => {
       navigate(
-        to === -1 ? (prevPath === "/auth/signin" ? fallbackPath : -1) : to
+        withBackBtn ? to || locState.from || fallbackPath : fallbackPath,
+        {
+          replace: true,
+          state: {
+            ...locState,
+            from: window.location.pathname
+          }
+        }
       );
       clearTimeout(id);
     }, delay);
-  }, [navigate, fallbackPath, delay, to, prevPath]);
+    return () => clearTimeout(id);
+  }, [navigate, delay, to, withBackBtn, fallbackPath, locState]);
   return (
     <EmptyData
       label={

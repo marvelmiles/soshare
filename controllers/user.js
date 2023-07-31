@@ -4,7 +4,7 @@ import Post from "../models/Post.js";
 import {
   getAll,
   sendAndUpdateNotification,
-  getRoomSockets
+  getRoomSocketAtIndex
 } from "../utils/index.js";
 import { deleteFile } from "../utils/file-handlers.js";
 import Notification from "../models/Notification.js";
@@ -17,6 +17,7 @@ import {
   getAllIntervally,
   clearGetAllIntervallyTask
 } from "../utils/schedule-tasks.js";
+import { SUGGESTED_USERS, SUGGEST_FOLLOWERS_TASK_KEY } from "../config.js";
 
 export const getUser = (req, res, next) =>
   getDocument({
@@ -154,7 +155,7 @@ export const getUserPosts = async (req, res, next) => {
 
 export const suggestFollowers = async (req, res, next) => {
   try {
-    const { following, recommendationBlacklist } =
+    const { following, recommendationBlacklist, blockedUsers } =
       (await User.findById(req.user.id)) || {};
     if (!following) throw createError(`User not found`, 404);
 
@@ -162,7 +163,11 @@ export const suggestFollowers = async (req, res, next) => {
       model: User,
       match: {
         _id: {
-          $nin: following.concat(recommendationBlacklist, req.user.id)
+          $nin: following.concat(
+            recommendationBlacklist,
+            blockedUsers,
+            req.user.id
+          )
         }
       },
       query: req.query
@@ -170,19 +175,17 @@ export const suggestFollowers = async (req, res, next) => {
     let result = await getAll(queryConfig);
     res.json(result);
     const io = req.app.get("socketIo");
-    const socketId = getRoomSockets(io, req.user.id)[0];
     const mapFn = user => user.id.toString();
     let socket;
     if (
-      socketId &&
-      (socket = io.sockets.sockets.get(socketId)) &&
+      (socket = getRoomSocketAtIndex(io, req.user.id)) &&
       socket.handshake.withCookies
     ) {
       getAllIntervally(
         queryConfig,
         socket,
         result.paging.nextCursor,
-        "suggestFollowersInterval",
+        SUGGEST_FOLLOWERS_TASK_KEY,
         {
           eventName: "suggest-followers",
           blacklist: result.data.map(mapFn),
@@ -191,7 +194,7 @@ export const suggestFollowers = async (req, res, next) => {
       );
     } else if (socket)
       // just incase, socket.disconnect should do it.
-      clearGetAllIntervallyTask(socket, "suggestFollowersInterval");
+      clearGetAllIntervallyTask(socket, SUGGEST_FOLLOWERS_TASK_KEY);
   } catch (err) {
     next(err);
   }
@@ -373,24 +376,57 @@ export const getUserShorts = async (req, res, next) => {
   });
 };
 
-export const blacklistUserRecommendation = async (req, res, next) => {
+export const blacklistUser = async (req, res, next) => {
   try {
-    if (req.user.id === req.params.userId)
-      throw createError("You can't blacklist yourself");
+    console.log("blakclist....", req.body);
+    if (!Array.isArray(req.body))
+      throw createError("Invalid request: Expect body to be an array");
+
+    const action = req.params.action;
+
+    const key = {
+      block: "blockedUsers",
+      disapprove: "recommendationBlacklist"
+    }[action];
+
+    if (!key)
+      throw createError(
+        "Invalid request: Expect /users/blacklist/<disapprove|block>",
+        400
+      );
+
+    if (req.body.includes(req.user.id))
+      throw createError(`You can't ${action} yourself`);
+
+    const updateProp = { new: true };
 
     const user = await User.findByIdAndUpdate(
       req.user.id,
       {
         $addToSet: {
-          recommendationBlacklist: req.params.userId
+          [key]: req.body
         }
       },
-      { new: true }
+      updateProp
     );
+
     const io = req.app.get("socketIo");
 
-    io && io.emit("update-user", user);
-    res.json("Blacklisted successfully");
+    user && io.emit("update-user", user);
+
+    res.json(
+      `@${user.username} ${
+        { disapprove: "disapproved", block: "blocked" }[action]
+      } successfully`
+    );
+
+    const socket = getRoomSocketAtIndex(io, req.user.id);
+
+    if (socket) {
+      socket.handshake[SUGGESTED_USERS] = socket.handshake[
+        SUGGESTED_USERS
+      ].concat(req.params.userId);
+    }
   } catch (err) {
     next(err);
   }
@@ -408,39 +444,91 @@ export const deleteUserNotification = async (req, res, next) => {
 };
 
 export const getBlacklist = async (req, res, next) => {
-  return getFeedMedias({
-    req,
-    res,
-    next,
-    model: User,
-    dataKey: "recommendationBlacklist"
-  });
+  console.log("getting blaclist", req.query.select);
+  try {
+    const result = {};
+
+    for (const key of (req.query.select || "recommendation blocked").split(
+      " "
+    )) {
+      const props = {
+        query: req.query,
+        model: User,
+        match: {
+          _id: req.user.id
+        }
+      };
+      switch (key) {
+        case "recommendation":
+          props.dataKey = "recommendationBlacklist";
+          result[key] = await getAll(props);
+          continue;
+        case "blocked":
+          props.dataKey = "blockedUsers";
+          result[key] = await getAll(props);
+          continue;
+        default:
+          result[key] = {
+            data: [],
+            paging: {
+              nextCursor: null,
+              matchedDocs: 0
+            }
+          };
+      }
+    }
+
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
 };
 
 export const whitelistUsers = async (req, res, next) => {
   try {
-    let list = (await User.findById(req.user.id))?.recommendationBlacklist;
+    console.log("whitelisted....", req.body);
+
+    if (!Array.isArray(req.body))
+      throw createError("Invalid request: Expect body to be an array");
+
+    const key = {
+      disapprove: "recommendationBlacklist",
+      block: "blockedUsers"
+    }[req.params.action];
+
+    if (!key)
+      throw createError(
+        `Invalid request: Expect /users/whitelist/<block|disapprove> got ${req.url}`,
+        400
+      );
+
+    let list = (await User.findById(req.user.id))?.[key];
 
     if (list) {
       if (!Array.isArray(req.body))
         throw createError("Invalid body expect an array of id");
+
       if (req.body.length) {
+        const bodyMap = mapToObject(req.body);
+
         const user = await User.findByIdAndUpdate(
           req.user.id,
           {
-            recommendationBlacklist: list.filter(
-              _id => mapToObject(req.body)[_id] === undefined
-            )
+            [key]: list.filter(_id => bodyMap[_id] === undefined)
           },
           {
             new: true
           }
         );
+
         const io = req.app.get("socketIo");
+
         io && io.emit("update-user", user);
       }
     }
-    res.json("Whitelisted users successfully");
+    res.json(
+      `Whitelisted ${req.body.length > 1 ? "users" : "user"} successfully`
+    );
   } catch (err) {
     next(err);
   }

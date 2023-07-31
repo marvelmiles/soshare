@@ -34,7 +34,7 @@ export const LoadingDot = ({ label, color = "primary.main", sx }) => {
     }
   });
   return (
-    <Stack gap={0} flexWrap="wrap" sx={sx} id="custom-loading-dot">
+    <Stack gap={0} flexWrap="wrap" sx={sx} className="custom-loading-dot">
       {label ? (
         <Typography
           sx={{ textTransform: "capitalize" }}
@@ -99,8 +99,7 @@ const Loading = ({ sx, className, ...rest }) => {
         my: 2,
         ...sx
       }}
-      id="custom-loading"
-      className={className}
+      className={`custom-loading ${className}`}
     >
       <CircularProgress
         value={60}

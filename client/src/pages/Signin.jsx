@@ -91,19 +91,25 @@ const Signin = () => {
           break;
       }
       dispatch(loginUser(user));
+      locState.from = "0";
       const prop = {
         state: locState
       };
+      if (redirect) redirect = redirect.replace(/cv/, "view");
+
       navigate(redirect || "/", prop);
     } catch (message) {
       if (message.code) {
         if (message.code === "auth/popup-closed-by-user")
           message = "Authentication popup closed by you!";
         else message = "Something went wrong!";
-      }
+      } else message = message.message || message;
+
       reset(true);
+
       if (message === "Account is not registered")
         stateRef.current.email = false;
+
       message && setSnackBar(message);
     }
   };

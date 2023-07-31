@@ -19,6 +19,13 @@ export const search = async (req, res, next) => {
         };
 
     if (req.cookies.access_token) verifyToken(req);
+
+    if (req.query.select && typeof req.query.select !== "string")
+      throw createError(
+        `Invalid request expect select query to be of type String got ${typeof req
+          .query.select}`
+      );
+
     for (let key of (req.query.select || "posts users shorts").split(" ")) {
       switch (key) {
         case "posts":
@@ -106,10 +113,11 @@ export const search = async (req, res, next) => {
           continue;
         default:
           result[key] = {
+            data: [],
             paging: {
-              nextCursor: null
-            },
-            data: []
+              nextCursor: null,
+              matchedDocs: 0
+            }
           };
           continue;
       }

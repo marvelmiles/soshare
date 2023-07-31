@@ -20,12 +20,13 @@ const ShortsView = ({
   mx,
   scrollNodeRef,
   privateUid,
-  componentProps
+  componentProps,
+  emptyLabel
 }) => {
   const currentUser = useSelector(state => state.user.currentUser || {});
   const {
     socket,
-    context: { composeDoc, blacklistedUsers }
+    context: { composeDoc }
   } = useContext();
 
   const infiniteScrollRef = useRef();
@@ -106,12 +107,15 @@ const ShortsView = ({
   }, [composeDoc, _handleAction]);
 
   useEffect(() => {
-    filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
-  }, [blacklistedUsers]);
+    filterDocsByUserSet(infiniteScrollRef.current, {
+      ...currentUser.disapprovedUsers,
+      ...currentUser.blockedUsers
+    });
+  }, [currentUser.disapprovedUsers, currentUser.blockedUsers]);
 
   return (
     <InfiniteScroll
-      key={"infinite-shorts-" + miniShort}
+      key={`${miniShort}-${stateRef.current.url}`}
       url={stateRef.current.url}
       sx={
         miniShort
@@ -143,7 +147,7 @@ const ShortsView = ({
           : undefined
       }
     >
-      {({ data: { data }, setObservedNode }) => {
+      {({ data: { data } }) => {
         return data.length ? (
           <>
             {title && miniShort && (
@@ -184,13 +188,8 @@ const ShortsView = ({
                 return (
                   <Short
                     id={s.id}
-                    key={i + miniShort}
+                    key={i}
                     stateCtx={stateRef.current}
-                    ref={
-                      i === data.length - 1
-                        ? node => setObservedNode(node)
-                        : undefined
-                    }
                     loop={loop}
                     short={s}
                     handleAction={_handleAction}
@@ -204,9 +203,10 @@ const ShortsView = ({
         ) : (
           <EmptyData
             label={
-              privateUid
+              emptyLabel ||
+              (privateUid
                 ? `You don't have any short at the moment!`
-                : `We're sorry it seems there is no shorts at the moment`
+                : `We're sorry it seems there is no shorts at the moment`)
             }
           />
         );

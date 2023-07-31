@@ -11,7 +11,8 @@ import Tooltip from "@mui/material/Tooltip";
 import twitterIcon from "imgs/twitter.png";
 import emailIcon from "imgs/email.png";
 import linkedInIcon from "imgs/linkedin.png";
-import { anchorAttrs } from "context/config";
+import { anchorAttrs } from "context/constants";
+import useFollowDispatch from "hooks/useFollowDispatch";
 
 const UserTip = ({
   user = defaultUser,
@@ -23,6 +24,12 @@ const UserTip = ({
   maxLine = disableSnippet ? 0 : 2
 }) => {
   const [searchParams] = useSearchParams();
+  const {
+    isProcessingFollow,
+    isFollowing,
+    handleToggleFollow
+  } = useFollowDispatch({ user });
+
   const renderSV = v => {
     const view = (searchParams.get("view") || "").toLowerCase();
     return `${
@@ -77,12 +84,8 @@ const UserTip = ({
               color="text.primary"
               maxLine={maxLine}
             >
-              {user.displayName || user.username}Cillum anim velit occaecat
-              et.Ad magna nulla nulla duis consectetur excepteur elit esse.Qui
-              eu voluptate non duis dolor aliqua pariatur officia.Magna sint ut
-              minim ut cillum et adipisicing consequat incididunt ut cillum in
-              labore voluptate.
-            </StyledTypography>
+              {isOwner ? "You" : user.displayName || user.username}
+            </StyledTypography>{" "}
             <StyledTypography
               color="inherit"
               component={StyledLink}
@@ -90,10 +93,7 @@ const UserTip = ({
               variant="caption"
               maxLine={maxLine}
             >
-              @{user.username}Cillum anim velit occaecat et.Ad magna nulla nulla
-              duis consectetur excepteur elit esse.Qui eu voluptate non duis
-              dolor aliqua pariatur officia.Magna sint ut minim ut cillum et
-              adipisicing consequat incididunt ut cillum in labore voluptate.
+              @{user.username}
             </StyledTypography>
             <div style={{ whiteSpace: "wrap" }}>
               <StyledLink
@@ -137,15 +137,17 @@ const UserTip = ({
                     sx={{ color: "inherit" }}
                     to={renderSV("user-blacklist")}
                   >
-                    {user.blacklistCount} blacklist
+                    blacklist
                   </StyledLink>
                 </>
               ) : null}
             </div>
           </Box>
-          {actionBar === undefined ? (
+          {!isOwner && actionBar === undefined ? (
             <Button
               variant="contained"
+              disabled={isProcessingFollow}
+              onClick={handleToggleFollow}
               sx={{
                 minWidth: "70px",
                 maxWidth: "80px",
@@ -155,7 +157,7 @@ const UserTip = ({
                 borderRadius: 5
               }}
             >
-              Follow
+              {isFollowing ? "Unfollow" : "Follow"}
             </Button>
           ) : (
             actionBar
@@ -182,10 +184,6 @@ const UserTip = ({
           }}
         >
           {user.bio}
-          Cillum anim velit occaecat et.Ad magna nulla nulla duis consectetur
-          excepteur elit esse.Qui eu voluptate non duis dolor aliqua pariatur
-          officia.Magna sint ut minim ut cillum et adipisicing consequat
-          incididunt ut cillum in labore voluptate.
         </StyledTypography>
       ) : null}
       {disableSnippet ? null : (

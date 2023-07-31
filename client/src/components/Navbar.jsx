@@ -50,6 +50,7 @@ import Box from "@mui/material/Box";
 import UserSettings from "components/UserSettings";
 import { useMediaQuery } from "@mui/material";
 import { signoutUser } from "context/slices/userSlice";
+import CustomInput from "components/CustomInput";
 
 Popover.defaultProps = {
   open: false,
@@ -60,7 +61,7 @@ const Navbar = ({ routePage = "homePage" }) => {
   const {
     palette: { mode }
   } = useTheme();
-  const { socket, setSnackBar, prevPath } = useContext();
+  const { socket, setSnackBar, withBackBtn } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const stateRef = useRef({
     notifications: {
@@ -271,9 +272,12 @@ const Navbar = ({ routePage = "homePage" }) => {
   )}`;
 
   const createProfileParam = (value, key = "view") =>
-    `/u/${userId || currentUser.id}?${key}=${value}${
-      userId === currentUser.id ? "" : `&wc=true`
-    }`;
+    `/u/${userId || currentUser.id}${createRelativeURL(
+      key,
+      `${key}=${value}${userId === currentUser.id ? "" : "&wc=true"}`,
+      undefined,
+      false
+    )}`;
 
   const selectElem = currentUser.id ? (
     <FormControl
@@ -370,6 +374,13 @@ const Navbar = ({ routePage = "homePage" }) => {
                   value={l.label}
                   to={l.to}
                   component={StyledLink}
+                  state={
+                    window.location.pathname.indexOf("/u/") === -1
+                      ? {
+                          from: window.location.pathname
+                        }
+                      : undefined
+                  }
                   onClick={closeUserSelect}
                   sx={{
                     borderBottom: "1px solid currentColor",
@@ -423,39 +434,23 @@ const Navbar = ({ routePage = "homePage" }) => {
   );
 
   const searchElem = (
-    <Box sx={{ px: 2, flex: 1 }}>
-      <Stack
-        gap={0}
-        sx={{
-          border: "1px solid #333",
-          borderColor: "divider",
-          borderRadius: "8px",
-          width: "100%",
-          div: {
-            borderRadius: 0,
-            padding: 0,
-            paddingLeft: 1,
-            margin: 0,
-            border: 0
-          },
-          button: {
-            borderTopRightRadius: 0,
-            borderBottomRightRadius: 0
-          }
-        }}
-        component="form"
-        onSubmit={handleSearch}
-      >
-        <InputBase
-          placeholder="Search..."
-          value={query}
-          onChange={({ currentTarget }) => setQuery(currentTarget.value)}
-        />
+    <CustomInput
+      standard
+      value={query}
+      onChange={({ currentTarget }) => setQuery(currentTarget.value)}
+      sx={{
+        "& label div.custom-input-content .custom-input": { py: 0 },
+        "& > div": {
+          borderRadius: "20px"
+        }
+      }}
+      endAdornment={
         <IconButton type="submit">
           <SearchIcon />
         </IconButton>
-      </Stack>
-    </Box>
+      }
+      placeholder="Search..."
+    />
   );
 
   const renderPopover = () => {
@@ -522,7 +517,7 @@ const Navbar = ({ routePage = "homePage" }) => {
             md: 1
           }}
         >
-          {prevPath ? (
+          {withBackBtn ? (
             <IconButton title="Go back" onClick={handleGoBack}>
               <KeyboardBackspaceIcon />
             </IconButton>

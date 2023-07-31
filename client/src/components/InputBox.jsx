@@ -63,7 +63,8 @@ const InputBox = ({
   withPlaceholders = true,
   fileId,
   submitInputsOnly,
-  inputClassName = ""
+  inputClassName = "",
+  docType
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const { setSnackBar, closeSnackBar } = useContext();
@@ -240,7 +241,8 @@ const InputBox = ({
         case "checked":
           dispatch(
             updateUser({
-              settings:
+              key: "settings",
+              value:
                 dialog.openFor === "delete"
                   ? {
                       hideDelDialog: true
@@ -287,7 +289,6 @@ const InputBox = ({
         const _formData = handleSubmit(undefined, {
           formData: new FormData()
         });
-
         if (_formData) {
           console.log(
             _formData.getAll(mediaRefName),
@@ -309,8 +310,8 @@ const InputBox = ({
               message && message.success
                 ? message.success
                 : placeholders
-                ? `Updated ${mediaRefName} successfully!`
-                : `Your ${mediaRefName} has been uploaded!`,
+                ? `Updated ${docType || mediaRefName} successfully!`
+                : `Your ${docType || mediaRefName} has been soshared!`,
             severity: "success"
           });
           if (placeholders && !res[mediaRefName] && res.url) {
@@ -367,7 +368,8 @@ const InputBox = ({
       resetData,
       setSnackBar,
       url,
-      withPlaceholders
+      withPlaceholders,
+      docType
     ]
   );
   const showMoreTools = ({ currentTarget }) =>
@@ -477,6 +479,8 @@ const InputBox = ({
     handleChange(e);
   };
 
+  const textareaId = `${stateRef.current.key}-inputbox-textarea`;
+
   return (
     <>
       <WidgetContainer
@@ -523,13 +527,16 @@ const InputBox = ({
               src={currentUser.photoUrl}
               alt={currentUser.username}
             />
-            <Box sx={{}}>
-              <Stack
-                sx={{
-                  minWidth: "0",
-                  width: "150px"
-                }}
-              >
+            <Box
+              sx={{
+                minWidth: "0",
+                flex: "1",
+                display: "flex",
+                flexDirection: "column"
+                // width: "150px"
+              }}
+            >
+              <Stack>
                 <Select
                   className="Mui-custom-select"
                   value={formData.visibility || "everyone"}
@@ -585,7 +592,7 @@ const InputBox = ({
                 ) : null}
               </Stack>
               {hideTextArea ? null : (
-                <div>
+                <label htmlFor={textareaId}>
                   <Typography
                     ref={inputRef}
                     name="text"
@@ -594,6 +601,7 @@ const InputBox = ({
                     onChange={handleChange}
                     placeholder={placeholder}
                     component="textarea"
+                    id={textareaId}
                     sx={{
                       color: "text.primary",
                       fontSize: boldFont ? "20px" : "16px",
@@ -616,13 +624,14 @@ const InputBox = ({
                     className={`inputbox-textarea ${inputClassName}`}
                   />
                   <Typography
-                    style={{
-                      float: "right"
+                    sx={{
+                      float: "right",
+                      pr: 1
                     }}
                   >
                     {(formData.text || "").length || 0} / {max}
                   </Typography>
-                </div>
+                </label>
               )}
             </Box>
           </Stack>

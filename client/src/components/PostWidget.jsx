@@ -117,22 +117,11 @@ const PostWidget = React.forwardRef(
     );
 
     return (
-      <Box id="ioo" sx={{ position: "relative" }}>
-        {dialogContent ? (
-          <Typography
-            component="div"
-            className="custom-overlay"
-            sx={{
-              backgroundColor: "background.paper",
-              color: "inherit"
-            }}
-          >
-            {dialogContent}
-          </Typography>
-        ) : null}
-        <WidgetContainer
-          plainWidget={plainWidget}
-          sx={{
+      <Box
+        className="post-widget"
+        sx={{
+          position: "relative",
+          "& > div": {
             borderBottom: "1px solid currentColor",
             borderBottomColor: enableSnippet ? "transparent" : "divider",
             borderRadius: 0,
@@ -170,11 +159,24 @@ const PostWidget = React.forwardRef(
                   bottom: "0px"
                 }
               })
-            },
-            ...sx
-          }}
-          ref={ref}
-        >
+            }
+          },
+          ...sx
+        }}
+      >
+        {dialogContent ? (
+          <Typography
+            component="div"
+            className="custom-overlay"
+            sx={{
+              backgroundColor: "background.paper",
+              color: "inherit"
+            }}
+          >
+            {dialogContent}
+          </Typography>
+        ) : null}
+        <WidgetContainer plainWidget={plainWidget} ref={ref}>
           <div
             className="post-container"
             onClick={
@@ -289,42 +291,21 @@ const PostWidget = React.forwardRef(
                     mb: enableSnippet ? 0 : 1
                   }}
                 >
-                  <div>
-                    <span>
-                      {enableSnippet
-                        ? post.text.slice(0, 80) +
-                          (post.text.length >= 80 ? "..." : "")
-                        : post.text}
-                    </span>
-                    <span>
-                      {post.moreText && showAll && !enableSnippet
-                        ? post.moreText
-                        : null}
-                    </span>
-                  </div>
-                  {post.moreText && !enableSnippet ? (
-                    <Typography
-                      sx={{
-                        width: "auto",
-                        minWidth: "0",
-                        display: "inline-block",
-                        "&:hover": {
-                          textDecoration: "underline"
-                        }
-                      }}
-                      onClick={e => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setShowAll(!showAll);
-                      }}
-                    >
-                      {showAll ? "show less" : "show more"}
-                    </Typography>
-                  ) : null}
+                  <span>
+                    {enableSnippet
+                      ? post.text.slice(0, 80) +
+                        (post.text.length >= 80 ? "..." : "")
+                      : post.text}
+                  </span>
+                  <span>
+                    {post.moreText && showAll && !enableSnippet
+                      ? post.moreText
+                      : null}
+                  </span>
                 </Typography>
               ) : null}
 
-              {post.medias?.length || post.media ? (
+              {!enableSnippet && (post.medias?.length || post.media) ? (
                 <MediaCarousel medias={post.medias || [post.media]} />
               ) : null}
               {hideToolbox || enableSnippet ? null : (

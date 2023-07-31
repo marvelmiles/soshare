@@ -35,7 +35,7 @@ const Person = React.forwardRef(
               width: "30%",
               textAlign: "center",
               mb: 2,
-              minHeight: "200px",
+              minHeight: "220px",
               ...sx
             }}
           >
@@ -57,7 +57,10 @@ const Person = React.forwardRef(
                   borderRadius: 4,
                   mt: "16px"
                 }}
-                onClick={onBtnClick}
+                onClick={e => {
+                  e.stopPropagation();
+                  onBtnClick(user, e);
+                }}
                 disabled={isOwner || disabled}
               >
                 {btnLabel}
@@ -133,7 +136,7 @@ const Person = React.forwardRef(
                   borderRadius: 6,
                   flexShrink: 0
                 }}
-                onClick={onBtnClick}
+                onClick={e => onBtnClick(user, e)}
                 disabled={isOwner || disabled}
               >
                 {btnLabel}

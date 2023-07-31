@@ -45,22 +45,22 @@ const VideoPlayer = React.forwardRef(
       backdrops = {},
       enableIndicator = true,
       intersectionProps,
-      className = "",
       contRef,
       onFullscreen,
       hideTimeBox,
+      maxReload = 4, // 3x after initial reload
       ...props
     },
     ref
   ) => {
-    const { setSnackBar } = useContext();
+    const { setSnackBar, isOnline } = useContext();
     const stateRef = useRef({
-      intersectionProps: withIntersection
-        ? {
-            threshold: 0.4,
-            ...intersectionProps
-          }
-        : undefined,
+      loaded: false,
+      reloadCount: 0,
+      maxReload,
+      intersectionProps: {
+        threshold: 0.4
+      },
       defaultTimeMap: {
         seek: 0,
         cTime: {
@@ -77,18 +77,57 @@ const VideoPlayer = React.forwardRef(
     const _contRef = useRef();
     const [backdrop, setBackdrop] = useState("");
     const { isIntersecting } = useViewIntersection(
-      !loading && withIntersection && videoRef,
-      stateRef.current.intersectionProps
+      !loading && withIntersection ? videoRef : undefined,
+      withIntersection
+        ? stateRef.current.intersectionProps || intersectionProps
+        : undefined
     );
     const [videoUrl, setVideoUrl] = useState();
-    const showBackdrop = useCallback((openFor = "relaod") => {
-      const wrapper = stateRef.current.wrapper;
-      if (wrapper) {
-        if (openFor) wrapper.classList.add("container-overlayed");
-        else wrapper.classList.remove("container-overlayed");
+
+    useEffect(() => {
+      let url;
+
+      if (src) setVideoUrl(src);
+      else if (nativeFile) {
+        url = URL.createObjectURL(nativeFile);
+        setVideoUrl(url);
       }
-      setBackdrop(openFor);
-    }, []);
+      return () => url && URL.revokeObjectURL(url);
+    }, [nativeFile, src]);
+
+    const handleReload = useCallback(
+      e => {
+        e && e.stopPropagation();
+        if (stateRef.current.reloadCount >= stateRef.current.maxReload) return;
+        setBackdrop("");
+        setLoading(true);
+        onReload && onReload();
+        if (!videoRef.current.paused) videoRef.current.pause();
+        videoRef.current.load();
+      },
+      [onReload]
+    );
+
+    const showBackdrop = useCallback(
+      (openFor = "reload") => {
+        if (
+          openFor === "reload" &&
+          stateRef.current.reloadCount &&
+          stateRef.current.reloadCount < stateRef.current.maxReload
+        ) {
+          stateRef.current.reloadCount++;
+          handleReload();
+        } else {
+          const wrapper = stateRef.current.wrapper;
+          if (wrapper) {
+            if (openFor) wrapper.classList.add("container-overlayed");
+            else wrapper.classList.remove("container-overlayed");
+          }
+          setBackdrop(openFor);
+        }
+      },
+      [handleReload]
+    );
 
     const handlePlay = useCallback(
       (prop = {}) => {
@@ -134,16 +173,10 @@ const VideoPlayer = React.forwardRef(
       [onPause]
     );
 
-    useEffect(() => {
-      let url;
-
-      if (src) setVideoUrl(mp4);
-      else if (nativeFile) {
-        url = URL.createObjectURL(nativeFile);
-        setVideoUrl(url);
-      }
-      return () => url && URL.revokeObjectURL(url);
-    }, [nativeFile, src]);
+    const resetLoadState = useCallback(() => {
+      stateRef.current.loaded = false;
+      stateRef.current.reloadCount = 0;
+    }, []);
 
     useEffect(() => {
       const video = videoRef.current;
@@ -257,32 +290,36 @@ const VideoPlayer = React.forwardRef(
         };
 
         const handleError = ({ target: { error: err } }) => {
-          video.parentElement.style.paddingBottom = "0px";
           setLoading(false);
 
-          const error = {
-            name: err.name,
-            code: err.code,
-            message: err.message
-          };
-
+          const error = err
+            ? {
+                name: err.name,
+                code: err.code,
+                message: err.message
+              }
+            : {};
           switch (error.code) {
             case MediaError.MEDIA_ERR_ABORTED:
               error.severity = -1;
               error.message =
                 "Unable to play stream or video playback aborted!";
               if (backdrops["RELOAD"]) {
-                setBackdrop();
-              } else setSnackBar(error.message);
+                showBackdrop();
+              } else {
+                resetLoadState();
+                setSnackBar(error.message);
+              }
               break;
             case MediaError.MEDIA_ERR_NETWORK:
               error.withReload = true;
               error.severity = -1;
               error.message =
                 "A network error caused the video download to fail.";
-              setBackdrop();
+              showBackdrop();
               break;
             case MediaError.MEDIA_ERR_DECODE:
+              resetLoadState();
               error.severity = 1;
               error.message =
                 "The video playback was aborted due to a corruption problem or because the video used features your browser did not support.";
@@ -292,9 +329,10 @@ const VideoPlayer = React.forwardRef(
               error.severity = -1;
               error.message =
                 "The video was not loaded, either because the server or network failed or because the format is not supported.";
-              setBackdrop();
+              showBackdrop();
               break;
             default:
+              resetLoadState();
               error.severity = 0;
               error.message = "An unknown error occurred.";
               break;
@@ -304,6 +342,9 @@ const VideoPlayer = React.forwardRef(
         };
 
         const handleLoadedMetadata = () => {
+          stateRef.current.loaded = true;
+          stateRef.current.reloadCount = 0;
+
           if (video.canPlayType(mimetype) === "") {
             const error = {
               message:
@@ -408,7 +449,8 @@ const VideoPlayer = React.forwardRef(
       enableIndicator,
       onClick,
       onFullscreen,
-      showBackdrop
+      showBackdrop,
+      resetLoadState
     ]);
 
     useEffect(() => {
@@ -441,6 +483,15 @@ const VideoPlayer = React.forwardRef(
       loading
     ]);
 
+    useEffect(() => {
+      if (isOnline) {
+        if (stateRef.current.loaded !== undefined && !stateRef.current.loaded) {
+          stateRef.current.reloadCount = 1;
+          handleReload();
+        }
+      } else resetLoadState();
+    }, [isOnline, handleReload, resetLoadState]);
+
     const handleGoto = useCallback((e, v) => {
       e.stopPropagation();
       const ctime = (v * videoRef.current.duration) / 100;
@@ -455,18 +506,6 @@ const VideoPlayer = React.forwardRef(
         stateRef.current.defaultVolume = v * 100;
       }
     }, []);
-
-    const handleReload = useCallback(
-      e => {
-        e.stopPropagation();
-        showBackdrop("");
-        setLoading(true);
-        onReload && onReload();
-        if (!videoRef.current.paused) videoRef.current.pause();
-        videoRef.current.load();
-      },
-      [onReload, showBackdrop]
-    );
 
     const handleReplay = useCallback(
       e => {
@@ -484,31 +523,17 @@ const VideoPlayer = React.forwardRef(
 
     if (pause && videoRef.current && !videoRef.current.paused)
       videoRef.current.pause();
+
     return (
       <Box
-        className={`custom-video-player custom-media-container ${className} ${
+        className={`custom-video-player custom-media-container ${
           loading ? "loading" : ""
         }`}
         key={videoUrl}
-        ref={node => {
-          ref && (ref.current = node);
-          _contRef.current = node;
-        }}
+        ref={_contRef}
         sx={{
-          width: "100%",
-          height: "100%",
-          maxHeight: "inherit",
           minHeight: withOverlay ? "200px" : "",
           pb: withOverlay ? "" : "56.25%",
-          overflow: "hidden",
-          position: "relative",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          backgroundColor: "common.black",
-          borderRadius: "inherit",
-          border: "1px solid currentColor",
-          borderColor: "divider",
           "&:hover": {
             ".video-player-footer": loading
               ? undefined
@@ -517,24 +542,24 @@ const VideoPlayer = React.forwardRef(
                   opacity: "1"
                 }
           },
+          ".custom-overlay": {
+            backgroundColor: isReplaying ? "transparent" : undefined
+          },
+          "&.loading": {
+            ".custom-media": {
+              zIndex: -1
+            }
+          },
           ...sx
         }}
       >
         {backdrop ? (
-          <div
-            className="custom-overlay"
-            style={{
-              backgroundColor: isReplaying ? "transparent" : undefined
-            }}
-          >
+          <div className="custom-overlay">
             {{
               reload: (
                 <div>
-                  <Typography
-                    variant="h5"
-                    sx={{ maxWidth: "280px", mx: "auto" }}
-                  >
-                    Sorry video couldn't be downloaded or played
+                  <Typography>
+                    Network failed or browser don't support format
                   </Typography>
                   <Button
                     variant="contained"
@@ -554,16 +579,12 @@ const VideoPlayer = React.forwardRef(
                 </IconButton>
               ),
               loading: <Loading />
-            }[backdrop] || (
-              <Typography variant="h5" sx={{ maxWidth: "280px", mx: "auto" }}>
-                {backdrop}
-              </Typography>
-            )}
+            }[backdrop] || <Typography>{backdrop}</Typography>}
           </div>
         ) : null}
         {loading ? (
           <Skeleton
-            className="custom-media custom-overlay"
+            className="custom-overlay"
             variant=""
             animation="wave"
             sx={{ zIndex: 0 }}

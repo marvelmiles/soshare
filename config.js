@@ -9,3 +9,7 @@ export const TOKEN_EXPIRED_MSG = "Authorization credentials is invalid";
 export const PWD_RESET_COOKIE_KEY = "pwd_reset_token";
 
 export const HTTP_403_MSG = "Refresh token expired or isn't valid";
+
+export const SUGGEST_FOLLOWERS_TASK_KEY = "suggestFollowersInterval";
+
+export const SUGGESTED_USERS = "suggestedUsers";

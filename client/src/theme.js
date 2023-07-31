@@ -22,7 +22,7 @@ export const createTheme = mode =>
               altHover: "#333"
             },
             text: {
-              primary: "rgba(255,255,255,0.85)",  
+              primary: "rgba(255,255,255,0.85)",
               secondary: "rgba(255,255,255,0.7)"
             }
           }
@@ -50,9 +50,10 @@ export const createTheme = mode =>
       common: {
         heart: "#FF1493",
         blend: "rgba(0,0,0,.4)",
-        blendHover: "rgb(0,0,0,.6)",
+        blendHover: "rgba(0,0,0,.6)",
         hover: alpha("#2196f3", "0.08"),
-        lightHover: alpha("#2196f3", "0.04")
+        lightHover: alpha("#2196f3", "0.04"),
+        alt: "rgb(22, 24, 28)"
       }
     },
     components: {
@@ -253,7 +254,7 @@ export const createTheme = mode =>
     typography: {
       allVariants: {
         fontFamily: "'Rubik', sans-serif",
-        fontSize: 12
+        fontSize: "12px"
       },
       h1: {
         fontSize: 40

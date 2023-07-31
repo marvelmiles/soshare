@@ -1,3 +1,5 @@
+import { debounce } from "@mui/material";
+
 export const removeFirstItemFromArray = (item, array = []) => {
   for (let i = 0; i < array.length; i++) {
     if (item === array[i]) {
@@ -26,11 +28,13 @@ export const reloadBrowser = e => {
   window.location.reload();
 };
 
-export const handleScrollUp = e =>
-  (e && e.target.dataset.scroll !== "disable" ? e.target : window).scrollTo({
+export const handleScrollUp = e => {
+  e.stopPropagation();
+  window.scrollTo({
     top: 0,
     behavior: "smooth"
   });
+};
 
 export const addToSet = (arr = [], item, set = {}) => {
   item =
@@ -105,3 +109,12 @@ export const getTimeMap = duration => {
   const secs = Math.floor(duration);
   return { mins: Math.floor(secs / 60), secs: secs % 60 };
 };
+
+// export const modifyElementDataset = (element, key = "id", value) => {
+//   if (!element) return "";
+//   let v = element.dataset[key] || element.getAttribute(key);
+//   if (!v) v = element.dataset[key] = value || Date.now();
+//   return v;
+// };
+
+export const withDebounceFn = debounce(cb => cb(), 500);

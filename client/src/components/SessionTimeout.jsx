@@ -11,7 +11,9 @@ const SessionTimeout = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   useEffect(() => {
-    dispatch(signoutUser());
+    try {
+      dispatch(signoutUser());
+    } catch (err) {}
   }, [dispatch]);
   return (
     <Box>

@@ -8,9 +8,11 @@ export default (options = {}) => {
   const { user, priority = "toggle", docId } = options;
 
   const { setSnackBar, setContext } = useContext();
+
   const { following, id: cid } = useSelector(
     ({ user: { currentUser } }) => currentUser
   );
+
   const isFollowing = useMemo(
     () =>
       user
@@ -22,6 +24,7 @@ export default (options = {}) => {
         : undefined,
     [following, priority, user]
   );
+
   const isLoggedIn = !!cid;
   const dispatch = useDispatch();
   const [activeFollowId, setActiveFollowId] = useState("");
@@ -31,6 +34,7 @@ export default (options = {}) => {
   const handleToggleFollow = useCallback(
     async (e, _user, _isFollowing) => {
       if (e) e.stopPropagation();
+
       _isFollowing =
         typeof _isFollowing === "boolean" ? _isFollowing : isFollowing;
 
@@ -40,18 +44,23 @@ export default (options = {}) => {
 
       const updateFollowMe = isFollowing => {
         const prop = {};
+
         setActiveFollowId(_user.id);
+
         dispatch(
           updatePreviewUser({
-            followUser: {
+            key: "followUser",
+            value: {
               ..._user,
               isFollowing
             }
           })
         );
+
         prop.following = isFollowing
           ? following.filter(id => id !== _user.id)
           : [_user.id, ...following];
+
         dispatch(updateUser(prop));
         setActiveFollowId("");
       };

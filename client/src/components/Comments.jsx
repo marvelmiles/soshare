@@ -331,7 +331,7 @@ const Comments = ({
         }}
         withCredentials={isRO}
       >
-        {({ data: { data }, setObservedNode }) => {
+        {({ data: { data } }) => {
           const getThreadOwners = (comment, i) => {
             const maxReplyTo = 3; // zero based index = 4
             const hasIndex = i < maxReplyTo;
@@ -392,14 +392,7 @@ const Comments = ({
                   else stateRef.current.registeredIds[comment.id] = i;
 
                   return (
-                    <div
-                      key={comment.id}
-                      ref={
-                        i === data.length - 1
-                          ? node => node && setObservedNode(node)
-                          : null
-                      }
-                    >
+                    <div key={comment.id}>
                       <PostWidget
                         showThread={!!comment.threads.length}
                         docType="comment"

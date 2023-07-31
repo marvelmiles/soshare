@@ -12,7 +12,7 @@ import useFollowDispatch from "hooks/useFollowDispatch";
 import useCallbacks from "hooks/useCallbacks";
 import { addToSet } from "utils";
 
-const FollowMeWidget = ({
+const FollowMeView = ({
   title = "",
   url = "suggest",
   searchParams,
@@ -21,7 +21,7 @@ const FollowMeWidget = ({
   variant = "block",
   infiniteScrollProps,
   widgetProps,
-  emptyDataMessage,
+  emptyLabel,
   privateUid
 }) => {
   const { previewUser, currentUser = {} } = useSelector(state => state.user);
@@ -44,10 +44,7 @@ const FollowMeWidget = ({
         following: `/users/${userId}/following`
       }[url] || url
   });
-  const { _handleAction } = useCallbacks(infiniteScrollRef, {
-    currentUser,
-    stateCtx: stateRef.current
-  });
+  const { _handleAction } = useCallbacks(infiniteScrollRef, currentUser);
   const scrollNodeRef = useRef();
   const _handlerAction = useCallback(
     (reason, res) => {
@@ -68,20 +65,24 @@ const FollowMeWidget = ({
   });
 
   const handleFollowingAction = useCallback(
-    (toFollow, cacheKey) => {
+    (toFollow, skipDelete) => {
       return ({ to, from }) => {
         const isFrm = from.id === userId;
         const isTo = to.id === userId;
         const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
 
+        console.log(toFollow, isTo, isFrm, userId, " socket...");
+
         if (isTo || isFrm) {
+          console.log(" in socket... ");
           if (
             stateRef.current[key] ||
-            (!cacheKey && (isFrm || from.id === currentUser.id))
+            (!skipDelete && (isFrm && isCurrentUser))
           ) {
             delete stateRef.current[key];
             return;
           }
+          console.log(" done socket... ");
           stateRef.current[key] = true;
           if (isTo && priority === "toggle") {
             _handleAction(toFollow ? "new" : "filter", { document: from });
@@ -92,11 +93,11 @@ const FollowMeWidget = ({
               _handleAction(toFollow ? "filter" : "new", { document: to });
             else _handleAction("update", { document: to });
           }
-          if (!cacheKey) delete stateRef.current[key];
+          if (!skipDelete) delete stateRef.current[key];
         }
       };
     },
-    [_handleAction, priority, userId, currentUser.id]
+    [_handleAction, priority, userId, isCurrentUser]
   );
 
   useEffect(() => {
@@ -135,7 +136,7 @@ const FollowMeWidget = ({
       const handleUnfollow = handleFollowingAction();
 
       const handleUpdateUser = (user, isProfile) =>
-        isProfile && _handleAction("update", user);
+        isProfile && _handleAction("update", { document: user });
 
       socket.on("unfollow", handleUnfollow);
       socket.on("follow", handleFollow);
@@ -176,12 +177,14 @@ const FollowMeWidget = ({
       });
   }, [handleFollowingAction, previewUser?.followUser, currentUser]);
   const loading = dataSize === undefined || dataSize < 0;
+
   return (
     <WidgetContainer
       ref={scrollNodeRef}
       className="widget-container"
       sx={{ position: "relative", p: 0 }}
       {...widgetProps}
+      key={`follome-widget-${priority}-${privateUid}`}
     >
       {loading ? null : (
         <>
@@ -208,8 +211,8 @@ const FollowMeWidget = ({
         </>
       )}
       <InfiniteScroll
-        shallowLoading={loading}
-        key={"follome-widget-" + priority}
+        // shallowLoading={loading}
+        key={`follome-widget-${priority}-${privateUid}`}
         ref={infiniteScrollRef}
         sx={{
           px: 2
@@ -218,14 +221,13 @@ const FollowMeWidget = ({
         searchParams={searchParams}
         {...infiniteScrollProps}
         withCredentials={!!currentUser.id}
-        verify={priority === "toggle"}
         notifierDelay={
           isCurrentUser ? (priority === "toggle" ? undefined : -1) : undefined
         }
         scrollNodeRef={scrollNodeRef}
         handleAction={_handlerAction}
       >
-        {({ data: { data }, setObservedNode }) => {
+        {({ data: { data, loading } }) => {
           const renderPersons = () => {
             return data.map((u = {}, i) => {
               const isFollowing = {
@@ -236,11 +238,6 @@ const FollowMeWidget = ({
 
               return (
                 <Person
-                  ref={
-                    i === data.length - 1
-                      ? node => setObservedNode(node)
-                      : undefined
-                  }
                   variant={variant}
                   key={i + u.id + priority}
                   sx={
@@ -252,7 +249,9 @@ const FollowMeWidget = ({
                   }
                   user={u}
                   btnLabel={isFollowing ? "Unfollow" : "Follow"}
-                  onBtnClick={e => handleToggleFollow(e, u, isFollowing)}
+                  onBtnClick={() =>
+                    handleToggleFollow(undefined, u, isFollowing)
+                  }
                   disabled={isProcessingFollow}
                   isOwner={
                     currentUser.id ? u.id === currentUser.id : u.id === userId
@@ -274,16 +273,14 @@ const FollowMeWidget = ({
               ) : (
                 <EmptyData
                   label={
-                    emptyDataMessage ||
+                    emptyLabel ||
                     {
-                      toggle:
-                        isCurrentUser || privateUid
-                          ? "You don't have any followers"
-                          : `Followers list is currently empty.`,
-                      unfollow:
-                        isCurrentUser || privateUid
-                          ? "Your following list is currently empty. Start following other users to see their updates"
-                          : `Following list appears to be empty at this time.`,
+                      toggle: isCurrentUser
+                        ? "You don't have any followers"
+                        : `Followers list is currently empty.`,
+                      unfollow: isCurrentUser
+                        ? "Your following list is currently empty. Start following other users to see their updates!"
+                        : `Following list appears to be empty at the moment!`,
                       follow:
                         "We're sorry it seems there is no one to follow at the moment"
                     }[priority]
@@ -298,6 +295,6 @@ const FollowMeWidget = ({
   );
 };
 
-FollowMeWidget.propTypes = {};
+FollowMeView.propTypes = {};
 
-export default FollowMeWidget;
+export default FollowMeView;

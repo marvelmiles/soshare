@@ -11,14 +11,16 @@ const EmptyData = ({
   onClick,
   label = `We're sorry, but there doesn't seem to be any data available at the
       moment.`,
-  maxWidth = "280px",
   sx,
   className,
+  nullifyBrand,
   withReload,
-  nullifyBrand
+  maxWidth = "350px"
+  // maxWidth = withReload ? "350px" : "350px"
 }) => (
   <Stack
     className={`custom-empty-data ${className}`}
+    p={1}
     sx={
       centerEmptyText
         ? {
@@ -60,7 +62,7 @@ const EmptyData = ({
       ) : onClick ? (
         <div>
           <Typography variant="h5" color="primary.main">
-            Something went wrong. Try again
+            Something went wrong. Try again.
           </Typography>
           <Button
             variant="contained"

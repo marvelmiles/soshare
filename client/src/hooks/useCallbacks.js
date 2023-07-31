@@ -4,7 +4,7 @@ import { updateUser } from "context/slices/userSlice";
 import { useDispatch } from "react-redux";
 
 // functions that requires redux with no extra state or hooks
-const useCallbacks = (infiniteScrollRef, { currentUser = { user: {} } }) => {
+const useCallbacks = (infiniteScrollRef, currentUser) => {
   const dispatch = useDispatch();
 
   const ref = useRef({
@@ -56,14 +56,17 @@ const useCallbacks = (infiniteScrollRef, { currentUser = { user: {} } }) => {
           setData({
             ...data,
             data: data.data.map(s =>
-              s.id === docId || s.user?.id === uid ? { ...s, ...document } : s
+              s.id === docId || (uid && s.user?.id === uid)
+                ? { ...s, ...document }
+                : s
             )
           });
           break;
         case "checked":
           dispatch(
             updateUser({
-              settings: {
+              key: "settings",
+              value: {
                 [action]: value
               }
             })

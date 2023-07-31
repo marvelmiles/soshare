@@ -19,9 +19,7 @@ import http from "api/http";
 import Avatar from "@mui/material/Avatar";
 import AddAPhotoIcon from "@mui/icons-material/AddAPhoto";
 import CustomInput from "./CustomInput";
-import { debounce } from "@mui/material";
-
-const withUpdatePreviewUser = debounce(cb => cb(), 500);
+import { withDebounceFn } from "utils";
 
 const UserProfileForm = ({
   width,
@@ -107,7 +105,7 @@ const UserProfileForm = ({
 
   useEffect(() => {
     let url;
-    withUpdatePreviewUser(() => {
+    withDebounceFn(() => {
       const node = document.activeElement;
       const key = node.name;
       const name = node.dataset.name;

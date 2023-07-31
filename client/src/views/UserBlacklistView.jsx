@@ -1,116 +1,96 @@
-import React, { useCallback, useRef, useEffect } from "react";
+import React, { useRef, useCallback } from "react";
 import PropTypes from "prop-types";
-import InfiniteScroll from "components/InfiniteScroll";
-import Person from "components/Person";
-import { useSelector } from "react-redux";
-import EmptyData from "components/EmptyData";
-import { Stack } from "@mui/material";
-import useWhitelistDispatch from "hooks/useWhitelistDispatch";
+import Tabs from "components/Tabs";
+import UserCtxActionView from "views/UserCtxActionView";
+import SearchInput from "components/SearchInput";
 
-const UserBlacklistView = ({
-  infiniteScrollProps,
-  scrollNodeRef,
-  handleAction,
-  whitelistAll
-}) => {
-  const cid = useSelector(state => state.user.currentUser?.id);
-  const infiniteRef = useRef();
+const UserBlacklistView = ({ scrollNodeRef }) => {
+  const infiniteScrollRef = useRef();
   const stateRef = useRef({
-    cachedData: {}
+    recommendation: "",
+    blocked: ""
   });
-  const _handleAction = useCallback(
-    (reason, res) => {
-      switch (reason) {
-        case "data":
-          handleAction &&
-            handleAction("context", {
-              dataSize: res.dataSize
-            });
-          break;
-        case "filter":
-          infiniteRef.current.setData({
-            ...infiniteRef.current.data,
-            data: infiniteRef.current.data.data.filter((data, i) => {
-              if (res.includes(data.id)) {
-                stateRef.current.cachedData[data.id] = {
-                  data,
-                  index: i
-                };
-                return false;
-              }
-              return true;
-            })
-          });
 
-          break;
-        case "clear-cache":
-          res.forEach(id => delete stateRef.current.cachedData[id]);
-          break;
-        case "new":
-          res.forEach(id => {
-            const cache = stateRef.current.cachedData[id];
-            if (cache) {
-              infiniteRef.current.data.data.splice(cache.index, 0, cache.data);
-            }
-          });
-          infiniteRef.current.setData({ ...infiniteRef.current.data });
-          break;
-        default:
-          handleAction && handleAction(reason, res);
-          break;
-      }
+  const handleChange = useCallback((v, { setLoading }) => {
+    stateRef.current.tab && (stateRef.current[stateRef.current.tab] = v);
+    infiniteScrollRef.current.setData(data => {
+      if (!stateRef.current.data) stateRef.current.data = data;
+      if (v) {
+        data = {
+          ...data,
+          data: data.data.filter(({ username = "", displayName = "" }) =>
+            new RegExp(v, "i").test(username + displayName)
+          )
+        };
+      } else data = { ...(stateRef.current.data || data) };
+
+      return data;
+    });
+    setLoading(false);
+  }, []);
+
+  const tabsPane = [
+    {
+      value: "recommendation",
+      label: "Recommendation"
     },
-    [handleAction]
-  );
-  const { handleWhitelist } = useWhitelistDispatch();
-  useEffect(() => {
-    if (whitelistAll) {
-      handleAction && handleAction("context", { action: undefined });
-      handleWhitelist(infiniteRef.current.data.data.map(({ id }) => id), {
-        dataSize: infiniteRef.current.data.data.length - 1,
-        _handleAction
-      });
+    {
+      value: "blocked",
+      label: "Blocked"
     }
-  }, [whitelistAll, handleWhitelist, _handleAction, handleAction]);
+  ];
+
   return (
-    <InfiniteScroll
-      scrollNodeRef={scrollNodeRef}
-      withCredentials={!!cid}
-      {...infiniteScrollProps}
-      handleAction={_handleAction}
-      url={`/users/blacklist`}
-      ref={infiniteRef}
-      key="infinite-user-blacklist"
-    >
-      {({ data: { data }, setObservedNode }) => {
-        return data.length ? (
-          <Stack Stack flexWrap="wrap" justifyContent="normal" gap={2} p={2}>
-            {data.map((u = {}, i) => (
-              <Person
-                ref={
-                  i === data.length - 1
-                    ? node => node && setObservedNode(node)
-                    : undefined
-                }
-                isOwner={u.id === cid}
-                user={u}
-                key={u.id}
-                btnLabel="Whitelist"
-                onBtnClick={e => {
-                  e.stopPropagation();
-                  handleWhitelist([u.id], {
-                    dataSize: infiniteRef.current.data.data.length - 1,
-                    _handleAction
-                  });
-                }}
-              />
-            ))}
-          </Stack>
-        ) : (
-          <EmptyData label="Blacklist is empty" />
+    <Tabs
+      tabsPane={tabsPane}
+      defaultTab="recommendation"
+      deleteParams="search"
+      sectionEl={({ tab }) => {
+        stateRef.current.tab = tab;
+        return (
+          <SearchInput
+            key={tab}
+            defaultValue={stateRef.current[tab]}
+            onChange={handleChange}
+          />
         );
       }}
-    </InfiniteScroll>
+    >
+      {({ tab }) => {
+        const infiniteScrollProps = {
+          scrollNodeRef,
+          dataKey: tab,
+          url: `/users/blacklist`,
+          verify: "f",
+          withCredentials: true
+        };
+
+        const emptyLabel = <div>Blacklist is empty</div>;
+
+        return [
+          <UserCtxActionView
+            key="user-disapprove-view"
+            ctxKey="disapprovedUsers"
+            emptyLabel={emptyLabel}
+            ref={infiniteScrollRef}
+            infiniteScrollProps={{
+              ...infiniteScrollProps,
+              readyState: tab === "recommendation" ? "ready" : "pending"
+            }}
+          />,
+          <UserCtxActionView
+            key="user-block-view"
+            ctxKey="blockedUsers"
+            emptyLabel={emptyLabel}
+            ref={infiniteScrollRef}
+            infiniteScrollProps={{
+              ...infiniteScrollProps,
+              readyState: tab === "blocked" ? "ready" : "pending"
+            }}
+          />
+        ];
+      }}
+    </Tabs>
   );
 };
 

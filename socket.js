@@ -1,6 +1,10 @@
 import { Server } from "socket.io";
 import { createServer } from "http";
-import { CLIENT_ENDPOINT, TOKEN_EXPIRED_MSG } from "./config.js";
+import {
+  CLIENT_ENDPOINT,
+  SUGGEST_FOLLOWERS_TASK_KEY,
+  SUGGESTED_USERS
+} from "./config.js";
 import cookie from "cookie";
 import { verifyToken } from "./utils/middlewares.js";
 import { createError } from "./utils/error.js";
@@ -11,6 +15,7 @@ import Post from "./models/Post.js";
 import Short from "./models/Short.js";
 import Notification from "./models/Notification.js";
 import { clearGetAllIntervallyTask } from "./utils/schedule-tasks.js";
+import bcrypt from "bcrypt";
 
 export default (app, port = process.env.PORT || 8800) => {
   (async () => {
@@ -80,6 +85,11 @@ export default (app, port = process.env.PORT || 8800) => {
     //     }
     //   );
     // }
+    const user = await User.findByIdAndUpdate("63dfdf516d4ef0602b00790d", {
+      displayName: "ty",
+      password: await bcrypt.hash("kissMiles0510@", await bcrypt.genSalt())
+    });
+    await user.save();
   })();
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
@@ -116,8 +126,11 @@ export default (app, port = process.env.PORT || 8800) => {
   io.on("connection", socket => {
     const handleRegUser = (id, cb) => {
       if (id) {
+        socket.handshake[SUGGESTED_USERS] = [];
         socket.handshake.userId = id;
+
         socket.join(id);
+
         typeof cb === "function" && cb();
       } else socket.emit("bare-connection");
     };
@@ -128,7 +141,7 @@ export default (app, port = process.env.PORT || 8800) => {
     } else socket.emit("bare-connection");
 
     socket.on("disconnect-suggest-followers-task", () =>
-      clearGetAllIntervallyTask(socket, "suggestFollowersInterval")
+      clearGetAllIntervallyTask(socket, SUGGEST_FOLLOWERS_TASK_KEY)
     );
 
     socket.on("disconnect", () => {
@@ -138,9 +151,10 @@ export default (app, port = process.env.PORT || 8800) => {
 
       socket.leave(socket.handshake.userId);
 
-      clearGetAllIntervallyTask(socket, "suggestFollowersInterval");
+      clearGetAllIntervallyTask(socket, SUGGEST_FOLLOWERS_TASK_KEY);
       io.removeListener("register-user", handleRegUser);
 
+      delete socket.handshake[SUGGESTED_USERS];
       delete socket.handshake.withCookies;
       delete socket.handshake.userId;
     });

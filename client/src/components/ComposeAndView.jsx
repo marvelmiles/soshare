@@ -15,18 +15,18 @@ import PostsView from "views/PostsView";
 import ShortsView from "views/ShortsView";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
-import FollowMeWidget from "components/FollowMeWidget";
+import FollowMeView from "views/FollowMeView";
 import Comments from "components/Comments";
 import { LoadingDot } from "components/Loading";
 import UserBlacklistView from "views/UserBlacklistView";
-import { handleCancelRequest } from "api/http";
+import { handleCancelRequest, createRelativeURL } from "api/http";
 import SessionTimeout from "./SessionTimeout";
 
 Dialog.defaultProps = {
   open: false
 };
 
-const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
+const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
   isCurrentUser = isCurrentUser === undefined ? !!uid : isCurrentUser;
   openFor = {
     "create-post": true,
@@ -41,13 +41,15 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
     comment: true,
     ...openFor
   };
+
+  const { setContext, locState } = useContext();
   const [searchParams] = useSearchParams();
   const stateRef = useRef({
+    locState,
     commentHolder: {},
     dType: ""
   });
   const [ctx, setCtx] = useState({});
-  const { setContext, locState, prevPath = "" } = useContext();
   const cid = searchParams.get("cid") || "";
   const scrollNodeRef = useRef();
   const navigate = useNavigate();
@@ -55,29 +57,34 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
   let view = (searchParams.get("view") || "").toLowerCase();
   let compose = (searchParams.get("compose") || "").toLowerCase();
 
+  stateRef.current.locState = locState;
+
   const closeDialog = useCallback(
-    (e, dialogType, done) => {
+    (e, dialogType) => {
+      console.log("dialog closed...");
       e && e.stopPropagation();
+
       stateRef.current.commentHolder = {};
       stateRef.current.dType = "";
+
       if (stateRef.current.path) handleCancelRequest(stateRef.current.path);
+
       setCtx({});
+
       dialogType = e ? e.currentTarget.dataset.dialogType : dialogType;
-      const prop =
-        done || !locState?.outInputs
-          ? { state: null }
-          : {
-              state: locState
-            };
-      if (prevPath) navigate(-1, prop);
-      else navigate(window.location.pathname, prop);
+
+      navigate(createRelativeURL(`${dialogType} tab wc search`), {
+        replace: true,
+        state: stateRef.current.locState
+      });
     },
-    [navigate, prevPath, locState]
+    [navigate]
   );
 
   const _handleAction = useCallback(
     (reason, res, info) => {
       const appendDoc = () => {
+        const { locState } = stateRef.current;
         stateRef.current.path = undefined;
         res.reason = reason;
         if (!res.docType && locState) res.docType = locState.docType;
@@ -110,12 +117,15 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
           break;
       }
     },
-    [closeDialog, setContext, locState, compose]
+    [closeDialog, setContext, compose]
   );
 
-  useEffect(() => {
-    if (stateRef.current.dType) closeDialog(undefined, stateRef.current.dType);
-  }, [closeDialog]);
+  // useEffect(() => {
+  //   if (close) stateRef.current.dType = "view compose";
+  //   else stateRef.current.dType = "";
+
+  //   if (stateRef.current.dType) closeDialog(undefined, stateRef.current.dType);
+  // }, [closeDialog, close]);
 
   const renderDialog = key => {
     switch (key) {
@@ -222,6 +232,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
                     url="/shorts/new"
                     mediaRefName="short"
                     max={40}
+                    docType="short"
                     videoPlayerProps={{
                       withIntersection: false
                     }}
@@ -237,6 +248,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
               }[key] || (
                 <InputBox
                   key={fileId}
+                  docType="post"
                   handleAction={_handleAction}
                   videoPlayerProps={{
                     withIntersection: false
@@ -262,7 +274,6 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
             <DialogContent sx={{ p: 0 }} ref={scrollNodeRef}>
               <PostWidget post={locState.document} enableSnippet />
               <InputBox
-                inputClassName="fff"
                 withPlaceholders={false}
                 submitInputsOnly={false}
                 resetData={false}
@@ -275,7 +286,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
                 mediaRefName="media"
                 multiple={false}
                 message={{
-                  success: `Your comment has been soshared!`
+                  success: "Your comment has been soshared!"
                 }}
                 placeholders={stateRef.current.commentHolder}
                 max={280}
@@ -329,10 +340,12 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
         return (
           <>
             <DialogContent ref={scrollNodeRef}>
-              <FollowMeWidget
+              <FollowMeView
                 widgetProps={{ plainWidget: true }}
                 infiniteScrollProps={{
-                  scrollNodeRef
+                  scrollNodeRef,
+                  verify: "t",
+                  key: view
                 }}
                 key={view}
                 url={
@@ -372,7 +385,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
       case "user-blacklist":
         return (
           <>
-            <DialogTitle component={Stack}>
+            {/* <DialogTitle component={Stack}>
               <StyledTypography color="primary" variant="h5">
                 {ctx.dataSize || 0} blacklisted user(s)
               </StyledTypography>
@@ -393,8 +406,8 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
                   whitelist all
                 </Button>
               )}
-            </DialogTitle>
-            <DialogContent ref={scrollNodeRef}>
+            </DialogTitle> */}
+            <DialogContent ref={scrollNodeRef} sx={{ py: 0 }}>
               <UserBlacklistView
                 whitelistAll={ctx.action === "whitelist-all"}
                 key="view-blacklist"
@@ -431,8 +444,8 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
   }
 
   if (view === "user-blacklist" && !isCurrentUser) {
-    stateRef.current.dType = "view";
-    view = "";
+    // stateRef.current.dType = "view";
+    // view = "";
   }
 
   const paperStyles = {
@@ -444,12 +457,14 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
     }
   };
   const isSession = view === "session-timeout";
+
   return (
     <>
       <Dialog
         data-dialog-type="view"
         PaperProps={paperStyles}
         open={openFor[view]}
+        key={ctx.processing}
         onClose={isSession ? undefined : closeDialog}
         sx={{
           zIndex: isSession ? "tooltip" : "modal"
@@ -477,7 +492,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid }) => {
         data-dialog-type="compose"
         PaperProps={paperStyles}
         open={openFor[compose]}
-        onClose={closeDialog}
+        onClose={ctx.processing ? undefined : closeDialog}
       >
         {renderDialog(compose)}
       </Dialog>

@@ -22,7 +22,7 @@ const HomePage = () => {
       }
     >
       <PostsView scrollNodeRef={null}>
-        {cid ? <InputBox boldFont autoFocus={false} /> : null}
+        {cid ? <InputBox docType="post" boldFont autoFocus={false} /> : null}
       </PostsView>
     </MainView>
   );

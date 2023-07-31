@@ -22,7 +22,6 @@ export const createVisibilityQuery = async ({
   userId,
   searchUser,
   query = {},
-  withBlacklist = true,
   allowDefaultCase = false,
   fallbackVisibility = "everyone",
   isVisiting,
@@ -40,18 +39,35 @@ export const createVisibilityQuery = async ({
 
     const isUser = searchUser === userId;
 
-    isVisiting = isVisiting === undefined ? userId && searchUser : isVisiting;
-
     (isVisiting || isUser) && (query[refPath] = userId);
 
     if (!isUser) {
       const _ref = `$${refPath}`;
+
+      let blacklist = [];
+
+      if (isVisiting && searchUser) {
+        const { recommendationBlacklist, blockedUsers } =
+          (await User.findById(searchUser)) || {};
+
+        blacklist = blacklist.concat(
+          recommendationBlacklist || [],
+          blockedUsers || []
+        );
+      }
+
       query.$expr = {
         $cond: {
           if: {
             $or: [
               {
-                $in: [_ref, withBlacklist ? user.recommendationBlacklist : []]
+                $in: [
+                  _ref,
+                  user.recommendationBlacklist.concat(
+                    user.blockedUsers,
+                    blacklist
+                  )
+                ]
               }
             ]
           },

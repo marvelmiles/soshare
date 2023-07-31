@@ -1,30 +1,47 @@
+// verify
 import rootAxios, { AxiosError } from "axios";
 import {
   API_ENDPOINT,
-  CANCELED_REQUEST_MSG,
+  HTTP_CANCELLED_MSG,
   HTTP_403_MSG,
-  TOKEN_EXPIRED_MSG
-} from "context/config";
+  HTTP_401_MSG,
+  HTTP_DEFAULT_MSG
+} from "context/constants";
 
 let isRefreshing = false;
 let requestQueue = [];
 
-const cancelRequests = [];
+const cancelledMap = {};
 
 export const createRelativeURL = (
-  keyToRemove,
+  paramsToRemove = "",
   searchParams = "",
+  replaceParamsMap,
   withPath = true
 ) => {
   const params = new URLSearchParams(window.location.search);
-  keyToRemove && params.delete(keyToRemove);
+
+  if (replaceParamsMap)
+    for (const param in replaceParamsMap) {
+      const newParam = replaceParamsMap[param];
+      if (window.location.search.indexOf(searchParams) === -1) {
+        const val = params.get(param);
+        val && params.set(newParam, val);
+        params.delete(param);
+      }
+    }
+
+  for (const key of paramsToRemove.split(" ")) {
+    params.delete(key);
+  }
+
   const search = params.toString();
-  return (
-    (withPath ? window.location.pathname : "") +
-    ("?" + search) +
-    (searchParams ? (search.length ? "&" : "") + searchParams : "") +
-    window.location.hash
-  );
+
+  return `${withPath ? window.location.pathname : ""}?${search}${
+    searchParams && search.indexOf(searchParams) === -1
+      ? (search.length ? "&" : "") + searchParams
+      : ""
+  }${window.location.hash}`;
 };
 
 export const processQueue = (err, data) => {
@@ -35,58 +52,65 @@ export const processQueue = (err, data) => {
   requestQueue = [];
 };
 
-export const getHttpErrMsg = (err, rejectAll) => {
-  console.log(err);
-  let message = "Something went wrong. Try again.";
+export const getHttpErrMsg = (err, isT) => {
+  isT && console.log(err);
+  let message = HTTP_DEFAULT_MSG;
   if (err instanceof AxiosError) {
-    if (err.config) rejectAll = err.config.url === "/auth/reset-password";
     switch (err.code?.toLowerCase()) {
       case "auth/popup-closed-by-user":
         message = "Popup closed by you";
         break;
       default:
-        if (err.response) {
-          if (err.response.status === 403) message = HTTP_403_MSG;
-          else if (err.response.status === 404) message = "404";
-          else if (err.response.status !== 500)
-            message = err.response.data || message;
-        } else if (err.status !== 500) message = err.message || message;
+        switch (err.response.status) {
+          case 403:
+            message = HTTP_403_MSG;
+            break;
+          case 401:
+            message = HTTP_401_MSG;
+            break;
+          default:
+            if (err.response.status !== 500)
+              message = err.response.data || err.message || message;
+            break;
+        }
         break;
     }
   } else message = err.message || err;
-
-  if (message.indexOf("Cast") > -1) message = "Something went wrong!";
-  if (!rejectAll && message === TOKEN_EXPIRED_MSG) message = "";
+  if (message.indexOf("Cast") > -1) message = HTTP_DEFAULT_MSG;
 
   return message;
 };
+
 export const isTokenCancelled = rootAxios.isCancel;
+
 export const handleCancelRequest = (
   url = "paths",
-  msg = CANCELED_REQUEST_MSG
+  msg = HTTP_CANCELLED_MSG
 ) => {
-  switch (url) {
-    case "paths":
-      for (let i = 0; i < cancelRequests.length; i++) {
-        cancelRequests[i].cancel(msg);
-      }
-      break;
-    default:
-      url = cancelRequests.find(req => req.url === url);
-      url && url.cancel(msg);
-      break;
-  }
+  const handleCancel = key => {
+    const source = cancelledMap[key];
+    if (source) {
+      source.cancel(msg);
+      delete cancelledMap[key];
+    }
+  };
+  if (url) handleCancel(url);
+  else
+    for (const key in cancelledMap) {
+      handleCancel(key);
+    }
 };
 
-export const refetchHasVisitor = (err, originalRequest, method = "get") => {
+export const refetchHasVisitor = (requestConfig, err = "", method = "get") => {
   if (
-    !originalRequest._refetchedHasVisitor &&
-    originalRequest.method === method &&
-    originalRequest.url !== "/auth/refresh-token"
+    requestConfig &&
+    (!requestConfig._refetchedHasVisitor &&
+      requestConfig.method === method &&
+      requestConfig.url !== "/auth/refresh-token")
   ) {
-    originalRequest.withCredentials = false;
-    originalRequest._refetchedHasVisitor = true;
-    return Promise.resolve(http.request(originalRequest));
+    requestConfig.withCredentials = false;
+    requestConfig._refetchedHasVisitor = true;
+    return Promise.resolve(http.request(requestConfig));
   }
   return Promise.reject(getHttpErrMsg(err));
 };
@@ -109,7 +133,7 @@ export const handleRefreshToken = (
       err = getHttpErrMsg(err);
       processQueue(err);
       return refetchHasVisitior && requestConfig
-        ? refetchHasVisitor(err, requestConfig)
+        ? refetchHasVisitor(requestConfig, err)
         : Promise.reject(err);
     })
     .finally(() => {
@@ -119,48 +143,51 @@ export const handleRefreshToken = (
 const http = rootAxios.create({
   baseURL: API_ENDPOINT + "/api"
 });
-let f;
+
 http.interceptors.request.use(function(config) {
   /delete|put|post|patch/.test(config.method) &&
     (config.withCredentials = true);
   if (config.headers["authorization"]) config.withCredentials = true;
   const source = rootAxios.CancelToken.source(); // create new source token on every request
-  source.url = config.url;
   config.cancelToken = source.token;
-  cancelRequests.push(source);
-  f = config.url;
+  cancelledMap[config.url + (config._reqKey || "")] = source;
+  config._retryCount = 0;
   return config;
 });
 http.interceptors.response.use(
-  response => Promise.resolve(response.data),
+  response => {
+    const requestConfig = response.config;
+    requestConfig._refetchedHasVisitor = undefined;
+
+    return Promise.resolve(response.data);
+  },
   async err => {
-    if (!(err instanceof AxiosError) || rootAxios.isCancel(err)) {
-      console.log(f, " cancelled url ");
-      return Promise.reject(getHttpErrMsg(err));
-    }
-    const originalRequest = err.config;
+    const requestConfig = err.config;
+    if (rootAxios.isCancel(err)) return Promise.reject("");
     if (err.response?.status === 401) {
+      requestConfig._isT && console.log("has 401 ", isRefreshing);
+      requestConfig._retryCount++;
       if (isRefreshing) {
+        requestConfig._isT && console.log("is refre ");
         return new Promise(function(resolve, reject) {
-          requestQueue.push({ resolve, reject, url: originalRequest.url });
+          requestQueue.push({ resolve, reject, url: requestConfig.url });
         })
           .then(_ =>
             http
-              .request(originalRequest)
+              .request(requestConfig)
               .then(res => Promise.resolve(res))
-              .catch(err => refetchHasVisitor(err, originalRequest))
+              .catch(err => refetchHasVisitor(requestConfig, err))
           )
           .catch(_err =>
             _err === "visitor"
-              ? refetchHasVisitor(err, originalRequest)
+              ? refetchHasVisitor(requestConfig, err)
               : Promise.reject(err)
           );
-      } else if (originalRequest.withCredentials && !originalRequest._noRefresh)
-        return handleRefreshToken(originalRequest);
+      } else if (requestConfig.withCredentials && !requestConfig._noRefresh)
+        return handleRefreshToken(requestConfig);
     }
 
-    originalRequest._refetchedHasVisitor = undefined;
-    return Promise.reject(getHttpErrMsg(err));
+    return Promise.reject(getHttpErrMsg(err, requestConfig?._isT));
   }
 );
 

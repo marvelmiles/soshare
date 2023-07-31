@@ -1,6 +1,8 @@
 import { getAll } from "./index.js";
+import { SUGGESTED_USERS } from "../config.js";
 
 export const clearGetAllIntervallyTask = (socket, taskKey) => {
+  socket.removeAllListeners("suggest-followers");
   clearInterval(socket.handshake[taskKey]);
   delete socket.handshake[taskKey];
 };
@@ -13,13 +15,18 @@ export const getAllIntervally = (
 ) => {
   clearGetAllIntervallyTask(socket, taskKey);
   let { blacklist = [], eventName, delay = 3600, mapFn } = options;
+
   socket.on("suggest-followers", user => (blacklist = blacklist.concat(user)));
   socket.handshake[taskKey] = setInterval(() => {
     (async () => {
       try {
-        queryConfig.match._id.$nin = queryConfig.match._id.$nin.concat(
-          blacklist
+        queryConfig.match._id.$nin = blacklist.concat(
+          queryConfig.match._id.$nin || [],
+          socket.handshake[SUGGESTED_USERS]
         );
+
+        socket.handshake[SUGGESTED_USERS] = [];
+
         queryConfig.query = {
           ...queryConfig.query,
           cursor: nextCursor

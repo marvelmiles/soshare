@@ -8,6 +8,7 @@ import ReactDom from "react-dom";
 import { Link } from "react-router-dom";
 import Typography from "@mui/material/Typography";
 import { isDOMElement } from "utils/validators";
+import { handleScrollUp } from "utils";
 
 Avatar.defaultProps = {
   sx: {
@@ -33,6 +34,14 @@ const DataNotifier = ({
       ? containerRef.current || containerRef
       : document.documentElement;
 
+    // const data = [
+    //   {
+    //     url: "sss",
+    //     username: "sssssssssssssssssss",
+    //     photoUrl: "s"
+    //   }
+    // ];
+
     if (isDOMElement(node))
       setPortal(
         ReactDom.createPortal(
@@ -56,15 +65,21 @@ const DataNotifier = ({
                   : "absolute")
             }}
             onClick={e => {
-              e.stopPropagation();
-              node.scrollTo({ top: 0, behavior: "smooth" });
+              handleScrollUp(e);
               closeNotifier();
             }}
           >
             <NorthIcon
               sx={{ minWidth: "auto", width: "auto", color: "common.white" }}
             />
-            <AvatarGroup max={4}>
+            <AvatarGroup
+              max={4}
+              sx={{
+                ".MuiAvatar-root": {
+                  borderColor: "common.alt"
+                }
+              }}
+            >
               {data.map((item, i) => {
                 const { username, photoUrl, id } = item.user || item;
                 return (

@@ -1,4 +1,6 @@
 export const isOverflowing = (node = document.documentElement, root) => {
+  node = node || document.documentElement;
+
   let bool = false;
   if (root) {
     bool =
@@ -6,10 +8,10 @@ export const isOverflowing = (node = document.documentElement, root) => {
         node.offsetTop >
       (root.clientHeight || root.style.height || root.offsetHeight);
   } else if (node) {
-    const flow = node.style.overflow;
-    node.style.overflow = "hidden";
+    // const flow = node.style.overflow;
+    // node.style.overflow = "hidden";
     bool = node.scrollHeight > node.clientHeight;
-    node.style.overflow = flow;
+    // node.style.overflow = flow;
   }
   return bool;
 };
@@ -50,15 +52,35 @@ export const hasAudio = (video, cb) => {
 
   if (_hasAudio()) cb(true);
   else {
-    const _id = setTimeout(() => {
+    const id = setTimeout(() => {
       video.play().catch(_ => {});
-      const id = setTimeout(() => {
+
+      const _id = setTimeout(() => {
         video.pause();
         video.currentTime = 0;
-        clearTimeout(id);
+
         cb(_hasAudio());
+
+        clearTimeout(_id);
+        clearTimeout(id);
       }, 100);
-      clearTimeout(_id);
     }, 0);
   }
+};
+
+export const isAtScrollBottom = (
+  element = document.documentElement,
+  threshold = 1,
+  verify
+) => {
+  verify = true;
+  const { scrollTop, scrollHeight, clientHeight } =
+    element || document.documentElement;
+
+  if (!scrollTop) return false;
+
+  const f = Math.ceil(scrollTop) + clientHeight;
+  console.log("ssss", verify);
+  verify && console.log(f, scrollTop, scrollTop * threshold, "cla");
+  return f >= scrollHeight * threshold;
 };

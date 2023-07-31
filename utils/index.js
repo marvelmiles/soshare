@@ -1,62 +1,6 @@
-import jwt from "jsonwebtoken";
 import Notification from "../models/Notification.js";
-import crypto from "crypto";
 import { isObject } from "./validators.js";
 import Comment from "../models/Comment.js";
-import bcrypt from "bcrypt";
-
-export const setTokens = async (res, id, rememberMe, accessOnly) => {
-  rememberMe = rememberMe === "true";
-  const shortT = new Date();
-  const longT = new Date();
-  if (id) {
-    shortT.setMinutes(shortT.getMinutes() + 30);
-    if (rememberMe) longT.setDate(longT.getDate() + 28);
-    else longT.setHours(longT.getHours() + 6);
-  } else {
-    shortT.setFullYear(1990);
-    longT.setFullYear(1990);
-  }
-  res.cookie(
-    "access_token",
-    id
-      ? jwt.sign(
-          {
-            id
-          },
-          process.env.JWT_SECRET,
-          {
-            expiresIn: "5m"
-          }
-        )
-      : "",
-    {
-      httpOnly: true,
-      expires: shortT
-    }
-  );
-
-  if (!accessOnly)
-    res.cookie(
-      "refresh_token",
-      id
-        ? JSON.stringify({
-            jwt: jwt.sign(
-              {
-                id
-              },
-              process.env.JWT_SECRET,
-              { expiresIn: "15m" }
-            ),
-            rememberMe
-          })
-        : "",
-      {
-        httpOnly: true,
-        expires: longT
-      }
-    );
-};
 
 export const getAll = async ({
   query = {},
@@ -96,6 +40,7 @@ export const getAll = async ({
         "socials._id": 0,
         password: 0
       };
+
       const options = { virtuals: true };
       populate = [
         {
@@ -119,7 +64,7 @@ export const getAll = async ({
 
     if (cursor) cursor = decodeURIComponent(cursor);
 
-    let result, matchedDocs, skippedLimit;
+    let result, matchedDocs;
 
     if (asc) sort[dataKey ? dataKey : "_id"] = 1;
     else sort[dataKey ? dataKey : "_id"] = -1;
@@ -131,16 +76,12 @@ export const getAll = async ({
       };
     } else {
       const value = match._id;
+
       match._id = {
         $nin: exclude
       };
       value && (match._id.$eq = value);
     }
-
-    (withMatchedDocs || randomize) &&
-      (matchedDocs = dataKey
-        ? ((await model.findOne(match)) || {})[dataKey]?.length || 0
-        : await model.countDocuments(match));
 
     const $addFields = { _id: { $toString: "$_id" }, id: "$_id" };
 
@@ -180,6 +121,7 @@ export const getAll = async ({
             $unset: ["_id", "password"]
           }
         ];
+
     if (randomize)
       pipelines.splice(dataKey ? 5 : 3, 0, { $sample: { size: limit } });
 
@@ -187,6 +129,7 @@ export const getAll = async ({
       const cursorIdRules = {
         [asc ? (withEq ? "$gte" : "$gt") : withEq ? "$lte" : "$lt"]: cursor
       };
+
       if (dataKey) {
         pipelines.splice(
           randomize ? 6 : 5,
@@ -216,13 +159,36 @@ export const getAll = async ({
 
     result = await model.populate(await model.aggregate(pipelines), populate);
 
+    match = pipelines[1].$match;
+
+    (withMatchedDocs || randomize) &&
+      (matchedDocs = dataKey
+        ? ((await model.findOne(match)) || {})[dataKey]?.length || 0
+        : await model.countDocuments(match));
+
     if (dataKey && result[0]) result = result[0][dataKey];
+
+    // if (
+    //   (() => {
+    //     const arr = Array.from(new Array(40)).map((_, i) => !!(i % 2));
+    //     const rand = Math.floor(Math.random() * arr.length);
+    //     return arr[rand];
+    //   })()
+    // ) {
+    //   const err = new Error("Internal error set");
+    //   err.status = 500;
+    //   throw err;
+    // }
 
     cursor = null;
     if (result.length === limit) {
       cursor = result[limit - 1].id;
       result.pop();
     }
+
+    // console.clear();
+    // console.log(matchedDocs, withMatchedDocs, randomize, cursor);
+
     return new Promise(r => {
       setTimeout(
         () =>
@@ -230,7 +196,6 @@ export const getAll = async ({
             data: result,
             paging: {
               matchedDocs,
-              skippedLimit,
               nextCursor: cursor ? encodeURIComponent(cursor) : null
             }
           }),
@@ -261,6 +226,7 @@ export const sendAndUpdateNotification = async ({
       maxNotificationAge: maxDay = 1,
       maxFromNotification: maxFrom = 20
     } = req.query;
+
     to =
       to ||
       req.params.userId ||
@@ -269,6 +235,7 @@ export const sendAndUpdateNotification = async ({
           ? document.document.user?.id || document.document.user
           : document.user?.id || document.user
         : undefined);
+
     if (!withFrom && to === from) return;
 
     document = document && (document.id || document);
@@ -297,6 +264,7 @@ export const sendAndUpdateNotification = async ({
         populate: docPopulate
       }
     ];
+
     let report = true,
       isNew = false,
       filterNotice = false,
@@ -315,10 +283,12 @@ export const sendAndUpdateNotification = async ({
             notice.expireAt.getTime() < new Date().getTime()
           ) {
             filterNotice = true;
+
             await notice.deleteOne();
           } else if (!notice.expireAt) {
             const expireAt = new Date();
             expireAt.setDate(expireAt.getDate() + maxDay);
+
             notice = await Notification.findByIdAndUpdate(
               notice.id,
               {
@@ -360,22 +330,26 @@ export const sendAndUpdateNotification = async ({
           new: true
         }
       );
+
       report = notice.users.length <= maxFrom;
     } else {
       if (notice && notice.users.includes(from)) {
         filterNotice = true;
         forceNotify = true;
+
         await notice.deleteOne();
       }
       isNew = true;
       match.users = [from];
       match.cacheDoc = cacheDoc;
+
       notice = await new Notification(match).save();
     }
 
     if (notice) notice = await notice.populate(populate);
 
     const io = req.app.get("socketIo");
+
     if (io && notice && report) {
       if (filterNotice) io.emit("filter-notifications", [notice.id]);
 
@@ -395,12 +369,9 @@ export const sendAndUpdateNotification = async ({
   }
 };
 
-export const generateToken = () => {
-  return crypto.randomBytes(20).toString("hex");
-};
-
 export const handleMiscDelete = async (docId, io, options = {}) => {
   const { withComment = true, cb, $or = [] } = options;
+
   try {
     if (withComment) {
       const deleteQuery = {
@@ -413,20 +384,26 @@ export const handleMiscDelete = async (docId, io, options = {}) => {
           ...$or
         ]
       };
+
       (await Comment.find(deleteQuery)).forEach(
         c => c.media?.url && deleteFile(c.media.url)
       );
+
       await Comment.deleteMany(deleteQuery);
     }
 
     const docQuery = {
       document: docId
     };
+
     const notices = await Notification.find(docQuery);
+
     io &&
       notices.length &&
       io.emit("filter-notifications", notices.map(n => n.id || n));
+
     await Notification.deleteMany(docQuery);
+
     cb && cb();
   } catch (err) {
     console.error(
@@ -439,14 +416,20 @@ export const handleMiscDelete = async (docId, io, options = {}) => {
 
 export const getRoomSockets = (io, roomId) => {
   const ids = [];
+
   for (let id of io.sockets.adapter.rooms.get(roomId)?.values() || []) {
     ids.push(id);
   }
+
   return ids;
 };
 
+export const getRoomSocketAtIndex = (io, roomId, index = 0) =>
+  io.sockets.sockets.get(getRoomSockets(io, roomId)[index]);
+
 export const getThreadsByRelevance = async (docId, query = {}, model, v) => {
   let { ro, threadPriorities = "ro,most comment", maxThread = "3" } = query;
+
   maxThread = Number(maxThread) || 3;
   maxThread = maxThread === Infinity ? await model.countDocuments() : maxThread;
   threadPriorities = threadPriorities.split(",");
@@ -472,6 +455,7 @@ export const getThreadsByRelevance = async (docId, query = {}, model, v) => {
   let refIndex = 0,
     priority = 0,
     thread;
+
   while (refIndex < maxThread) {
     switch (threadPriorities[priority] || threadPriorities[0]) {
       case "ro":
@@ -484,8 +468,10 @@ export const getThreadsByRelevance = async (docId, query = {}, model, v) => {
             createdAt: -1
           })
           .populate(populate);
+
         if (thread) threads.push(thread);
         else priority = 1;
+
         break;
       case "most comment":
         thread = await model
@@ -497,19 +483,21 @@ export const getThreadsByRelevance = async (docId, query = {}, model, v) => {
             createdAt: -1
           })
           .populate(populate);
+
         if (thread) threads.push(thread);
         priority = -1;
+
         break;
       default:
         threadPriorities.push("ro");
         priority = threadPriorities.length - 1;
+
         break;
     }
     refIndex++;
+
     if (thread) docId = thread.id;
   }
+
   return threads;
 };
-
-export const hashToken = async (token, rounds = 10) =>
-  await bcrypt.hash(token, await bcrypt.genSalt(rounds));

@@ -14,7 +14,8 @@ const UserSettings = props => {
     const { key } = e.currentTarget.dataset;
     dispatch(
       updateUser({
-        settings: {
+        key: "settings",
+        value: {
           [key]: e.currentTarget.checked
         }
       })

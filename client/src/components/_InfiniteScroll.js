@@ -1,3 +1,4 @@
+// correct
 import React, {
   useRef,
   useEffect,
@@ -17,7 +18,10 @@ import { isOverflowing } from "utils/validators";
 import DataNotifier from "components/DataNotifier";
 import { addToSet } from "utils";
 import { isAtScrollBottom } from "utils/validators";
-import { HTTP_401_MSG } from "context/constants";
+import { HTTP_DEFAULT_MSG } from "context/constants";
+import { debounce } from "@mui/material";
+
+const debounceFn = debounce((fn, node) => fn(node), 2500);
 
 const InfiniteScroll = React.forwardRef(
   (
@@ -56,18 +60,19 @@ const InfiniteScroll = React.forwardRef(
       excludeSep = ",",
       withMatchedDocs,
       shallowLoading,
-      maxRetry = 10,
       verify
     },
     ref
   ) => {
     const [retry, setRetry] = useState(false);
 
+    const [showEnd, setShowEnd] = useState(defaultShowEnd);
+
     const [data, setData] = useState({
       data: [],
       ...defaultData
     });
-
+    const [observedNode, setObservedNode] = useState(null);
     const [showRetryMsg, setShowRetryMsg] = useState(false);
 
     const [notifier, setNotifier] = useState({
@@ -91,7 +96,6 @@ const InfiniteScroll = React.forwardRef(
       httpConfig,
       withCredentials,
       withScrollBottom: true,
-      defaultShowEnd,
       intersection: intersectionProp
         ? undefined
         : {
@@ -102,8 +106,7 @@ const InfiniteScroll = React.forwardRef(
       infinitePaging: {},
       prevNotice: [],
       retryCount: 0,
-      forceRetryCount: 0,
-      maxRetry,
+      maxRetry: 10,
       sep: excludeSep,
       withDefaultData: !!defaultData,
       isFetching: false,
@@ -111,21 +114,10 @@ const InfiniteScroll = React.forwardRef(
       key: Date.now()
     });
 
-    const observedNodeRef = useRef();
-
-    const showEnd =
-      withOverflowShowEndOnly && stateRef.current.dataChanged
-        ? (stateRef.current.defaultShowEnd = isOverflowing(
-            scrollContRef?.current
-          ))
-        : stateRef.current.defaultShowEnd;
-
     const isV = verify === "t" || true;
 
-    const isT = verify === "m";
-
     let { isIntersecting } = useViewIntersection(
-      observedNodeRef,
+      observedNode,
       stateRef.current.intersection || intersectionProp
     );
 
@@ -135,7 +127,7 @@ const InfiniteScroll = React.forwardRef(
 
     isIntersecting =
       isIntersecting ||
-      isAtScrollBottom(scrollContRef?.current || undefined, 0.77, isT);
+      isAtScrollBottom(scrollContRef?.current || undefined, 0.77, isV);
 
     const reachedMax = data.data.length === maxSize;
 
@@ -188,6 +180,7 @@ const InfiniteScroll = React.forwardRef(
       : nextCursor === null;
 
     const willFetch =
+      isReady &&
       !reachedMax &&
       (stateRef.current.infinitePaging.matchedDocs
         ? data.data.length < stateRef.current.infinitePaging.matchedDocs &&
@@ -201,19 +194,20 @@ const InfiniteScroll = React.forwardRef(
       !(showRetryMsg || hasReachedMaxRetry) &&
       (nullifyChildren || (!isEnd && isIntersecting));
 
-    // isT &&
-    //   console.log(
-    //     nullifyChildren,
-    //     willFetch,
-    //     readyState,
-    //     isIntersecting,
-    //     stateRef.current.isFetching,
-    //     nextCursor,
-    //     reachedMax,
-    //     data.data.length,
-    //     stateRef.current.infinitePaging.matchedDocs,
-    //     verify
-    //   );
+    verify === "t" &&
+      console.log(
+        willFetch,
+        readyState,
+        isIntersecting,
+        stateRef.current.isFetching,
+        stateRef.current.withScrollBottom,
+        nextCursor,
+        reachedMax,
+        { ...data },
+        stateRef.current.infinitePaging.matchedDocs,
+        verify,
+        scrollContRef?.current || undefined
+      );
 
     useEffect(() => {
       const stateCtx = stateRef.current;
@@ -222,40 +216,27 @@ const InfiniteScroll = React.forwardRef(
 
       const shouldFetch =
         isV &&
-        isReady &&
-        (retry || (!stateCtx.isFetching && (shouldSearch ? true : willFetch)));
-
-      // isT &&
-      // console.log(
-      //   shouldFetch,
-      //   willFetch,
-      //   isReady,
-      //   dataKey,
-      //   stateCtx.isFetching
-      // );
+        (retry ||
+          (!stateCtx.isFetching &&
+            (shouldSearch ? true : !stateCtx.isFetching && willFetch)));
 
       let _url;
 
       if (shouldFetch) {
-        stateCtx.isFetching = true;
-
         const { infinitePaging, sep, exclude } = stateCtx;
         const _randomize =
           randomize || infinitePaging.matchedDocs === undefined;
         const _withMatchedDocs = withMatchedDocs || false;
 
-        const _httpConfig = {
-          withCredentials,
-          _reqKey: stateCtx.key,
-          _isT: isT,
-          ...httpConfig
-        };
+        stateCtx.isFetching = true;
 
         let withEq = true,
-          defaultCursor = "",
-          shouldForceRetry =
-            _httpConfig.withCredentials ||
-            stateRef.current.forceRetryCount === 0;
+          defaultCursor = "";
+
+        const _httpConfig = {
+          withCredentials,
+          ...httpConfig
+        };
 
         _url =
           url +
@@ -321,47 +302,27 @@ const InfiniteScroll = React.forwardRef(
               return data;
             });
           } catch (msg) {
-            // isT && console.log(msg, " cancelled ", verify);
+            verify === "t" && console.log(msg, " cancelled ", verify);
 
             if (msg) {
-              const withSnackBar = msg !== HTTP_401_MSG;
-
-              shouldForceRetry = withSnackBar || shouldForceRetry;
-
               if (stateRef.current.retryCount < stateRef.current.maxRetry)
                 setShowRetryMsg(true);
               else setShowRetryMsg(false);
 
-              withSnackBar && setSnackBar(msg);
-            }
+              window.location.pathname.toLowerCase() !== "/auth/signin" &&
+                msg !== HTTP_DEFAULT_MSG &&
+                setSnackBar(msg);
+            } else stateCtx.withScrollBottom = false;
           } finally {
             stateCtx.isFetching = false;
-
-            if (
-              shouldForceRetry &&
-              stateCtx.infinitePaging.matchedDocs === undefined
-            )
-              // helps to force a retry after comp remount or cancel b4
-              // fetching data happens when comps share same url or req key
-              setRetry(bool => {
-                if (
-                  stateRef.current.forceRetryCount ===
-                  stateRef.current.maxRetry - 1
-                ) {
-                  setShowRetryMsg(true);
-                  return bool;
-                } else stateRef.current.forceRetryCount++;
-
-                return !bool;
-              });
+            setRetry(false);
           }
         })();
       }
       return () => {
-        handleCancelRequest(_url + stateCtx.key);
+        handleCancelRequest(_url);
       };
     }, [
-      isReady,
       url,
       dataKey,
       limit,
@@ -375,8 +336,7 @@ const InfiniteScroll = React.forwardRef(
       setSnackBar,
       retry,
       isV,
-      verify,
-      isT
+      verify
     ]);
 
     const propMemo = useMemo(
@@ -386,7 +346,6 @@ const InfiniteScroll = React.forwardRef(
         data,
         loading,
         reachedMax,
-        key: stateRef.current.key,
         willRefetch: !!(data.data.length && data.paging?.nextCursor),
         dataChanged: stateRef.current.dataChanged,
         infinitePaging: stateRef.current.infinitePaging,
@@ -394,7 +353,17 @@ const InfiniteScroll = React.forwardRef(
         withPreviousData,
         scrollContRef,
         withOverflowShowEndOnly,
-        observedNodeRef,
+        setObservedNode: debounceFn.bind(
+          this,
+          (nodeOrFunc, strictMode = true) => {
+            if (strictMode ? nodeOrFunc : true) {
+              setObservedNode(nodeOrFunc);
+              withOverflowShowEndOnly &&
+                stateRef.current.dataChanged &&
+                setShowEnd(isOverflowing(scrollContRef?.current));
+            }
+          }
+        ),
         setData: (prop, options = {}) => {
           let {
             numberOfEntries,
@@ -488,8 +457,7 @@ const InfiniteScroll = React.forwardRef(
     useEffect(() => {
       if (ref) {
         propMemo.container = containerRef.current;
-        if (typeof ref === "function") ref(propMemo);
-        else ref.current = propMemo;
+        ref.current = propMemo;
       }
     }, [propMemo, ref]);
 
@@ -577,13 +545,7 @@ const InfiniteScroll = React.forwardRef(
             ...contentSx
           }}
         >
-          <div>
-            {nullifyChildren ? null : children(propMemo)}
-            <div
-              style={{ border: "1px solid transparent" }}
-              ref={observedNodeRef}
-            ></div>
-          </div>
+          <div>{nullifyChildren ? null : children(propMemo)}</div>
 
           <div>
             {hasReachedMaxRetry || (showRetryMsg && nullifyChildren) ? (
@@ -608,6 +570,11 @@ const InfiniteScroll = React.forwardRef(
               endElement
             ) : null}
           </div>
+
+          <div
+            style={{ border: "1px solid transparent" }}
+            ref={propMemo.setObservedNode}
+          ></div>
         </div>
       </Box>
     );

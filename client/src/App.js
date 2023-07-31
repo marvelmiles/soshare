@@ -12,14 +12,13 @@ import { Snackbar, useMediaQuery } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import CloseIcon from "@mui/icons-material/Close";
 import io from "socket.io-client";
-import { API_ENDPOINT, HTTP_403_MSG } from "context/config";
+import { API_ENDPOINT, HTTP_403_MSG } from "context/constants";
 import Post from "pages/Post";
 import Search from "pages/Search";
 import ShortsPage from "pages/ShortsPage";
 import VerificationMail from "pages/VerificationMail";
 import ResetPwd from "pages/ResetPwd";
 import http, {
-  handleCancelRequest,
   handleRefreshToken,
   getHttpErrMsg,
   createRelativeURL
@@ -30,7 +29,7 @@ import BrandIcon from "components/BrandIcon";
 import EmptyData from "components/EmptyData";
 import contextState from "context/contextState";
 import { StyledLink } from "components/styled";
-import { TOKEN_EXPIRED_MSG } from "context/config";
+import { HTTP_401_MSG } from "context/constants";
 import { setThemeMode } from "context/slices/configSlice";
 import { useDispatch } from "react-redux";
 import PlayGround from "PlayGround";
@@ -46,17 +45,23 @@ const App = () => {
   const systemMode = useMediaQuery("(prefers-color-scheme: dark)")
     ? "dark"
     : "light";
+
   const [theme, setTheme] = useState(createTheme(systemMode));
   const cid = useSelector(state => state.user.currentUser.id);
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { state: locState } = useLocation();
+  let { state: locState, pathname, key } = useLocation();
+  pathname = pathname.toLowerCase();
+  locState = locState || {
+    from: undefined // 0 = ignore
+  };
+
   const stateRef = useRef({
     isProcUrl: false,
-    prevPath: "",
-    currentPath: ""
+    prevPath: ""
   });
   stateRef.current.locState = locState;
+
   const resetComposeDoc = useCallback(() => {
     const id = setTimeout(() => {
       setContext(prev => ({ ...prev, composeDoc: undefined }));
@@ -65,7 +70,6 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const stateCtx = stateRef.current;
     if (cid) {
       socket = io.connect(API_ENDPOINT, {
         path: "/mernsocial",
@@ -81,21 +85,23 @@ const App = () => {
 
     const handleBareConnect = () => setReadyState("ready");
 
+    const showSessionTimeout = () =>
+      cid &&
+      navigate(
+        createRelativeURL(undefined, "view=session-timeout", {
+          view: "cv"
+        })
+      );
+
     let handlingErr;
     const handleSocketErr = error => {
       if (handlingErr) return;
       handlingErr = true;
       switch (error.message) {
-        case TOKEN_EXPIRED_MSG:
+        case HTTP_401_MSG:
           handleRefreshToken()
             .then(() => socket.connect())
-            .catch(() =>
-              cid
-                ? navigate(
-                    createRelativeURL("view", "view=session-timeout", false)
-                  )
-                : null
-            )
+            .catch(showSessionTimeout)
             .finally(() => {
               setReadyState("ready");
               handlingErr = undefined;
@@ -118,32 +124,18 @@ const App = () => {
           case HTTP_403_MSG:
             if (
               cid &&
-              window.location.pathname.toLowerCase() !== "/auth/signin" &&
-              window.location.search.indexOf("session-timeout") === -1
+              window.location.pathname.toLowerCase() !== "/auth/signin"
             )
-              navigate(
-                createRelativeURL("view", "view=session-timeout", false)
-              );
-            err = "";
+              showSessionTimeout();
             break;
           default:
             break;
         }
+        console.log(err);
         return Promise.reject(getHttpErrMsg(err));
       }
     );
 
-    const path = createRelativeURL();
-    if (stateCtx.currentPath !== path) {
-      if (stateCtx.currentPath.indexOf("auth") > -1) {
-        stateRef.current.prevPath = "";
-        stateRef.current.hasAuthPath = true;
-      } else if (stateRef.current.hasAuthPath) {
-        stateRef.current.prevPath = "";
-        stateRef.current.hasAuthPath = false;
-      } else stateCtx.prevPath = stateCtx.currentPath;
-      stateCtx.currentPath = path.toLowerCase();
-    }
     setSnackbar(prev => ({ ...prev, open: false }));
     setContext(context => ({
       ...context,
@@ -155,7 +147,6 @@ const App = () => {
 
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
-
     return () => {
       if (socket)
         socket
@@ -163,8 +154,6 @@ const App = () => {
           .removeEventListener("register-user", handleRegUser)
           .removeEventListener("bare-connection", handleBareConnect)
           .removeEventListener("connect_error", handleSocketErr);
-
-      handleCancelRequest();
 
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
@@ -339,10 +328,6 @@ const App = () => {
               position: "absolute",
               top: 0,
               left: 0,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              backgroundColor: theme.palette.common.blend,
               height: "100%",
               maxHeight: "inherit",
               minHeight: "100%",
@@ -354,7 +339,17 @@ const App = () => {
               borderRadius: "inherit",
               zIndex: 2,
               cursor: "default",
-              color: theme.palette.common.white
+              color: theme.palette.common.white,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+              backgroundColor: theme.palette.common.blendHover,
+              ".MuiTypography-root": {
+                maxWidth: "280px",
+                margin: "0 auto",
+                fontSize: "1.2em",
+                padding: "0px 8px"
+              }
             },
             ".textarea-readOnly": {
               resize: "none",
@@ -379,16 +374,32 @@ const App = () => {
               objectFit: "fill",
               outline: 0
             },
-            ".content-inherit": {
-              minWidth: "inherit",
-              minHeight: "inherit",
+            // ".content-inherit": {
+            //   minWidth: "inherit",
+            //   minHeight: "inherit",
+            //   maxHeight: "inherit",
+            //   maxWidth: "inherit",
+            //   height: "inherit",
+            //   width: "inherit",
+            //   border: "inherit",
+            //   borderRadius: "inherit",
+            //   color: "inherit"
+            // },
+            ".custom-media-container": {
+              width: "100%",
+              height: "100%",
               maxHeight: "inherit",
-              maxWidth: "inherit",
-              height: "inherit",
-              width: "inherit",
-              border: "inherit",
+              minHeight: "inherit",
+              overflow: "hidden",
+              position: "relative",
+              backgroundColor: theme.palette.common.black,
               borderRadius: "inherit",
-              color: "inherit"
+              border: "1px solid currentColor",
+              borderColor: theme.palette.divider,
+              paddingBottom: "56.25%",
+              ".custom-overlay": {
+                position: "absolute"
+              }
             }
           }}
         />
@@ -399,10 +410,12 @@ const App = () => {
             context,
             locState,
             readyState,
-            prevPath: stateRef.current.prevPath
-              ? stateRef.current.prevPath
-              : "",
-            currentPath: stateRef.current.currentPath,
+            isOnline,
+            isLoggedIn: !!cid,
+            withBackBtn:
+              key !== "default" &&
+              locState.from !== "0" &&
+              (pathname !== "/" || pathname.indexOf("auth") < -1),
             setContext,
             setReadyState,
             closeSnackBar
@@ -413,7 +426,7 @@ const App = () => {
               reject: (
                 <EmptyData
                   sx={{ minHeight: "100vh" }}
-                  maxWidth="400px"
+                  maxWidth="350px"
                   withReload
                 />
               ),
@@ -457,7 +470,7 @@ const App = () => {
         }
         sx={{
           bottom: isOnline === undefined ? undefined : "80px !important",
-          maxWidth: "500px"
+          maxWidth: snackbar.maxWidth || "400px"
         }}
       >
         <Alert

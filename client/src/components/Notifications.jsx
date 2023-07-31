@@ -203,7 +203,7 @@ const Notifications = ({
         withCredentials={!!cid}
         exclude={(cache[type].data || []).map(n => n.id).join(",")}
       >
-        {({ setObservedNode, data: { data } }) => {
+        {({ data: { data } }) => {
           return (
             <>
               <Stack
@@ -344,11 +344,6 @@ const Notifications = ({
                         <ListItemButton
                           key={n.id}
                           disableRipple
-                          ref={
-                            i === data.length - 1
-                              ? node => node && setObservedNode(node)
-                              : undefined
-                          }
                           component="li"
                           sx={{
                             "&": {

@@ -1,7 +1,7 @@
 import User from "../models/User.js";
 import { createError } from "../utils/error.js";
 import bcrypt from "bcrypt";
-import { setTokens, generateToken, hashToken } from "../utils/index.js";
+import { setTokens, generateToken, hashToken } from "../utils/auth.js";
 import { isEmail } from "../utils/validators.js";
 import { sendMail } from "../utils/file-handlers.js";
 import { verifyToken } from "../utils/middlewares.js";

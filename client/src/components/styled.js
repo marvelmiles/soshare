@@ -127,7 +127,7 @@ export const WidgetContainer = styled(Box, {
       padding: "16px",
       backgroundColor: alt,
       marginBottom: "24px",
-      maxHeight: "450px",
+      maxHeight: "400px", //"450px",
       overflow: "auto",
       position: "relative",
 

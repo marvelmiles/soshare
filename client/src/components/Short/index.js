@@ -132,10 +132,13 @@ const Short = React.forwardRef(
             ? {
                 width: {
                   xs: "100%",
-                  md: "110px"
+                  lg: "48%"
                 },
                 borderRadius: "8px",
-                height: "190px"
+                height: "190px",
+                maxWidth: "150px",
+                mx: "auto",
+                minHeight: "200px"
               }
             : {
                 mx: "auto",
@@ -159,7 +162,6 @@ const Short = React.forwardRef(
       >
         <VideoPlayer
           contRef={contRef || null}
-          ref={miniShort && { current: {} }}
           hideControls
           id={short.id}
           muted={muted}

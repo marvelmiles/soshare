@@ -8,7 +8,7 @@ export const createError = (message, status) => {
       typeof message === "string" ? message : "Something went wrong!";
     err.status = status || (message.length ? 400 : 500);
   };
-
+  console.log(message.message || message, message.url, message.name, "---err");
   switch (message.name?.toLowerCase()) {
     case "validationerror":
       err.message = message.message.slice(message.message.lastIndexOf(":") + 2);

@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import http from "api/http";
 import { useContext } from "context/store";
-import { CANCELED_REQUEST_MSG } from "context/config";
 import { useSelector } from "react-redux";
 
 export default (config = {}) => {
@@ -32,7 +31,7 @@ export default (config = {}) => {
           await http.delete(__url, opt._httpConfig || httpConfig);
           handleAction && handleAction("clear-cache", { document: id });
         } catch (message) {
-          if (!message || message === CANCELED_REQUEST_MSG) continue;
+          if (!message) continue;
           else {
             errCount++;
             handleAction && handleAction("new", { document: item });

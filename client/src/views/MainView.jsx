@@ -1,6 +1,6 @@
-import React, { useMemo } from "react";
+import React from "react";
 import { useSelector } from "react-redux";
-import { Box, useMediaQuery } from "@mui/material";
+import { Box } from "@mui/material";
 import Layout from "components/Layout";
 import UserWidget from "components/UserWidget";
 import AdvertWidget from "components/AdvertWidget";
@@ -23,7 +23,6 @@ const MainView = ({
       overflow: "auto"
     }
   };
-  const isLg = useMediaQuery("(min-width:1024px)");
 
   return (
     <Layout sx={sx} {...layoutProps} uid={cid}>
@@ -47,11 +46,11 @@ const MainView = ({
           ...responsiveStyle
         }}
       >
-        {isLg
-          ? {
-              shorts: <ShortsView key="mainview-shorts" miniShort />
-            }[sideView]
-          : null}
+        {/* {
+          {
+            shorts: <ShortsView key="mainview-shorts" miniShort />
+          }[sideView]
+        } */}
         {cid ? <UserWidget key="main-view-user-widget" /> : null}
       </Box>
 

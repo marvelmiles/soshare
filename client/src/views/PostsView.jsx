@@ -17,13 +17,14 @@ const PostsView = ({
   children,
   scrollNodeRef,
   infiniteScrollProps,
-  privateUid
+  privateUid,
+  emptyLabel
 }) => {
   const {
     socket,
-    context: { composeDoc, blacklistedPosts, blacklistedUsers }
+    context: { composeDoc, blacklistedPosts }
   } = useContext();
-  const currentUser = useSelector(state => state.user.currentUser || {});
+  const currentUser = useSelector(state => state.user.currentUser);
   const infiniteScrollRef = useRef();
   const stateRef = useRef({
     url: url || "/posts"
@@ -75,8 +76,13 @@ const PostsView = ({
   }, [composeDoc, _handleAction]);
 
   useEffect(() => {
-    filterDocsByUserSet(infiniteScrollRef.current, blacklistedUsers);
-  }, [blacklistedUsers]);
+    filterDocsByUserSet(infiniteScrollRef.current, {
+      ...currentUser.disapprovedUsers,
+      ...currentUser.blockedUsers
+    });
+  }, [currentUser.disapprovedUsers, currentUser.blockedUsers]);
+
+  const isCurrentUser = currentUser.id === privateUid;
 
   return (
     <InfiniteScroll
@@ -91,11 +97,14 @@ const PostsView = ({
           : -1
       }
       scrollNodeRef={scrollNodeRef}
+      verify="t"
       {...infiniteScrollProps}
       key={"infinite-posts"}
       withCredentials={!!currentUser.id}
       readyState={
-        composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
+        currentUser.id && composeDoc?.done === false
+          ? "pending"
+          : infiniteScrollProps?.readyState
       }
       searchId={
         composeDoc?.docType === "post"
@@ -105,8 +114,8 @@ const PostsView = ({
           : undefined
       }
     >
-      {({ data: { data, paging }, setObservedNode }) => {
-        return paging?.nextCursor !== undefined || data.length ? (
+      {({ data: { data } }) => {
+        return (
           <>
             {title && (
               <Typography variant="h5" fontWeight="bold" mb={2}>
@@ -116,40 +125,27 @@ const PostsView = ({
             {children}
             {data.length ? (
               data.map((post, i) => {
-                return post.user ? (
+                return (
                   <PostWidget
                     post={post}
                     maxHeight="none"
                     handleAction={_handleAction}
                     key={i}
-                    ref={
-                      i === data.length - 1
-                        ? node => node && setObservedNode(node)
-                        : undefined
-                    }
                     sx={postSx}
                     index={i}
                   />
-                ) : null;
+                );
               })
             ) : (
               <EmptyData
                 label={
-                  privateUid
+                  isCurrentUser
                     ? `You don't have any post at the moment!`
-                    : `We're sorry it seems there is no posts at the moment`
+                    : `We're sorry it seems there is no posts to view at the moment or you have blacklisted post's curator!`
                 }
               />
             )}
           </>
-        ) : (
-          <EmptyData
-            label={
-              privateUid
-                ? `You don't have any post at the moment!`
-                : `We're sorry it seems there is no posts at the moment`
-            }
-          />
         );
       }}
     </InfiniteScroll>

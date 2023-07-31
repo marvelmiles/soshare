@@ -18,7 +18,8 @@ const Layout = ({
   isCurrentUser,
   withGoUpIndicator = true,
   fabIcon,
-  handleFabAction
+  handleFabAction,
+  closeDialog
 }) => {
   const [showBtn, setShowBtn] = useState(false);
   useEffect(() => {
@@ -84,7 +85,11 @@ const Layout = ({
           {children}
         </Box>
       </Box>
-      <ComposeAndView uid={uid} isCurrentUser={isCurrentUser} />
+      <ComposeAndView
+        uid={uid}
+        isCurrentUser={isCurrentUser}
+        close={closeDialog}
+      />
       <Zoom
         in={showBtn}
         timeout={transitionDuration}
@@ -94,7 +99,6 @@ const Layout = ({
       >
         <Fab
           color="primary"
-          data-scroll="disable"
           onClick={handleScrollUp}
           sx={
             fabIcon
