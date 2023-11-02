@@ -78,7 +78,6 @@ export const errHandler = (err, req, res, next) => {
 };
 
 export const validateCors = (origin = "", cb) => {
-  console.log(origin, "serv");
   if (
     !origin ||
     origin === CLIENT_ORIGIN ||
