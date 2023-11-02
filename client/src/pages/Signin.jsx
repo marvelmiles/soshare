@@ -4,7 +4,7 @@ import { Stack, InputBase, Button } from "@mui/material";
 import { WidgetContainer, StyledLink } from "components/styled";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
-import { signInWithPopupTimeout } from "api/firebase";
+import { signInWithPopupTimeout, auth as firebaseAuth } from "api/firebase";
 import http from "api/http";
 import { useDispatch } from "react-redux";
 import { signInUser, signOutUser } from "context/slices/userSlice";
@@ -21,6 +21,7 @@ import CustomInput from "components/CustomInput";
 import { createRelativeURL } from "api/http";
 import BrandIcon from "components/BrandIcon";
 import { HTTP_CODE_INVALID_USER_ACCOUNT } from "context/constants";
+import { getRedirectResult } from "firebase/auth";
 
 InputBase.defaultProps = {
   value: ""
@@ -58,6 +59,13 @@ const Signin = () => {
   useEffect(() => {
     dispatch(signOutUser());
   }, [dispatch]);
+
+  useEffect(() => {
+    (async () => {
+      const res = await getRedirectResult(firebaseAuth);
+      console.log(res);
+    })();
+  }, []);
 
   const onSubmit = async e => {
     if (e.target) {
@@ -104,11 +112,13 @@ const Signin = () => {
 
       navigate(redirect || "/", prop);
     } catch (err) {
-      console.log(err);
-      console.log(err.message, err.response, err.data, err.body);
       if (err.code) {
         if (err.code === "auth/popup-closed-by-user")
           err.message = "Authentication popup closed by you!";
+        (async () => {
+          const res = await getRedirectResult(firebaseAuth);
+          console.log(res);
+        })();
       }
 
       reset(true);
