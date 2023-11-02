@@ -104,6 +104,8 @@ const Signin = () => {
 
       navigate(redirect || "/", prop);
     } catch (err) {
+      console.log(err);
+      console.log(err.message, err.response, err.data, err.body);
       if (err.code) {
         if (err.code === "auth/popup-closed-by-user")
           err.message = "Authentication popup closed by you!";
