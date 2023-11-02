@@ -21,7 +21,7 @@ import CustomInput from "components/CustomInput";
 import { createRelativeURL } from "api/http";
 import BrandIcon from "components/BrandIcon";
 import { HTTP_CODE_INVALID_USER_ACCOUNT } from "context/constants";
-import { getRedirectResult } from "firebase/auth";
+import { getRedirectResult, onAuthStateChanged } from "firebase/auth";
 
 InputBase.defaultProps = {
   value: ""
@@ -61,10 +61,7 @@ const Signin = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    (async () => {
-      const res = await getRedirectResult(firebaseAuth);
-      console.log(res);
-    })();
+    onAuthStateChanged(firebaseAuth, (...u) => console.log(u));
   }, []);
 
   const onSubmit = async e => {
@@ -110,7 +107,7 @@ const Signin = () => {
 
       if (redirect) redirect = redirect.replace(/cv/, "view");
 
-      navigate(redirect || "/", prop);
+      // navigate(redirect || "/", prop);
     } catch (err) {
       if (err.code) {
         if (err.code === "auth/popup-closed-by-user")
