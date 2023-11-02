@@ -31,6 +31,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config();
 const app = express();
 
+const csp = [
+  "'self'",
+  "https://apis.google.com",
+  "https://*.gstatic.com",
+  "https://*.googleapis.com",
+  "https://*.firebaseio.com",
+  "https://*.firebaseapp.com",
+  "https://*.firebase.com",
+  "https://*.googleusercontent.com"
+];
+
 // MIDDLEWARES
 
 app.use(
@@ -52,16 +63,10 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        "script-src": [
-          "'self'",
-          "https://apis.google.com",
-          "https://*.gstatic.com",
-          "https://*.googleapis.com",
-          "https://*.firebaseio.com",
-          "https://*.firebaseapp.com",
-          "https://*.firebase.com",
-          "https://*.googleusercontent.com"
-        ]
+        "default-src": csp,
+        "srcipt-src": csp,
+        "frame-src": csp,
+        "connect-src": csp
       }
     },
     crossOriginResourcePolicy: { policy: "cross-origin" }
