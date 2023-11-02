@@ -19,17 +19,17 @@ export const googleProvider = new GoogleAuthProvider();
 
 export const signInWithPopupTimeout = (timeout = 60000) => {
   return new Promise((resolve, reject) => {
-    const id = setTimeout(() => {
-      reject("Request timedout!");
-      clearTimeout(id);
-    }, timeout);
+    // const id = setTimeout(() => {
+    //   reject("Request timedout!");
+    //   clearTimeout(id);
+    // }, timeout);
     signInWithPopup(auth, googleProvider)
       .then(result => {
-        clearTimeout(id);
+        // clearTimeout(id);
         resolve(result);
       })
       .catch(err => {
-        clearTimeout(id);
+        // clearTimeout(id);
         reject(err);
       });
   });
