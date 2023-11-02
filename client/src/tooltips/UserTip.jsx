@@ -13,6 +13,8 @@ import emailIcon from "imgs/email.png";
 import linkedInIcon from "imgs/linkedin.png";
 import { anchorAttrs } from "context/constants";
 import useFollowDispatch from "hooks/useFollowDispatch";
+import { createRelativeURL } from "api/http";
+import { useContext } from "context/store";
 
 const UserTip = ({
   user = defaultUser,
@@ -23,23 +25,13 @@ const UserTip = ({
   disableSnippet,
   maxLine = disableSnippet ? 0 : 2
 }) => {
+  const { locState } = useContext();
   const [searchParams] = useSearchParams();
   const {
     isProcessingFollow,
     isFollowing,
     handleToggleFollow
   } = useFollowDispatch({ user });
-
-  const renderSV = v => {
-    const view = (searchParams.get("view") || "").toLowerCase();
-    return `${
-      window.location.search
-        ? view
-          ? window.location.search.replace(`view=${view}`, `view=${v}`)
-          : window.location.search + `&view=${v}`
-        : `?view=${v}`
-    }`;
-  };
 
   return (
     <Box sx={disableSnippet ? undefined : { p: 2 }}>
@@ -96,51 +88,49 @@ const UserTip = ({
               @{user.username}
             </StyledTypography>
             <div style={{ whiteSpace: "wrap" }}>
-              <StyledLink
-                onClick={e => e.stopPropagation()}
-                sx={{ color: "inherit" }}
-                to={renderSV("user-following")}
-              >
-                {user.following.length} following
-              </StyledLink>
-              <span style={{ marginInline: "2px" }}>|</span>
-              <StyledLink
-                onClick={e => e.stopPropagation()}
-                sx={{ color: "inherit" }}
-                to={renderSV("user-followers")}
-              >
-                {user.followers.length} followers
-              </StyledLink>
-
-              <span style={{ marginInline: "2px" }}>|</span>
-              <StyledLink
-                onClick={e => e.stopPropagation()}
-                sx={{ color: "inherit" }}
-                to={renderSV("user-posts")}
-              >
-                {user.postCount} posts
-              </StyledLink>
-
-              <span style={{ marginInline: "2px" }}>|</span>
-              <StyledLink
-                onClick={e => e.stopPropagation()}
-                sx={{ color: "inherit" }}
-                to={renderSV("user-shorts")}
-              >
-                {user.shortCount} shorts
-              </StyledLink>
-              {isOwner ? (
-                <>
-                  <span style={{ marginInline: "2px" }}>|</span>
-                  <StyledLink
-                    onClick={e => e.stopPropagation()}
-                    sx={{ color: "inherit" }}
-                    to={renderSV("user-blacklist")}
-                  >
-                    blacklist
-                  </StyledLink>
-                </>
-              ) : null}
+              {[
+                {
+                  label: "Following",
+                  count: user.following.length,
+                  type: "user-following"
+                },
+                {
+                  label: "Followers",
+                  count: user.followers.length,
+                  type: "user-followers"
+                },
+                {
+                  label: "Posts",
+                  count: user.postCount,
+                  type: "user-posts"
+                },
+                {
+                  label: "Shorts",
+                  count: user.shortCount,
+                  type: "user-shorts"
+                },
+                {
+                  label: "Blacklist",
+                  type: "user-blacklist",
+                  nullify: !isOwner
+                }
+              ].map((l, i) =>
+                l.nullify ? null : (
+                  <span key={i}>
+                    {i === 0 ? null : (
+                      <span style={{ marginInline: "2px" }}>|</span>
+                    )}
+                    <StyledLink
+                      state={locState}
+                      onClick={e => e.stopPropagation()}
+                      sx={{ color: "inherit" }}
+                      to={createRelativeURL("view", `view=${l.type}`)}
+                    >
+                      {l.count} {l.label}
+                    </StyledLink>
+                  </span>
+                )
+              )}
             </div>
           </Box>
           {!isOwner && actionBar === undefined ? (
@@ -165,13 +155,12 @@ const UserTip = ({
         </Stack>
       </Stack>
 
-      {user.bio || true ? (
+      {user.bio ? (
         <StyledTypography
           variant="caption"
           component="div"
           color="text.secondary"
           fontWeight="500"
-          maxLine={3}
           sx={{
             resize: "none",
             width: "100%",
@@ -179,6 +168,7 @@ const UserTip = ({
             maxHeight: "none",
             overflow: "hidden",
             whiteSpace: "pre-line",
+            wordBreak: "break-word",
             mt: "1rem",
             pl: "0px"
           }}

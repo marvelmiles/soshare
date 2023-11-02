@@ -6,17 +6,24 @@ import Switch from "@mui/material/Switch";
 import Typography from "@mui/material/Typography";
 import { useSelector, useDispatch } from "react-redux";
 import { updateUser } from "context/slices/userSlice";
+import Radio from "@mui/material/Radio";
+import RadioGroup from "@mui/material/RadioGroup";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormControl from "@mui/material/FormControl";
+import FormLabel from "@mui/material/FormLabel";
 
 const UserSettings = props => {
   const settings = useSelector(state => state.user.currentUser?.settings || {});
   const dispatch = useDispatch();
-  const handleChange = e => {
+
+  const handleChange = (e, val) => {
     const { key } = e.currentTarget.dataset;
+
     dispatch(
       updateUser({
         key: "settings",
         value: {
-          [key]: e.currentTarget.checked
+          [key]: val
         }
       })
     );
@@ -28,15 +35,7 @@ const UserSettings = props => {
       </Typography>
       {[
         {
-          title: "Hide temporary delete medias dialog",
-          key: "hideDelMediasDialog"
-        },
-        {
-          title: "Hide temporary delete media dialog",
-          key: "hideDelMediaDialog"
-        },
-        {
-          title: "Hide delete warning dialog",
+          title: "Hide delete dialog",
           key: "hideDelDialog"
         }
       ].map((item, i) => (
@@ -51,6 +50,53 @@ const UserSettings = props => {
           />
         </Stack>
       ))}
+
+      <FormControl>
+        <Typography variant="h5" fontWeight="bold">
+          Theme
+        </Typography>
+        <RadioGroup
+          aria-labelledby="Theme mode selection"
+          value={settings.theme}
+          name="theme-radio-group"
+          onChange={handleChange}
+        >
+          <FormControlLabel
+            value="dark"
+            control={
+              <Radio
+                inputProps={{
+                  "data-key": "theme"
+                }}
+              />
+            }
+            label="Dark Mode"
+          />
+          <FormControlLabel
+            value="light"
+            control={
+              <Radio
+                inputProps={{
+                  "data-key": "theme"
+                }}
+              />
+            }
+            label="Light Mode"
+          />
+          <FormControlLabel
+            value="system"
+            control={
+              <Radio
+                data-key="theme"
+                inputProps={{
+                  "data-key": "theme"
+                }}
+              />
+            }
+            label="System Mode"
+          />
+        </RadioGroup>
+      </FormControl>
     </Box>
   );
 };

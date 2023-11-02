@@ -1,28 +1,119 @@
-export const createError = (message, status) => {
-  if (message.status) return message;
-
+export const invalidate = (msg, path, name = "ValidationError") => {
   const err = new Error();
+  err.message = msg;
+  err.name = name;
+  err.path = path;
+  throw err;
+};
+
+export const getMongooseErrMsg = err => {
+  let msg = "";
+
+  const obj = err.errors || {};
+  const keys = Object.keys(obj);
+
+  for (let i = 0; i < keys.length; i++) {
+    let info = obj[keys[i]];
+
+    // console.log("----", info, typeof info, "-----");
+
+    if (info.properties) {
+      const prop = info.properties;
+      switch (prop.type) {
+        case "minlength":
+          info = prop.minlength.message;
+          break;
+        default:
+          info = info.message;
+          break;
+      }
+    }
+    if (info.toLowerCase)
+      msg += msg
+        ? `${i === keys.length - 1 ? " and " : ", "}` + info.toLowerCase()
+        : info;
+    else msg += err.message;
+  }
+  return msg || err.message;
+};
+
+export const console500MSG = (message, name = "LOG", extraMsg = "") =>
+  console.error(
+    `[SERVER_ERROR ${message.name} ${name}]: [code:${message.code}]: [type:${
+      message.type
+    }] [errors:${JSON.stringify(message.errors)}] [details:${JSON.stringify(
+      message.details
+    )}] ${message.message} ${extraMsg}. URL:${message.url} at ${new Date()}. `
+  );
+
+export const createError = (message, status, code) => {
+  const err = new Error();
+
+  if (message.statusCode) {
+    console500MSG(message);
+    return message;
+  }
 
   const setDefault = () => {
     err.message =
-      typeof message === "string" ? message : "Something went wrong!";
-    err.status = status || (message.length ? 400 : 500);
+      typeof message === "string" || status
+        ? message.message || message
+        : "Something went wrong!";
+    err.statusCode = status || (message.length ? 400 : 500);
+
+    err.code =
+      code ||
+      {
+        401: "UNAUTHORIZED_ACCESS",
+        403: "FORBIDDEN_ACCESSS",
+        501: "INTERNAL_SERVER_ERROR",
+        400: "BAD_REQUEST",
+        428: "PRECONDITION_REQUIRED",
+        404: "NOT_FOUND",
+        409: "RESOURCE_CONFLICTED"
+      }[err.statusCode] ||
+      message.code ||
+      "ERROR_CODE";
   };
-  console.log(message.message || message, message.url, message.name, "---err");
-  switch (message.name?.toLowerCase()) {
+
+  console.log(
+    "[SERVER_ERROR: ERORR_INFO]",
+    message.type,
+    message.name,
+    message.code,
+    message.message || message,
+    message.url,
+    "__==__"
+  );
+
+  const keyName =
+    message.type?.toLowerCase?.() ||
+    message.code?.toLowerCase?.() ||
+    message.name?.toLowerCase?.();
+
+  switch (keyName) {
+    case "mongoservererror":
     case "validationerror":
-      err.message = message.message.slice(message.message.lastIndexOf(":") + 2);
-      err.status = status || 400;
+      err.message = getMongooseErrMsg(message);
+
+      err.statusCode = status || 400;
+      err.code = { mongoservererror: "SCHEMA_ERROR" }[keyName];
       break;
     case "casterror":
       err.message = message.message
         .replaceAll(/_id+/g, "id")
         .slice(0, message.message.indexOf(`" for model`));
-      err.status = 400;
+      err.statusCode = 400;
       break;
     case "customerror":
       err.message = message.message || message;
-      err.status = status || 400;
+      err.statusCode = status || 400;
+      err.name = message.errName || message.name;
+      break;
+    case "stripeinvalidrequesterror":
+      err.message = message.message || message;
+      err.statusCode = message.statusCodeCode || 400;
+      err.name = message.type;
       break;
     case "rangeerror":
     case "referenceerror":
@@ -30,7 +121,7 @@ export const createError = (message, status) => {
       switch (message.code?.toLowerCase()) {
         case "limit_unexpected_file":
           err.message = "File field not found!";
-          err.status = 400;
+          err.statusCode = 400;
           break;
         default:
           setDefault();
@@ -40,20 +131,40 @@ export const createError = (message, status) => {
     case "fetcherror":
     case "econnreset":
       err.message = "Netowrk error. Check connectivity";
-      err.status = 400;
+      err.statusCode = 504;
       break;
     default:
-      setDefault();
+      const msg = message.message || message;
+
+      switch (
+        (msg?.indexOf &&
+          msg.toLowerCase().indexOf("getaddrinfo") > -1 &&
+          "econnection") ||
+          keyName
+      ) {
+        case "edns":
+        case "econnection":
+        case "enotfound":
+        case "esocket":
+        case "stripeconnectionerror":
+          err.message = "Something went wrong or check network";
+          err.statusCode = 504;
+          break;
+        case 11000:
+        default:
+          setDefault();
+          break;
+      }
       break;
   }
 
-  if (err.status === 500)
-    console.log(
-      `[SERVER_ERROR ${message.name || err.name}]: [code:${message.code ||
-        err.code}]: ${message.message || err.message}. URL:${
-        message.url
-      } at ${new Date()}. `
-    );
+  if (err.statusCode === 500) console500MSG(message);
+
+  err.status = err.statusCode;
+  err.success = false;
+  err.details = message.details;
+  err.timestamp = new Date().toISOString();
+  err.code = code || err.code || message.name || "ERROR";
 
   return err;
 };

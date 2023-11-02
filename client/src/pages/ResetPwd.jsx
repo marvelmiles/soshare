@@ -19,9 +19,13 @@ const ResetPwd = props => {
     isSubmitting,
     handleChange,
     handleSubmit,
+    isInValid,
     reset
   } = useForm({
-    required: true,
+    required: {
+      password: "Password is required",
+      confirmPassword: "Confirm password is required"
+    },
     maxData: 2
   });
 
@@ -54,12 +58,13 @@ const ResetPwd = props => {
                     Password reset successfully. You can{" "}
                     <StyledLink to="/auth/signin">login</StyledLink>
                   </span>
-                )
+                ),
+                severity: "success"
               });
               reset();
             }
           } catch (err) {
-            err && setSnackBar(err);
+            !err.isCancelled && setSnackBar(err.message);
             reset(true);
           }
         }}
@@ -75,7 +80,7 @@ const ResetPwd = props => {
           onChange={handleChange}
           error={errors.password}
           sx={{
-            mb: 0
+            my: 2
           }}
           startAdornment={
             <Stack sx={{ p: 1 }}>
@@ -90,7 +95,6 @@ const ResetPwd = props => {
           label="Confirm password"
           error={errors.confirmPassword}
           onChange={handleChange}
-          sx={{ mb: 0 }}
           startAdornment={
             <Stack sx={{ p: 1 }}>
               <LockIcon />
@@ -100,14 +104,19 @@ const ResetPwd = props => {
 
         <Button
           type="submit"
-          disabled={
-            isSubmitting || !(formData.confirmPassword && formData.password)
-          }
+          disabled={isSubmitting || isInValid}
           variant="contained"
-          sx={{ width: "100%", mt: 2 }}
+          sx={{ width: "100%", mt: 2, mb: 1 }}
         >
           Reset
         </Button>
+
+        <StyledLink
+          sx={{ textAlign: "center", width: "100%" }}
+          to={"/auth/verification-mail"}
+        >
+          Get reset token!
+        </StyledLink>
       </WidgetContainer>
     </Stack>
   );

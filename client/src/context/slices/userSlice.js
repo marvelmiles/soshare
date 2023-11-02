@@ -1,20 +1,24 @@
 import { createSlice } from "@reduxjs/toolkit";
 import http from "api/http";
+import { updateStatePath } from "../utils";
+import { mapToObject } from "utils";
 
 export const defaultUser = {
   following: [],
   followers: [],
   recommendationBlacklist: [],
   socials: {},
-  settings: {},
+  settings: {
+    theme: "light"
+  },
   blacklistCount: 0,
   // client properties
-  blockedUsers: {},
-  disapprovedUsers: {}
+  _blockedUsers: {},
+  _disapprovedUsers: {}
 };
 
 const initialState = {
-  previewUser: undefined,
+  previewUser: {},
   currentUser: defaultUser
 };
 
@@ -22,7 +26,7 @@ const userSlice = createSlice({
   initialState,
   name: "user",
   reducers: {
-    signoutUser(state) {
+    signOutUser(state) {
       if (!!state.currentUser.id)
         http
           .patch(
@@ -36,39 +40,41 @@ const userSlice = createSlice({
           )
           .then(() => {})
           .catch(() => {});
-      state.currentUser = defaultUser;
-      state.previewUser = undefined;
+
+      const settings = state.currentUser.settings;
+
+      localStorage.setItem(
+        "theme",
+        settings.theme || defaultUser.settings.theme
+      );
+
+      state.currentUser = {
+        ...defaultUser,
+        settings
+      };
+      state.previewUser = {};
     },
-    loginUser(state, { payload }) {
-      state.currentUser = payload;
+    signInUser(state, { payload }) {
+      state.currentUser = {
+        ...defaultUser,
+        ...payload,
+        settings: {
+          ...defaultUser.settings,
+          ...payload.settings
+        },
+        _disapprovedUsers: mapToObject(payload.recommendationBlacklist),
+        _blockedUsers: mapToObject(payload.blockedUsers)
+      };
     },
     updatePreviewUser(state, { payload }) {
       if (payload.nullify) return (state.previewUser = undefined);
-      delete payload.avatar;
-      updateUser(state, { payload, _path: "previewUser" });
-    },
-    updateUser(state, { payload, _path = "currentUser" }) {
-      const key = payload.key;
 
-      if (key) {
-        if (payload.whitelist) {
-          const obj = { ...state[_path][key] };
-          delete obj[payload.value];
-          state[_path][key] = { ...obj };
-        } else {
-          state[_path][key] = {
-            ...state[_path][key],
-            ...payload.value
-          };
-        }
-        state[_path] = {
-          ...state[_path]
-        };
-      } else
-        state[_path] = {
-          ...state[_path],
-          ...payload
-        };
+      delete payload.avatar;
+
+      updateStatePath(state, "previewUser", payload);
+    },
+    updateUser(state, { payload }) {
+      updateStatePath(state, "currentUser", payload);
     },
     deleteFromPreviewUser(state, { payload }) {
       if (state.previewUser) {
@@ -89,8 +95,8 @@ const userSlice = createSlice({
 });
 
 export const {
-  signoutUser,
-  loginUser,
+  signOutUser,
+  signInUser,
   updatePreviewUser,
   updateUser,
   deleteFromPreviewUser

@@ -1,11 +1,12 @@
 import { useState, useCallback } from "react";
-import { isObject } from "utils/validators";
+import { isObject, withMapObj } from "utils/validators";
 
 export const isEmail = str => {
   return /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/i.test(
     str
   );
 };
+
 export const isFullName = str => {
   return /\w+(\s|-|')+\w+/.test(str);
 };
@@ -61,22 +62,22 @@ export const isFileList = obj => {
   );
 };
 
-const useForm = (config = {}) => {
+const useForm = config => {
   const {
     placeholders,
     required,
     returnFilesArray = false,
     mergeFile = false,
     dataSize,
+    dataType: dataTypeMap,
     maxUpload,
     maxDuration,
     withInvalidField,
     stateCheck = true,
-    withStrongPwdOnly,
-    ignoreMap
-  } = config;
+    withStrongPwdOnly
+  } = config || {};
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState(placeholders);
+  const [formData, setFormData] = useState(placeholders || {});
   const [errors, setErrors] = useState({});
 
   const deletePathFromObject = (obj, key, dataName, dataType) => {
@@ -99,7 +100,6 @@ const useForm = (config = {}) => {
       try {
         const {
           formData: form,
-          dataTypeMap,
           validateTypeMap,
           errDelMap,
           withStrongPwdOnly,
@@ -126,7 +126,6 @@ const useForm = (config = {}) => {
               {
                 object: formData[key]?.[dataName]
               }[dataType] || formData[key];
-
             if (keyValue) {
               const _key = dataName || key;
 
@@ -172,6 +171,23 @@ const useForm = (config = {}) => {
                     break;
                 }
               }
+
+              if (!withErr) {
+                if (form?.append) {
+                  if (
+                    dataType === "array" ||
+                    dataType === "fileList" ||
+                    isFileList(keyValue)
+                  ) {
+                    for (const prop in keyValue) {
+                      if (Number(prop) > -1 && keyValue[prop])
+                        form.append(`${key}`, keyValue[prop]);
+                    }
+                  } else if (dataType === "object")
+                    form.append(`${key}[${dataName}]`, keyValue);
+                  else form.set(key, keyValue);
+                }
+              }
             } else {
               if (required) {
                 withErr = true;
@@ -193,27 +209,6 @@ const useForm = (config = {}) => {
                 });
               }
             }
-            if (!withErr) {
-              if (form?.append) {
-                if (
-                  dataType === "array" ||
-                  dataType === "fileList" ||
-                  isFileList(keyValue)
-                ) {
-                  for (const prop in keyValue) {
-                    if (Number(prop) > -1 && keyValue[prop])
-                      form.append(`${key}`, keyValue[prop]);
-                  }
-                } else if (dataType === "object") {
-                  for (const prop in keyValue) {
-                    form.append(`${key}[${prop}]`, keyValue[prop]);
-                  }
-                } else if (
-                  keyValue.length === undefined ? keyValue : keyValue.length
-                )
-                  form.set(key, keyValue);
-              }
-            }
           }
         };
         if (formData)
@@ -221,7 +216,8 @@ const useForm = (config = {}) => {
             ...formData,
             ...(required === true ? {} : required)
           }) {
-            const dataType = dataTypeMap && dataTypeMap[key];
+            const dataType = dataTypeMap?.[key];
+
             switch (dataType) {
               case "object":
                 for (const _key in formData[key]) {
@@ -248,10 +244,10 @@ const useForm = (config = {}) => {
             : formData
           : null;
       } catch (err) {
-        console.log(err);
+        console.error(err);
       }
     },
-    [formData, required, withInvalidField, errors]
+    [formData, required, withInvalidField, errors, dataTypeMap]
   );
 
   const handleChange = useCallback(
@@ -259,7 +255,8 @@ const useForm = (config = {}) => {
       e.stopPropagation();
       const node = e.currentTarget || e.target;
       const key = node.name || node.dataset.name || node.getAttribute("name");
-      const dataType = config.dataType?.[key];
+      const dataType = dataTypeMap?.[key];
+
       let {
         name: dataName,
         min: dataMin,
@@ -285,13 +282,17 @@ const useForm = (config = {}) => {
           }[dataType] ||
           required[key]
         : false;
+
       setFormData((formData = {}) => {
         let withErr;
+
         const addError = (error, _key, index) => {
           if (!error) return;
           withErr = true;
+
           setErrors(errors => {
             _key = _key || key;
+
             if (index !== undefined) {
               if (!errors[_key]) errors[_key] = {};
               errors[_key][index] = error;
@@ -309,7 +310,9 @@ const useForm = (config = {}) => {
             };
           });
         };
+
         setIsSubmitting(false);
+
         let keyValue =
           {
             object: {
@@ -317,6 +320,7 @@ const useForm = (config = {}) => {
               [dataName]: value
             }
           }[dataType] || value;
+
         setErrors(errors => {
           if (
             errors.all &&
@@ -464,8 +468,11 @@ const useForm = (config = {}) => {
                   }
                 }
               };
+
               if (maxDuration) validateFileMax(maxDuration, "duration");
+
               if (maxUpload) validateFileMax(maxUpload, "upload");
+
               if (node.multiple) {
                 if (mergeFile) {
                   if (returnFilesArray) {
@@ -485,35 +492,43 @@ const useForm = (config = {}) => {
                 dataName,
                 dataType
               };
-              if (validateType) {
-                switch (key === "confirmPassword" ? key : node.type || key) {
-                  case "email":
-                    if (!isEmail(keyValue))
-                      addError((prop.error = "Invalid Email address"));
-                    break;
-                  case "password":
-                    const status = isPassword(keyValue);
-                    if (status !== "Strong")
-                      addError((prop.error = `${status} password`));
 
-                    if (formData.confirmPassword) {
-                      if (keyValue === formData.confirmPassword)
-                        status === "Strong" &&
-                          setErrors(errors => {
-                            deletePathFromObject(errors, "confirmPassword");
-                            return errors;
-                          });
-                      else addError(`Password don't match`, "confirmPassword");
-                    }
-                    break;
-                  case "confirmPassword":
-                    if (keyValue !== formData.password)
-                      addError((prop.error = `Password don't match.`));
-                    break;
-                  default:
-                    break;
-                }
-                withValidate && addError(validate(prop));
+              if (validateType) {
+                if (withValidate) addError(validate(prop));
+                else
+                  switch (key === "confirmPassword" ? key : node.type || key) {
+                    case "email":
+                      if (!isEmail(value))
+                        addError((prop.error = "Invalid Email address"));
+                      break;
+                    case "url":
+                      if (!isLink(value))
+                        addError((prop.error = "Invalid Link"));
+                      break;
+                    case "password":
+                      const status = isPassword(value);
+                      if (status !== "Strong")
+                        addError((prop.error = `${status} password`));
+
+                      if (formData.confirmPassword) {
+                        if (value === formData.confirmPassword)
+                          status === "Strong" &&
+                            setErrors(errors => {
+                              deletePathFromObject(errors, "confirmPassword");
+                              return errors;
+                            });
+                        else
+                          addError(`Password don't match`, "confirmPassword");
+                      }
+                      break;
+                    case "confirmPassword":
+                      if (value !== formData.password)
+                        addError((prop.error = `Password don't match.`));
+                      break;
+
+                    default:
+                      break;
+                  }
               } else if (withValidate) addError(validate(prop));
             }
             if (!withErr)
@@ -533,6 +548,7 @@ const useForm = (config = {}) => {
           deletePathFromObject(formData, key, dataName, dataType);
           return { ...formData };
         }
+
         return {
           ...formData,
           [key]: keyValue
@@ -540,7 +556,7 @@ const useForm = (config = {}) => {
       });
     },
     [
-      config.dataType,
+      dataTypeMap,
       dataSize,
       required,
       withInvalidField,
@@ -555,43 +571,27 @@ const useForm = (config = {}) => {
       typeof config.isSubmitting === "boolean" ? config.isSubmitting : false
     );
 
-    config.resetErrors && setErrors({});
+    if (config.resetErrors) setErrors({});
+    else if (config.errors) setErrors(config.errors);
 
     if (isObject(formData)) setFormData(formData);
     else if (!formData) setFormData({});
   }, []);
 
   let isInValid;
+
   if (stateCheck) {
+    const _errors = { ...errors };
+
+    if (_errors.password === "Medium password") delete _errors.password;
+
     isInValid =
-      Object.keys(errors).length -
-        (ignoreMap
-          ? (() => {
-              let count = 0;
-              for (const key in errors) {
-                ignoreMap[key] && count++;
-              }
-              return count;
-            })()
-          : withStrongPwdOnly
-          ? 0
-          : 1) >
-        0 ||
-      Object.keys(formData || {}).length <
-        (ignoreMap ? Object.keys(ignoreMap).length || 1 : 1) ||
-      (required && required !== true
-        ? (() => {
-            let withErr;
-            for (const key in required) {
-              if (!formData[key]) {
-                withErr = true;
-                break;
-              }
-            }
-            return withErr;
-          })()
-        : false);
+      !!Object.keys(_errors).length ||
+      (required === true
+        ? !Object.keys(formData).length
+        : withMapObj(required, formData, false));
   }
+
   return {
     formData: formData || placeholders || {},
     errors,

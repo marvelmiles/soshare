@@ -42,10 +42,12 @@ export default (config = {}) => {
           severity: "success"
         });
         _handleAction && _handleAction("clear-cache", whitelist);
-      } catch (message) {
-        message && setSnackBar(message);
-        if (message !== CANCELED_REQUEST_MSG)
+      } catch (err) {
+        if (!err.message) {
+          setSnackBar(err.message);
+
           _handleAction && _handleAction("new", whitelist);
+        }
       } finally {
         _handleAction &&
           _handleAction("context", {

@@ -25,8 +25,9 @@ export default ({ handleAction, document = {}, docType }) => {
             handleAction("update", { document: { id, likes, rootThread } });
 
           await http.patch(url);
-        } catch (message) {
-          message && setSnackBar(message);
+        } catch (err) {
+          !err.isCancelled && setSnackBar(err.message);
+
           if (likedDoc) likes[cid] = true;
           else delete likes[cid];
           handleAction &&

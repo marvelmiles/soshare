@@ -8,6 +8,7 @@ import ListItemText from "@mui/material/ListItemText";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ShareOutlinedIcon from "@mui/icons-material/ShareOutlined";
 import DoDisturbAltOutlinedIcon from "@mui/icons-material/DoDisturbAltOutlined";
+import PersonOffIcon from "@mui/icons-material/PersonOff";
 import DeleteIcon from "@mui/icons-material/Delete";
 import DeleteDialog from "components/DeleteDialog";
 import { useContext } from "context/store";
@@ -32,7 +33,7 @@ const MoreActions = ({
   btnSx,
   docType,
   nullifyEdit = docType === "comment",
-  unmount
+  close
 }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -68,20 +69,20 @@ const MoreActions = ({
   }, []);
 
   useEffect(() => {
-    unmount && setAnchorEl(null);
-  }, [unmount]);
+    close && setAnchorEl(null);
+  }, [close]);
 
   const handleDisapproveUser = () =>
     handleContextKeyDispatch(
       `/users/blacklist/disapprove`,
-      "disapprovedUsers",
+      "_disapprovedUsers",
       document.user
     );
 
   const handleBlockUser = () =>
     handleContextKeyDispatch(
       `/users/blacklist/block`,
-      "blockedUsers",
+      "_blockedUsers",
       document.user
     );
 
@@ -119,6 +120,8 @@ const MoreActions = ({
     ]
   );
 
+  if (!document.user) return null;
+
   return (
     <>
       <IconButton
@@ -144,7 +147,8 @@ const MoreActions = ({
         {[
           {
             icon: ShareOutlinedIcon,
-            text: "Download"
+            text: "Download",
+            nullify: true
           },
           {
             icon: isFollowing ? PersonRemoveIcon : PersonAddAlt1Icon,
@@ -161,7 +165,7 @@ const MoreActions = ({
             nullify: isOwner
           },
           {
-            icon: DoDisturbAltOutlinedIcon,
+            icon: PersonOffIcon,
             text: `Block @${document.user.username}`,
             onClick: handleBlockUser,
             nullify: isOwner

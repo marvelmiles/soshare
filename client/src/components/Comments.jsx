@@ -6,9 +6,9 @@ import InfiniteScroll from "./InfiniteScroll";
 import { useContext } from "context/store";
 import { useSelector } from "react-redux";
 import { removeFirstItemFromArray } from "utils";
-import InputBox from "./InputBox";
+import SosharePen from "./SosharePen";
 import { Link } from "react-router-dom";
-import { checkVisibility } from "utils/validators";
+import { isDocVisibleToUser } from "utils/validators";
 import EmptyData from "components/EmptyData";
 import Loading from "components/Loading";
 import { StyledLink } from "components/styled";
@@ -35,7 +35,7 @@ const Comments = ({
   const currentUser = useSelector(state => state.user.currentUser);
   const {
     socket,
-    context: { blacklistedUsers, composeDoc },
+    context: { _blockedUsers, composeDoc },
     setContext
   } = useContext();
   const stateRef = useRef({
@@ -46,32 +46,39 @@ const Comments = ({
     searchParams
   });
   const infiniteScrollRef = useRef();
+
   const appendComment = useCallback(
     (comment, shallowAppend) => {
       const data = infiniteScrollRef.current?.data;
       const stateCtx = stateRef.current;
       const docId = comment.document.id;
+
       if (
-        blacklistedUsers[comment.user.id] ||
         stateCtx.registeredIds[comment.id] >= -1 ||
-        !(comment.rootThread
-          ? data.data[stateCtx.registeredIds[comment.rootThread]] &&
-            stateCtx.registeredIds[docId] > -1
-          : docId === documentId) ||
-        !checkVisibility(comment, currentUser)
+        !(
+          isDocVisibleToUser(comment, currentUser) &&
+          (docId === documentId ||
+            (comment.rootThread &&
+              data.data[stateCtx.registeredIds[comment.rootThread]] &&
+              stateCtx.registeredIds[docId] > -1))
+        )
       )
         return;
+
       stateCtx.registeredIds[comment.id] = -1;
 
       stateRef.current.notifierDelay =
         comment.user.id === currentUser.id ? -1 : undefined;
+
       const shallowProp = shallowAppend
         ? {
             preventFetch: false
           }
         : undefined;
+
       if (docId === documentId) {
         stateCtx.registeredIds[comment.id] = data.data.length;
+
         infiniteScrollRef.current.setData(
           {
             ...data,
@@ -86,6 +93,7 @@ const Comments = ({
       } else {
         const rIndex = stateCtx.registeredIds[comment.rootThread];
         let rootComment = data.data[rIndex];
+
         if (rootComment) {
           if (docId === rootComment.id) {
             delete stateCtx.registeredIds[(rootComment.threads[0]?.id)];
@@ -105,6 +113,7 @@ const Comments = ({
             if (dIndex + 1 !== maxThread)
               rootComment.threads[endIndex] = comment;
           }
+
           data.data[rIndex] = rootComment;
           infiniteScrollRef.current.setData(
             {
@@ -115,7 +124,7 @@ const Comments = ({
         }
       }
     },
-    [currentUser, documentId, handleAction, maxThread, blacklistedUsers]
+    [currentUser, documentId, handleAction, maxThread]
   );
 
   const removeComment = useCallback(
@@ -230,6 +239,7 @@ const Comments = ({
               );
             }
           }
+
           infiniteScrollRef.current.setData({
             ...data
           });
@@ -259,7 +269,7 @@ const Comments = ({
 
     socket.on("comment", handleAppend);
     socket.on("update-comment", handleUpdate);
-    socket.on("filter-comment", handleFilter);
+    // socket.on("filter-comment", handleFilter);
 
     return () => {
       socket.removeEventListener("filter-comment", handleFilter);
@@ -283,16 +293,16 @@ const Comments = ({
   useEffect(() => {
     filterDocsByUserSet(
       infiniteScrollRef.current,
-      blacklistedUsers,
+      _blockedUsers,
       "threads",
       stateRef.current
     );
-  }, [blacklistedUsers]);
+  }, [_blockedUsers]);
 
   return (
     <>
       {docType ? (
-        <InputBox
+        <SosharePen
           withPlaceholders={false}
           submitInputsOnly={false}
           resetData={false}
@@ -330,6 +340,7 @@ const Comments = ({
           position: "fixed"
         }}
         withCredentials={isRO}
+        verify="zx"
       >
         {({ data: { data } }) => {
           const getThreadOwners = (comment, i) => {
@@ -387,7 +398,7 @@ const Comments = ({
                 data.map((comment, i) => {
                   if (!comment) return null;
 
-                  if (blacklistedUsers[comment.user.id])
+                  if (_blockedUsers[comment.user.id])
                     delete stateRef.current.registeredIds[comment.id];
                   else stateRef.current.registeredIds[comment.id] = i;
 
@@ -409,7 +420,7 @@ const Comments = ({
                       />
                       {comment.threads.length
                         ? comment.threads?.map((_c, i) => {
-                            if (blacklistedUsers[_c.user.id])
+                            if (_blockedUsers[_c.user.id])
                               delete stateRef.current.registeredIds[_c.id];
                             else stateRef.current.registeredIds[_c.id] = i;
 

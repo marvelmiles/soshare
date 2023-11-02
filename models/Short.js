@@ -48,7 +48,7 @@ const schema = new mongoose.Schema(
   }
 );
 
-schema.index({ text: 1 })
+schema.index({ text: 1 });
 const Short = mongoose.model("short", schema);
 
 export default Short;

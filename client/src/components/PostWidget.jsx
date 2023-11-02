@@ -36,14 +36,15 @@ const PostWidget = React.forwardRef(
       docType = "post",
       caption,
       enableSnippet,
-      plainWidget,
+      plainWidget = showThread,
       sx,
       isRO,
       index,
       secondaryAction,
       searchParams,
       disableNavigation,
-      dialogContent
+      dialogContent,
+      maxWidth = "768px"
     },
     ref
   ) => {
@@ -121,6 +122,7 @@ const PostWidget = React.forwardRef(
         className="post-widget"
         sx={{
           position: "relative",
+          width: "100%",
           "& > div": {
             borderBottom: "1px solid currentColor",
             borderBottomColor: enableSnippet ? "transparent" : "divider",
@@ -131,34 +133,36 @@ const PostWidget = React.forwardRef(
             backgroundColor: "transparent !important",
             mb: 0,
             p: enableSnippet ? 0 : undefined,
+
+            ...(showThread
+              ? {
+                  borderBottom: "none",
+                  borderRadius: "0",
+                  position: "relative",
+                  "&::before": {
+                    content: `""`,
+                    backgroundColor: "primary.main",
+                    position: "absolute",
+                    top: "30px",
+                    // 100% - avatar size +  16px pt
+                    height: `calc(100% - 20px)`,
+                    width: "1px",
+                    transform: {
+                      xs: "translateX(10px)",
+                      s280: "translateX(22px)"
+                    },
+                    bottom: "0px"
+                  }
+                }
+              : undefined),
+
             ".post-container": {
               display: "flex",
               gap: 1,
               alignItems: "flex-start",
-              maxWidth: "576px",
+              maxWidth,
               mx: "auto",
-              cursor: noNavigate ? "default" : "pointer",
-              ...(showThread && {
-                border: "none",
-                borderRadius: "0",
-                position: "relative",
-                mb: 0,
-                pb: 0,
-                "&::before": {
-                  content: `""`,
-                  backgroundColor: "primary.main",
-                  position: "absolute",
-                  top: "30px",
-                  // 100% - avatar size +  16px pt
-                  height: `calc(100% - 30px)`,
-                  width: "1px",
-                  transform: {
-                    xs: "translateX(10px)",
-                    s280: "translateX(15px)"
-                  },
-                  bottom: "0px"
-                }
-              })
+              cursor: noNavigate ? "default" : "pointer"
             }
           },
           ...sx
@@ -176,7 +180,11 @@ const PostWidget = React.forwardRef(
             {dialogContent}
           </Typography>
         ) : null}
-        <WidgetContainer plainWidget={plainWidget} ref={ref}>
+        <WidgetContainer
+          plainWidget={plainWidget}
+          ref={ref}
+          className="post-widget-container"
+        >
           <div
             className="post-container"
             onClick={
@@ -184,7 +192,7 @@ const PostWidget = React.forwardRef(
                 ? undefined
                 : e => {
                     e.preventDefault();
-                    return e.stopPropagation();
+                    e.stopPropagation();
                     navigate(`/${docType}s/${post.id}`);
                   }
             }
@@ -309,7 +317,7 @@ const PostWidget = React.forwardRef(
                 <MediaCarousel medias={post.medias || [post.media]} />
               ) : null}
               {hideToolbox || enableSnippet ? null : (
-                <Stack flexWrap="wrap">
+                <Stack flexWrap="wrap" sx={{ mt: 1 }}>
                   <Stack>
                     <Stack gap="4px">
                       <IconButton onClick={handleLikeToggle}>
@@ -330,7 +338,7 @@ const PostWidget = React.forwardRef(
                       onClick={e => {
                         e.stopPropagation();
                         navigate(
-                          createRelativeURL(undefined, `compose=comment`),
+                          createRelativeURL("compose", `compose=comment`),
                           {
                             state: {
                               ...locState,
@@ -349,7 +357,7 @@ const PostWidget = React.forwardRef(
                     </Stack>
                   </Stack>
                   <MoreActions
-                    unmount={closePoppers}
+                    close={closePoppers}
                     handleAction={handleAction}
                     document={post}
                     isOwner={isOwner}

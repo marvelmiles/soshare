@@ -1,5 +1,3 @@
-import { debounce } from "@mui/material";
-
 export const removeFirstItemFromArray = (item, array = []) => {
   for (let i = 0; i < array.length; i++) {
     if (item === array[i]) {
@@ -28,31 +26,34 @@ export const reloadBrowser = e => {
   window.location.reload();
 };
 
-export const handleScrollUp = e => {
-  e.stopPropagation();
-  window.scrollTo({
+export const handleScrollUp = (eOrNode = window) => {
+  (eOrNode.nodeName
+    ? eOrNode
+    : eOrNode.stopPropagation &&
+      (eOrNode.stopPropagation() ||
+        eOrNode.currentTarget.dataset.scroll !== "true")
+    ? window
+    : eOrNode
+  ).scrollTo({
     top: 0,
     behavior: "smooth"
   });
 };
 
 export const addToSet = (arr = [], item, set = {}) => {
-  item =
-    item &&
-    (item.id ||
-      item._id ||
-      (typeof item === "string" ? item : JSON.stringify(item)));
-  item && (set[item] = true);
   const items = [];
-  item && items.push(item);
+
+  if (item) {
+    set[item.id || item] = true;
+    items.push(item);
+  }
+
   for (const _item of arr) {
-    const id =
-      _item.id ||
-      _item._id ||
-      (typeof _item === "string" ? _item : JSON.stringify(_item));
+    const id = _item.id || _item;
+
     if (!set[id]) {
-      items.push(_item);
       set[id] = true;
+      items.push(_item);
     }
   }
   return items;
@@ -77,7 +78,7 @@ export const filterDocsByUserSet = (
         }
     };
 
-    if (usersSet[doc.user.id]) {
+    if (doc.user && usersSet[doc.user.id]) {
       const doc = data.data[i];
       stateCtx?.registeredIds && deleteFromReg(doc);
     } else arr.push(doc);
@@ -110,11 +111,11 @@ export const getTimeMap = duration => {
   return { mins: Math.floor(secs / 60), secs: secs % 60 };
 };
 
-// export const modifyElementDataset = (element, key = "id", value) => {
-//   if (!element) return "";
-//   let v = element.dataset[key] || element.getAttribute(key);
-//   if (!v) v = element.dataset[key] = value || Date.now();
-//   return v;
-// };
-
-export const withDebounceFn = debounce(cb => cb(), 500);
+export const mapToObject = (arr = [], has) => {
+  const map = {};
+  for (let i = 0; i < arr.length; i++) {
+    const key = arr[i].id || arr[i];
+    map[key] = { true: true, index: i }[has] || arr[i];
+  }
+  return map;
+};

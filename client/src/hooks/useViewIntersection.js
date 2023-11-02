@@ -15,9 +15,8 @@ const useViewIntersection = (targetRef, options) => {
 
       const callbackFunction = entries => {
         const entry = entries[0];
-        setEntry({
-          isIntersecting: entry.isIntersecting
-        });
+
+        setEntry(entry);
       };
 
       observer = new IntersectionObserver(callbackFunction, {
@@ -37,6 +36,7 @@ const useViewIntersection = (targetRef, options) => {
       }
     };
   }, [targetRef, options]);
+
   return entry;
 };
 

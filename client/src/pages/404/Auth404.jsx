@@ -7,6 +7,7 @@ const Auth404 = () => {
   return (
     <EmptyData
       maxWidth="320px"
+      sx={{ minHeight: "100vh" }}
       label={
         <>
           Auth page not found.{" "}

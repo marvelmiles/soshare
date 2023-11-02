@@ -45,7 +45,7 @@ router
   )
   .put("/:userId/follow", verifyToken, follow)
   .put("/:userId/unfollow", verifyToken, unfollow)
-  .put("/notifications/mark", verifyToken, markNotifications)
+  .patch("/notifications/mark", verifyToken, markNotifications)
   .patch("/whitelist/:action", verifyToken, whitelistUsers)
   .patch("/blacklist/:action", verifyToken, blacklistUser)
   .delete("/notifications/:id", verifyToken, deleteUserNotification);

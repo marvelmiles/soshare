@@ -15,7 +15,8 @@ const ShortSidebar = ({
   loading,
   animation = "wave",
   muted,
-  withVolume = true
+  withVolume = true,
+  hasAudio
 }) => {
   const stateRef = useRef({
     document: {
@@ -54,17 +55,25 @@ const ShortSidebar = ({
         />
       ) : (
         <IconButton
-          sx={
-            withVolume
+          title={hasAudio ? "" : "No audio"}
+          sx={{
+            ...(withVolume
               ? undefined
-              : { visibility: "hidden", pointerEvents: "none" }
-          }
-          onClick={e => {
-            e.stopPropagation();
-            handleAction("toggle-mute", { value: muted });
+              : { visibility: "hidden", pointerEvents: "none" }),
+            "&,& *": {
+              cursor: hasAudio ? "pointer" : "not-allowed"
+            }
           }}
+          onClick={
+            hasAudio
+              ? e => {
+                  e.stopPropagation();
+                  handleAction("toggle-mute", { value: muted });
+                }
+              : undefined
+          }
         >
-          {muted ? <VolumeOffIcon /> : <VolumeUpIcon />}
+          {!hasAudio || muted ? <VolumeOffIcon /> : <VolumeUpIcon />}
         </IconButton>
       )}
       {loading ? (

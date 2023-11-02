@@ -1,17 +1,19 @@
 import User from "../models/User.js";
 import Post from "../models/Post.js";
 import Short from "../models/Short.js";
-import { getAll } from "../utils/index.js";
+import { getAll, getType } from "../utils/index.js";
 import { createVisibilityQuery } from "../utils/serializers.js";
 import { verifyToken } from "../utils/middlewares.js";
 import mongoose from "mongoose";
+import { createError } from "../utils/error.js";
 
 export const search = async (req, res, next) => {
   try {
     const result = {};
+
     const search = req.query.q
       ? {
-          $regex: req.query.q,
+          $regex: req.query.q, // avoiding rgexp mmust be string err
           $options: "i"
         }
       : {
@@ -22,8 +24,9 @@ export const search = async (req, res, next) => {
 
     if (req.query.select && typeof req.query.select !== "string")
       throw createError(
-        `Invalid request expect select query to be of type String got ${typeof req
-          .query.select}`
+        `Invalid request expect select query to be of type String got ${getType(
+          req.query.select
+        )}`
       );
 
     for (let key of (req.query.select || "posts users shorts").split(" ")) {

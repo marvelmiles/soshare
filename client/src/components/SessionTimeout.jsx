@@ -1,10 +1,10 @@
 import React, { useEffect } from "react";
 import PropTypes from "prop-types";
-import { signoutUser } from "context/slices/userSlice";
+import { signOutUser } from "context/slices/userSlice";
 import { Box, Typography, Button, Stack } from "@mui/material";
 import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { createRelativeURL } from "api/http";
+import { createRelativeURL, handleCancelRequest } from "api/http";
 import { useNavigate } from "react-router-dom";
 
 const SessionTimeout = () => {
@@ -12,7 +12,7 @@ const SessionTimeout = () => {
   const navigate = useNavigate();
   useEffect(() => {
     try {
-      dispatch(signoutUser());
+      dispatch(signOutUser());
     } catch (err) {}
   }, [dispatch]);
   return (

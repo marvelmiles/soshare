@@ -6,7 +6,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import CloseIcon from "@mui/icons-material/Close";
 import Button from "@mui/material/Button";
-import InputBox from "components/InputBox";
+import SosharePen from "./SosharePen";
 import IconButton from "@mui/material/IconButton";
 import PostWidget from "components/PostWidget";
 import { StyledTypography } from "components/styled";
@@ -19,8 +19,10 @@ import FollowMeView from "views/FollowMeView";
 import Comments from "components/Comments";
 import { LoadingDot } from "components/Loading";
 import UserBlacklistView from "views/UserBlacklistView";
-import { handleCancelRequest, createRelativeURL } from "api/http";
+import { handleCancelRequest } from "api/http";
 import SessionTimeout from "./SessionTimeout";
+import Box from "@mui/material/Box";
+import Loading from "components/Loading";
 
 Dialog.defaultProps = {
   open: false
@@ -43,29 +45,56 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
   };
 
   const { setContext, locState } = useContext();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+
   const stateRef = useRef({
     locState,
     commentHolder: {},
-    dType: ""
+    dType: "",
+    compose: "",
+    view: ""
   });
-  const [ctx, setCtx] = useState({});
+
+  const [ctx, setCtx] = useState({
+    dataSize: 0,
+    processing: false,
+    disable: true
+  });
   const cid = searchParams.get("cid") || "";
   const scrollNodeRef = useRef();
   const navigate = useNavigate();
 
-  let view = (searchParams.get("view") || "").toLowerCase();
-  let compose = (searchParams.get("compose") || "").toLowerCase();
+  const portalNodeRef = useRef();
+
+  const view =
+    (searchParams.get("view") || "").toLowerCase() || stateRef.current.view;
+  const compose =
+    (searchParams.get("compose") || "").toLowerCase() ||
+    stateRef.current.compose;
 
   stateRef.current.locState = locState;
 
+  const resetState = () => {
+    const stateCtx = stateRef.current;
+
+    stateCtx.compose = undefined;
+    stateCtx.view = undefined;
+    clearTimeout(stateCtx.taskId);
+    stateCtx.taskId = undefined;
+  };
+
   const closeDialog = useCallback(
     (e, dialogType) => {
-      console.log("dialog closed...");
       e && e.stopPropagation();
 
-      stateRef.current.commentHolder = {};
-      stateRef.current.dType = "";
+      const stateCtx = stateRef.current;
+
+      stateCtx.commentHolder = {};
+      stateCtx.dType = "";
+      const compose = searchParams.get("compose");
+      const view = searchParams.get("view");
+      compose && (stateRef.current.compose = compose);
+      view && (stateRef.current.view = view);
 
       if (stateRef.current.path) handleCancelRequest(stateRef.current.path);
 
@@ -73,12 +102,21 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
 
       dialogType = e ? e.currentTarget.dataset.dialogType : dialogType;
 
-      navigate(createRelativeURL(`${dialogType} tab wc search`), {
-        replace: true,
-        state: stateRef.current.locState
-      });
+      if (stateCtx.locState.from === 0) {
+        for (const key of (dialogType + " tab wc search").split(" ")) {
+          searchParams.delete(key);
+        }
+
+        setSearchParams(searchParams, { state: stateCtx.locState });
+      } else
+        navigate(-1, {
+          replace: true,
+          state: stateCtx.locState
+        });
+
+      stateCtx.taskId = setTimeout(resetState, 0);
     },
-    [navigate]
+    [navigate, searchParams, setSearchParams]
   );
 
   const _handleAction = useCallback(
@@ -113,6 +151,24 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
             ...res
           }));
           break;
+        case "data":
+          setCtx(context => ({
+            ...context,
+            dataSize: res.dataSize,
+            disable: res.loading || !res.dataSize
+          }));
+          break;
+        case "tabChanged":
+          if (res.isBefore) {
+            setCtx({ disable: true, dataSize: 0 });
+          } else
+            setCtx(ctx => ({
+              ...ctx,
+              dataSize: res.dataSize,
+              disable: res.loading || !res.dataSize
+            }));
+
+          break;
         default:
           break;
       }
@@ -120,14 +176,27 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
     [closeDialog, setContext, compose]
   );
 
-  // useEffect(() => {
-  //   if (close) stateRef.current.dType = "view compose";
-  //   else stateRef.current.dType = "";
+  useEffect(() => {
+    const stateCtx = stateRef.current;
 
-  //   if (stateRef.current.dType) closeDialog(undefined, stateRef.current.dType);
-  // }, [closeDialog, close]);
+    if (close) stateCtx.dType = "view compose";
+
+    if (stateCtx.dType) closeDialog(undefined, stateCtx.dType);
+
+    return () => {
+      resetState();
+    };
+  }, [closeDialog, close]);
 
   const renderDialog = key => {
+    const soSharePenSx = {
+      minHeight: 0,
+      paddingTop: "16px",
+      ".input-box-actions": {
+        borderBottom: 0
+      }
+    };
+
     switch (key) {
       case "create-post":
       case "create-short":
@@ -165,7 +234,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                     </StyledTypography>
                     <StyledTypography
                       variant="h5"
-                      sx={{ mt: "-8px" }}
+                      sx={{ mt: "0px" }}
                       fontWeight="bold"
                       mb={0}
                     >
@@ -199,13 +268,13 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                 }}
               >
                 <div>
-                  <StyledTypography onClick={handlePreview} variant="link">
+                  {/* <StyledTypography onClick={handlePreview} variant="link">
                     Preview
-                  </StyledTypography>
-                  <StyledTypography sx={{ mt: "-4px" }}>
+                  </StyledTypography> */}
+                  <StyledTypography sx={{ mt: "0px" }}>
                     Preffered Dimensions:
                   </StyledTypography>
-                  <StyledTypography sx={{ mt: "-4px" }}>
+                  <StyledTypography sx={{ mt: "0px" }}>
                     width x height: 320 x 564
                   </StyledTypography>
                 </div>
@@ -213,6 +282,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                   sx={{
                     backgroundColor: "action.selected"
                   }}
+                  data-dialog-type="compose"
                   onClick={closeDialog}
                 >
                   <CloseIcon />
@@ -222,7 +292,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
             <DialogContent ref={scrollNodeRef}>
               {{
                 "create-short": (
-                  <InputBox
+                  <SosharePen
                     key={fileId}
                     fileId={fileId}
                     showIndicator={false}
@@ -243,10 +313,11 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                     placeholder="#ShortTags"
                     maxUpload="500mb"
                     maxDuration="60s"
+                    sx={soSharePenSx}
                   />
                 )
               }[key] || (
-                <InputBox
+                <SosharePen
                   key={fileId}
                   docType="post"
                   handleAction={_handleAction}
@@ -254,6 +325,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                     withIntersection: false
                   }}
                   handleAction={_handleAction}
+                  sx={soSharePenSx}
                 />
               )}
             </DialogContent>
@@ -263,8 +335,8 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
         if (stateRef.current.commentHolder.document !== locState.document.id) {
           stateRef.current.commentHolder = {
             document: locState.document.id,
-            ...(locState.outInputs
-              ? locState.outInputs[locState.document.id]
+            ...(locState.docSet
+              ? locState.docSet[locState.document.id]
               : undefined)
           };
         }
@@ -272,8 +344,8 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
         return (
           <>
             <DialogContent sx={{ p: 0 }} ref={scrollNodeRef}>
-              <PostWidget post={locState.document} enableSnippet />
-              <InputBox
+              <PostWidget post={locState.document} />
+              <SosharePen
                 withPlaceholders={false}
                 submitInputsOnly={false}
                 resetData={false}
@@ -290,10 +362,9 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                 }}
                 placeholders={stateRef.current.commentHolder}
                 max={280}
-                sx={{
-                  minHeight: 0
-                }}
+                sx={soSharePenSx}
                 handleAction={_handleAction}
+                sx={soSharePenSx}
               />
             </DialogContent>
           </>
@@ -383,15 +454,34 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
           </>
         );
       case "user-blacklist":
+        stateRef.current.paramKey = "tab";
+
         return (
           <>
-            {/* <DialogTitle component={Stack}>
-              <StyledTypography color="primary" variant="h5">
-                {ctx.dataSize || 0} blacklisted user(s)
-              </StyledTypography>
-              {ctx.processing ? (
-                <LoadingDot sx={{ float: "right", py: "4px" }} />
-              ) : (
+            <DialogTitle component={Stack}>
+              <Stack>
+                <StyledTypography
+                  minWidth="100%"
+                  textEllipsis
+                  maxWidth="180px"
+                  variant="h6"
+                >
+                  {ctx.dataSize} user
+                  {ctx.dataSize > 1 ? "s" : ""}
+                </StyledTypography>
+                {ctx.processing && <LoadingDot />}
+              </Stack>
+              <Box
+                className="dialog-title-portal"
+                sx={{
+                  flex: 1,
+                  ".custom-input": {
+                    display: "block"
+                  }
+                }}
+                ref={portalNodeRef}
+              ></Box>
+              {!ctx.processing && (
                 <Button
                   onClick={e => {
                     e.stopPropagation();
@@ -400,21 +490,34 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                       action: "whitelist-all"
                     }));
                   }}
-                  sx={{ float: "right" }}
-                  disabled={!ctx.dataSize}
+                  disabled={ctx.disable}
                 >
                   whitelist all
                 </Button>
               )}
-            </DialogTitle> */}
+            </DialogTitle>
             <DialogContent ref={scrollNodeRef} sx={{ py: 0 }}>
               <UserBlacklistView
                 whitelistAll={ctx.action === "whitelist-all"}
                 key="view-blacklist"
                 scrollNodeRef={scrollNodeRef}
+                searchInputPortalRef={portalNodeRef}
                 handleAction={_handleAction}
               />
             </DialogContent>
+            <Box
+              className="dialog-loading"
+              sx={{
+                position: "absolute",
+                backgroundColor: "inherit",
+                width: "100%",
+                height: "100%",
+                zIndex: 1,
+                borderRadius: "inherit"
+              }}
+            >
+              <Loading />
+            </Box>
           </>
         );
       case "session-timeout":
@@ -436,65 +539,77 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
   };
 
   if (
-    (compose === "comment" && !locState) ||
+    (compose === "comment" && !locState.document.id) ||
     (compose === "comments" && !cid)
-  ) {
+  )
     stateRef.current.dType = "compose";
-    compose = "";
-  }
 
-  if (view === "user-blacklist" && !isCurrentUser) {
-    // stateRef.current.dType = "view";
-    // view = "";
-  }
+  if (view === "user-blacklist" && !isCurrentUser)
+    stateRef.current.dType = "view";
 
   const paperStyles = {
     sx: {
       minHeight: "10vh",
       width: "100%",
       p: 0,
-      maxWidth: view === "user-blacklist" ? "700px" : undefined
+      maxWidth: view === "user-blacklist" ? "700px" : undefined,
+      overflow: "hidden"
     }
   };
   const isSession = view === "session-timeout";
 
   return (
     <>
-      <Dialog
-        data-dialog-type="view"
-        PaperProps={paperStyles}
-        open={openFor[view]}
-        key={ctx.processing}
-        onClose={isSession ? undefined : closeDialog}
-        sx={{
-          zIndex: isSession ? "tooltip" : "modal"
-        }}
-      >
-        {renderDialog(view)}
-        {view && !isSession ? (
-          <DialogActions
-            sx={{
-              borderTop: "1px solid #333",
-              borderColor: "divider",
-              display: {
-                xs: "flex",
-                md: "none"
-              }
-            }}
-          >
-            <Button variant="contained" onClick={closeDialog}>
-              Close
-            </Button>
-          </DialogActions>
-        ) : null}
-      </Dialog>
+      {view ? (
+        <Dialog
+          data-dialog-type="view"
+          PaperProps={paperStyles}
+          open={stateRef.current.view ? false : openFor[view]}
+          key={0}
+          onClose={isSession ? undefined : closeDialog}
+          sx={{
+            zIndex: isSession ? "tooltip" : "modal",
+            ".MuiDialogTitle-root:has(.dialog-title-portal:not(:empty)) ~ div.dialog-loading": {
+              display: "none"
+            }
+          }}
+        >
+          {renderDialog(view)}
+          {view && !isSession ? (
+            <DialogActions
+              sx={{
+                borderTop: "1px solid #333",
+                borderColor: "divider",
+                display: {
+                  xs: "flex",
+                  md: "none"
+                }
+              }}
+            >
+              <Button
+                data-dialog-type="view"
+                variant="contained"
+                onClick={closeDialog}
+              >
+                Close
+              </Button>
+            </DialogActions>
+          ) : null}
+        </Dialog>
+      ) : null}
       <Dialog
         data-dialog-type="compose"
         PaperProps={paperStyles}
         open={openFor[compose]}
         onClose={ctx.processing ? undefined : closeDialog}
+        key={1}
+        sx={{
+          ".MuiDialogContent-root": {
+            p: 0
+          }
+        }}
       >
-        {renderDialog(compose)}
+        {renderDialog(compose || stateRef.current.view)}
       </Dialog>
     </>
   );

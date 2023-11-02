@@ -8,6 +8,7 @@ import { Typography } from "@mui/material";
 import InfiniteScroll from "components/InfiniteScroll";
 import useCallbacks from "hooks/useCallbacks";
 import { filterDocsByUserSet } from "utils";
+import Stack from "@mui/material/Stack";
 
 const PostsView = ({
   title,
@@ -22,7 +23,7 @@ const PostsView = ({
 }) => {
   const {
     socket,
-    context: { composeDoc, blacklistedPosts }
+    context: { composeDoc, _blacklistedPosts }
   } = useContext();
   const currentUser = useSelector(state => state.user.currentUser);
   const infiniteScrollRef = useRef();
@@ -77,17 +78,18 @@ const PostsView = ({
 
   useEffect(() => {
     filterDocsByUserSet(infiniteScrollRef.current, {
-      ...currentUser.disapprovedUsers,
-      ...currentUser.blockedUsers
+      ...currentUser._disapprovedUsers,
+      ...currentUser._blockedUsers
     });
-  }, [currentUser.disapprovedUsers, currentUser.blockedUsers]);
+  }, [currentUser._disapprovedUsers, currentUser._blockedUsers]);
 
-  const isCurrentUser = currentUser.id === privateUid;
+  const isPrivateUser =
+    window.location.pathname.toLowerCase().indexOf("/u/") > -1 &&
+    currentUser.id === privateUid;
 
   return (
     <InfiniteScroll
-      exclude={Object.keys(blacklistedPosts).join(",")}
-      root={document.documentElement}
+      exclude={Object.keys(_blacklistedPosts).join(",")}
       sx={sx}
       url={stateRef.current.url}
       ref={infiniteScrollRef}
@@ -97,12 +99,12 @@ const PostsView = ({
           : -1
       }
       scrollNodeRef={scrollNodeRef}
-      verify="t"
+      verify="xx"
       {...infiniteScrollProps}
       key={"infinite-posts"}
       withCredentials={!!currentUser.id}
       readyState={
-        currentUser.id && composeDoc?.done === false
+        currentUser.isLogin && composeDoc?.done === false
           ? "pending"
           : infiniteScrollProps?.readyState
       }
@@ -123,28 +125,37 @@ const PostsView = ({
               </Typography>
             )}
             {children}
-            {data.length ? (
-              data.map((post, i) => {
-                return (
-                  <PostWidget
-                    post={post}
-                    maxHeight="none"
-                    handleAction={_handleAction}
-                    key={i}
-                    sx={postSx}
-                    index={i}
-                  />
-                );
-              })
-            ) : (
-              <EmptyData
-                label={
-                  isCurrentUser
-                    ? `You don't have any post at the moment!`
-                    : `We're sorry it seems there is no posts to view at the moment or you have blacklisted post's curator!`
-                }
-              />
-            )}
+            <Stack
+              id="post-view-main-content"
+              sx={{
+                flex: data.length ? 0 : 1,
+                flexDirection: "column"
+              }}
+            >
+              {data.length ? (
+                data.map((post, i) => {
+                  return (
+                    <PostWidget
+                      post={post}
+                      maxHeight="none"
+                      handleAction={_handleAction}
+                      key={i}
+                      sx={postSx}
+                      index={i}
+                    />
+                  );
+                })
+              ) : (
+                <EmptyData
+                  label={
+                    emptyLabel ||
+                    (isPrivateUser
+                      ? `You don't have any post at the moment!`
+                      : "Sorry, there are no posts to view at the moment or the post's curator has been blacklisted!")
+                  }
+                />
+              )}
+            </Stack>
           </>
         );
       }}

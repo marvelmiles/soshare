@@ -32,12 +32,16 @@ const Short = React.forwardRef(
     const navigate = useNavigate();
     const { setContext } = useContext();
     const stateRef = useRef({
-      backdropText: ""
+      backdropText: "",
+      backdrops: {
+        RELOAD: true
+      }
     });
     const contRef = useRef(null);
     const [loading, setLoading] = useState(true);
     const [showVolume, setShowVolume] = useState(!miniShort);
     const [muted, setMuted] = useState(miniShort);
+    const [hasAudio, setHasAudio] = useState(false);
 
     const onTimeUpdate = useCallback(async () => {
       try {
@@ -49,30 +53,26 @@ const Short = React.forwardRef(
       } catch (msg) {}
     }, [short.id, short.views, cid, handleAction, miniShort]);
 
-    const onPlay = useCallback(
-      (v, { mouseEnter }) => {
-        setShowVolume(true);
-        if (stateCtx.shouldUnmute) setMuted(mouseEnter ? v.muted : false);
-        stateCtx.shouldUnmute = true;
-      },
-      [stateCtx]
-    );
+    const onPlay = useCallback((v, { mouseEnter, hasAudio }) => {
+      setHasAudio(hasAudio);
+      setShowVolume(true);
+      setMuted(false);
+    }, []);
 
     const onPause = useCallback(
       (v, { e }) => {
+        setMuted(true);
         if (e && e.relatedTarget.nodeName !== "BUTTON") {
           setShowVolume(!miniShort);
-          setMuted(true);
         }
       },
       [miniShort]
     );
 
-    const onLoadedMetadata = useCallback(() => setLoading(false), []);
+    const onReady = useCallback(() => setLoading(false), []);
 
     const onClick = useCallback(
       e => {
-        return;
         e.stopPropagation();
         window.location.pathname.toLowerCase() !== "/shorts" &&
           navigate(`/shorts`);
@@ -119,7 +119,7 @@ const Short = React.forwardRef(
       [handleAction]
     );
 
-    const maxHeight = "calc(100vh - 90px)";
+    const maxHeight = "calc(100vh - 65px)";
 
     return (
       <Box
@@ -137,8 +137,11 @@ const Short = React.forwardRef(
                 borderRadius: "8px",
                 height: "190px",
                 maxWidth: "150px",
-                mx: "auto",
-                minHeight: "200px"
+                // mx: "auto",
+                minHeight: "200px",
+                ".custom-overlay": {
+                  cursor: "pointer"
+                }
               }
             : {
                 mx: "auto",
@@ -162,6 +165,7 @@ const Short = React.forwardRef(
       >
         <VideoPlayer
           contRef={contRef || null}
+          withKeyEvents={!miniShort}
           hideControls
           id={short.id}
           muted={muted}
@@ -169,9 +173,7 @@ const Short = React.forwardRef(
           src={short.url}
           mimetype={short.mimetype}
           enableIndicator={!miniShort}
-          backdrops={{
-            RELOAD: true
-          }}
+          backdrops={stateRef.current.backdrops}
           pause={short.pause}
           withIntersection={miniShort ? undefined : true}
           hoverPlayDelay={miniShort && 500}
@@ -180,7 +182,7 @@ const Short = React.forwardRef(
           onPause={onPause}
           onTimeUpdate={onTimeUpdate}
           onClick={onClick}
-          onLoadedMetadata={onLoadedMetadata}
+          onReady={onReady}
           onReload={onReload}
           onError={onError}
           sx={{
@@ -198,7 +200,7 @@ const Short = React.forwardRef(
             "& .video-player-footer": !miniShort && {
               background: "none",
               py: 0,
-              bottom: "-7px",
+              bottom: "0px",
               ".MuiSlider-thumb": {
                 opacity: 0,
                 pointerEvents: "none",
@@ -208,6 +210,9 @@ const Short = React.forwardRef(
                 opacity: 1,
                 pointerEvents: "all",
                 transition: "opacity 0.5s"
+              },
+              ".video-player-footer-main-box": {
+                py: 0
               }
             },
             "& .custom-media": {
@@ -229,6 +234,7 @@ const Short = React.forwardRef(
         <ShortSidebar
           id={short.id}
           user={short.user}
+          hasAudio={hasAudio}
           muted={muted}
           withVolume={showVolume}
           handleAction={_handleAction}

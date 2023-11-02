@@ -59,7 +59,12 @@ const schema = new mongoose.Schema(
         return v;
       }
     },
-    provider: String,
+    provider: {
+      type: String,
+      set(v) {
+        return v.toLowerCase();
+      }
+    },
     resetToken: String,
     resetDate: Date,
     shortCount: {

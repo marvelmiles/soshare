@@ -30,9 +30,9 @@ const Search = () => {
         {({ tab }) => {
           const emptyLabel = (
             <div>
-              We are sorry it seems there is no {tab.slice(0, -1)} matching{" "}
+              We are sorry it seems there is no {tab.slice(0, -1)}{" "}
               <Box component="span" sx={{ color: "primary.light" }}>
-                "{q}"
+                {q ? `matching "${q}"` : ""} at the moment
               </Box>
               .
             </div>
@@ -44,7 +44,7 @@ const Search = () => {
 
           const infiniteScrollProps = {
             dataKey: tab,
-            searchParams: `q=${q}&select=${tab}`,
+            searchParams: `q=${q}`,
             url: "/search",
             scrollNodeRef: null
           };
@@ -59,6 +59,7 @@ const Search = () => {
               key={"serach-posts"}
             />,
             <FollowMeView
+              excludeCUser
               emptyLabel={emptyLabel}
               variant="block"
               infiniteScrollProps={{

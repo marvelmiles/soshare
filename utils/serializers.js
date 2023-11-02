@@ -25,7 +25,8 @@ export const createVisibilityQuery = async ({
   allowDefaultCase = false,
   fallbackVisibility = "everyone",
   isVisiting,
-  refPath = "user"
+  refPath = "user",
+  withBlacklist = true
 }) => {
   if (!userId && searchUser) {
     userId = searchUser;
@@ -35,7 +36,7 @@ export const createVisibilityQuery = async ({
   if (userId) {
     const user = await User.findById(userId);
 
-    if (!user) throw createError("User doesn't exist", 404);
+    if (!user) throw createError("User not found", 404);
 
     const isUser = searchUser === userId;
 
@@ -46,28 +47,25 @@ export const createVisibilityQuery = async ({
 
       let blacklist = [];
 
-      if (isVisiting && searchUser) {
-        const { recommendationBlacklist, blockedUsers } =
-          (await User.findById(searchUser)) || {};
+      if (withBlacklist) {
+        blacklist = user.recommendationBlacklist.concat(user.blockedUsers);
 
-        blacklist = blacklist.concat(
-          recommendationBlacklist || [],
-          blockedUsers || []
-        );
+        if (isVisiting && searchUser) {
+          const { recommendationBlacklist, blockedUsers } =
+            (await User.findById(searchUser)) || {};
+
+          blacklist = blacklist.concat(
+            recommendationBlacklist || [],
+            blockedUsers || []
+          );
+        }
       }
-
       query.$expr = {
         $cond: {
           if: {
             $or: [
               {
-                $in: [
-                  _ref,
-                  user.recommendationBlacklist.concat(
-                    user.blockedUsers,
-                    blacklist
-                  )
-                ]
+                $in: [_ref, blacklist]
               }
             ]
           },

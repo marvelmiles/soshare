@@ -1,24 +1,53 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import PropTypes from "prop-types";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import CustomInput from "components/CustomInput";
 import Loading from "components/Loading";
+import { useContext } from "context/store";
+import { createRelativeURL } from "api/http";
+import { debounce } from "@mui/material";
 
-const SearchInput = ({ endAdornment, defaultValue = "", onChange }) => {
+const withDebounceFn = debounce(cb => cb(), 0);
+
+const SearchInput = ({
+  endAdornment,
+  defaultValue = "",
+  onChange,
+  ...props
+}) => {
   const [loading, setLoading] = useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
+
+  const { locState } = useContext();
+
+  const [value, setValue] = useState(
+    new URLSearchParams(window.location.search).get("search") || defaultValue
+  );
+
+  const navigate = useNavigate();
+
   const stateRef = useRef({
-    hasTyped: false
+    setDefaultValue() {
+      value &&
+        navigate(createRelativeURL(`search`, `search=${value}`), {
+          state: locState,
+          replace: true
+        });
+    }
   });
-  const search = (stateRef.current.hasTyped
-    ? searchParams.get("search") || defaultValue
-    : defaultValue
-  ).toLowerCase();
+
+  useEffect(() => {
+    stateRef.current.setDefaultValue();
+  }, []);
 
   const handleChange = ({ currentTarget: { value } }) => {
-    stateRef.current.hasTyped = true;
-    searchParams.set("search", value);
-    setSearchParams(searchParams);
+    setValue(value);
+    // using debounce prevent hook update limit error
+    withDebounceFn(() => {
+      navigate(createRelativeURL(`search`, `search=${value}`), {
+        replace: true,
+        state: locState
+      });
+    });
     if (onChange) {
       setLoading(true);
       onChange(value, { setLoading });
@@ -27,9 +56,10 @@ const SearchInput = ({ endAdornment, defaultValue = "", onChange }) => {
 
   return (
     <CustomInput
+      {...props}
       standard
       placeholder="Search..."
-      value={search}
+      value={value}
       onChange={handleChange}
       endAdornment={endAdornment || (loading && <Loading />)}
     />

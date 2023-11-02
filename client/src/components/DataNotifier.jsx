@@ -65,7 +65,8 @@ const DataNotifier = ({
                   : "absolute")
             }}
             onClick={e => {
-              handleScrollUp(e);
+              e.stopPropagation();
+              handleScrollUp(node);
               closeNotifier();
             }}
           >

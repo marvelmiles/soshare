@@ -24,6 +24,7 @@ export const StyledLink = styled(Link, {
     color: palette && palette.primary?.main,
     ...(typography ? typography[variant] || {}[variant] : undefined)
   };
+
   textEllipsis &&
     (styles = {
       ...styles,
@@ -31,6 +32,7 @@ export const StyledLink = styled(Link, {
       overflow: "hidden",
       whiteSpace: "nowrap"
     });
+
   !hoverDecoration &&
     (styles["&:hover"] = {
       textDecoration: "underline"
@@ -119,7 +121,6 @@ export const WidgetContainer = styled(Box, {
     ty,
     ...rest
   }) => {
-    ty && console.log(sx, rest);
     return {
       width: "100%",
       minHeight: "300px",

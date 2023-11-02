@@ -22,14 +22,17 @@ const FollowMeView = ({
   infiniteScrollProps,
   widgetProps,
   emptyLabel,
-  privateUid
+  privateUid,
+  excludeCUser
 }) => {
-  const { previewUser, currentUser = {} } = useSelector(state => state.user);
-  let { userId } = useParams();
-  userId = userId || currentUser.id;
+  const { socket, userId } = useContext();
+
+  const { previewUser, currentUser } = useSelector(state => state.user);
+
   const [dataSize, setDataSize] = useState(-1);
+
   const isCurrentUser = currentUser.id === userId;
-  const { socket } = useContext();
+
   const dispatch = useDispatch();
   const infiniteScrollRef = useRef();
   const stateRef = useRef({
@@ -44,7 +47,8 @@ const FollowMeView = ({
         following: `/users/${userId}/following`
       }[url] || url
   });
-  const { _handleAction } = useCallbacks(infiniteScrollRef, currentUser);
+
+  const { _handleAction } = useCallbacks(infiniteScrollRef, { currentUser });
   const scrollNodeRef = useRef();
   const _handlerAction = useCallback(
     (reason, res) => {
@@ -60,7 +64,7 @@ const FollowMeView = ({
     [_handleAction]
   );
 
-  const { handleToggleFollow, isProcessingFollow } = useFollowDispatch({
+  const { handleToggleFollow, activeFollowId } = useFollowDispatch({
     priority
   });
 
@@ -71,10 +75,7 @@ const FollowMeView = ({
         const isTo = to.id === userId;
         const key = (toFollow ? "followId" : "unfollowId") + to.id + from.id;
 
-        console.log(toFollow, isTo, isFrm, userId, " socket...");
-
         if (isTo || isFrm) {
-          console.log(" in socket... ");
           if (
             stateRef.current[key] ||
             (!skipDelete && (isFrm && isCurrentUser))
@@ -82,7 +83,6 @@ const FollowMeView = ({
             delete stateRef.current[key];
             return;
           }
-          console.log(" done socket... ");
           stateRef.current[key] = true;
           if (isTo && priority === "toggle") {
             _handleAction(toFollow ? "new" : "filter", { document: from });
@@ -169,13 +169,13 @@ const FollowMeView = ({
   ]);
 
   useEffect(() => {
-    const user = previewUser?.followUser;
+    const user = previewUser.followUser;
     if (user)
       handleFollowingAction(!user.isFollowing, true)({
         to: user,
         from: currentUser
       });
-  }, [handleFollowingAction, previewUser?.followUser, currentUser]);
+  }, [handleFollowingAction, previewUser.followUser, currentUser]);
   const loading = dataSize === undefined || dataSize < 0;
 
   return (
@@ -190,7 +190,6 @@ const FollowMeView = ({
         <>
           {title || secondaryTitle ? (
             <div
-              id="ddddddddddd"
               style={{
                 marginBottom: "16px",
                 position: "sticky",
@@ -211,7 +210,6 @@ const FollowMeView = ({
         </>
       )}
       <InfiniteScroll
-        // shallowLoading={loading}
         key={`follome-widget-${priority}-${privateUid}`}
         ref={infiniteScrollRef}
         sx={{
@@ -220,6 +218,7 @@ const FollowMeView = ({
         url={stateRef.current.url}
         searchParams={searchParams}
         {...infiniteScrollProps}
+        exclude={excludeCUser && currentUser.id ? currentUser.id : ""}
         withCredentials={!!currentUser.id}
         notifierDelay={
           isCurrentUser ? (priority === "toggle" ? undefined : -1) : undefined
@@ -227,7 +226,7 @@ const FollowMeView = ({
         scrollNodeRef={scrollNodeRef}
         handleAction={_handlerAction}
       >
-        {({ data: { data, loading } }) => {
+        {({ data: { data } }) => {
           const renderPersons = () => {
             return data.map((u = {}, i) => {
               const isFollowing = {
@@ -252,7 +251,7 @@ const FollowMeView = ({
                   onBtnClick={() =>
                     handleToggleFollow(undefined, u, isFollowing)
                   }
-                  disabled={isProcessingFollow}
+                  disabled={activeFollowId === u.id}
                   isOwner={
                     currentUser.id ? u.id === currentUser.id : u.id === userId
                   }
@@ -261,7 +260,7 @@ const FollowMeView = ({
             });
           };
           return (
-            <div>
+            <>
               {data.length ? (
                 variant === "block" ? (
                   <Stack flexWrap="wrap" justifyContent="normal" gap={2} p={2}>
@@ -287,7 +286,7 @@ const FollowMeView = ({
                   }
                 />
               )}
-            </div>
+            </>
           );
         }}
       </InfiniteScroll>

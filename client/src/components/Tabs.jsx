@@ -6,6 +6,7 @@ import Box from "@mui/material/Box";
 import Carousel from "react-multi-carousel";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { createRelativeURL } from "api/http";
+import { useContext } from "context/store";
 
 const Tabs = ({
   children,
@@ -19,47 +20,69 @@ const Tabs = ({
   defaultTab = "",
   deleteParams,
   searchParams: newParams = "",
-  sectionEl
+  renderSectionEl,
+  cacheParam = "",
+  onBeforeChange,
+  onAfterChange
 }) => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const tab = (searchParams.get("tab") || defaultTab).toLowerCase();
 
+  const { locState } = useContext();
+
   const carouselRef = useRef();
+
   const stateRef = useRef({
     tabChanged: false,
     tabIndexMap: {},
-    tabValueMap: {}
+    tabValueMap: {},
+    defaultTab,
+    tab
   });
+  const cacheValue = searchParams.get(cacheParam) || "";
 
   const navigate = useNavigate();
 
   useEffect(() => {
     const stateCtx = stateRef.current;
     if (carouselRef.current) {
-      stateRef.current.tabChanged = true;
-      carouselRef.current.goToSlide(stateCtx.tabIndexMap[tab], {
-        skipAfterChange: true
-      });
+      stateCtx.tab = tab;
+      carouselRef.current.goToSlide(stateCtx.tabIndexMap[tab]);
     }
+    return () => {
+      stateCtx.withEvent = false;
+    };
   }, [tab]);
 
   const handleTabChange = (e, value) => {
     e && e.stopPropagation();
-    value &&
-      navigate(
-        createRelativeURL(
-          `tab ${deleteParams}`,
-          `tab=${value}${newParams ? `&${newParams}` : ""}`
+
+    locState[tab] = cacheValue;
+
+    const search = new URLSearchParams(window.location.search);
+
+    if (value) {
+      for (const key of `tab ${deleteParams}`.split(" ")) {
+        search.delete(key);
+      }
+
+      setSearchParams(
+        new URLSearchParams(
+          `tab=${value}${newParams ? `&${newParams}` : ""}&${search.toString()}`
         ),
         {
-          replace: true
+          replace: true,
+          state: locState
         }
       );
+    }
   };
 
   const props = {
     tab,
-    tabChanged: stateRef.current.tabChanged
+    tabChanged: tab !== stateRef.current.tab,
+    defaultValue: locState[tab] || "",
+    cacheValue
   };
 
   return (
@@ -89,13 +112,19 @@ const Tabs = ({
           return <Tab key={i} value={tab.value} label={tab.label} wrapped />;
         })}
       </MuiTabs>
-      <div>{sectionEl && sectionEl(props)}</div>
+      <div>{renderSectionEl && renderSectionEl(props)}</div>
       <Carousel
         arrows={false}
         responsive={responsive}
         ref={carouselRef}
+        afterChange={(prevSlide, { currentSlide }) => {
+          onAfterChange &&
+            onAfterChange(stateRef.current.tabValueMap[currentSlide]);
+        }}
         beforeChange={current => {
-          handleTabChange(undefined, stateRef.current.tabValueMap[current]);
+          const _tab = stateRef.current.tabValueMap[current];
+          onBeforeChange && onBeforeChange(stateRef.current.tab);
+          handleTabChange(undefined, _tab);
         }}
       >
         {children(props)}

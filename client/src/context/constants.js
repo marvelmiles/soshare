@@ -1,4 +1,8 @@
-export const API_ENDPOINT = "http://localhost:8800";
+export const isProdMode = process.env.NODE_ENV === "production";
+
+export const API_ORIGIN = isProdMode
+  ? "http://localhost:8800"
+  : "http://localhost:8800";
 
 export const HTTP_CANCELLED_MSG = "Request was canceled";
 
@@ -9,6 +13,10 @@ export const PAUSE_MEDIA_PLAYBACK = "PAUSE_MEDIA_PLAYBACK";
 export const HTTP_401_MSG = "Authorization credentials is invalid";
 
 export const HTTP_DEFAULT_MSG = "Something went wrong!";
+
+export const HTTP_CODE_INVALID_USER_ACCOUNT = "INVALID_USER_ACCOUNT";
+
+export const HTTP_CODE_TIMEDOUT = "REQUEST_TIMEDOUT";
 
 export const anchorAttrs = {
   target: "_blank",

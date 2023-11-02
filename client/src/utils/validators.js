@@ -16,20 +16,24 @@ export const isOverflowing = (node = document.documentElement, root) => {
   return bool;
 };
 
-export const checkVisibility = (
-  { visibility, user: { id: uid } },
-  currentUser = {}
-) => {
+export const isDocVisibleToUser = (document, currentUser = {}) => {
+  // document like user don't have user prop
+  const { visibility, user = {}, id } = document;
+
+  const uid = user.id || id;
+
+  if (currentUser._disapprovedUsers[uid] || currentUser._blockedUsers[uid])
+    return false;
+
   const { id: cid, following = [] } = currentUser;
+
   switch (visibility) {
-    case "everyone":
-      return true;
     case "private":
       return cid === uid;
     case "followers only":
       return following.includes(uid);
     default:
-      return false;
+      return true;
   }
 };
 
@@ -41,7 +45,7 @@ export const isObject = obj =>
     ? obj.toString() === "[object Object]"
     : typeof obj === "object" && obj.length === undefined);
 
-export const hasAudio = (video, cb) => {
+export const hasAudio = (video, cb, withReset = true, delay = 100) => {
   const _hasAudio = () =>
     !!(
       video &&
@@ -53,34 +57,47 @@ export const hasAudio = (video, cb) => {
   if (_hasAudio()) cb(true);
   else {
     const id = setTimeout(() => {
-      video.play().catch(_ => {});
+      video
+        .play()
+        .then(_ => {
+          const bool = _hasAudio();
 
-      const _id = setTimeout(() => {
-        video.pause();
-        video.currentTime = 0;
+          if (withReset) {
+            video.pause();
+            video.currentTime = 0;
+          }
 
-        cb(_hasAudio());
-
-        clearTimeout(_id);
-        clearTimeout(id);
-      }, 100);
-    }, 0);
+          cb(bool);
+        })
+        .catch(_ => cb(false))
+        .finally(() => clearTimeout(id));
+    }, delay);
   }
 };
 
 export const isAtScrollBottom = (
   element = document.documentElement,
   threshold = 1,
-  verify
+  noScroll = false
 ) => {
-  verify = true;
   const { scrollTop, scrollHeight, clientHeight } =
     element || document.documentElement;
 
-  if (!scrollTop) return false;
+  if (!scrollTop) return noScroll;
 
-  const f = Math.ceil(scrollTop) + clientHeight;
-  console.log("ssss", verify);
-  verify && console.log(f, scrollTop, scrollTop * threshold, "cla");
-  return f >= scrollHeight * threshold;
+  return Math.ceil(scrollTop) + clientHeight >= scrollHeight * threshold;
+};
+
+export const withMapObj = (obj = {}, map = {}, bool) => {
+  let withMap;
+  for (const key in obj) {
+    if (
+      // (map[key] !== "Medium password" || map[key] !== "Weak password") &&
+      !!map[key] === bool
+    ) {
+      withMap = true;
+      break;
+    }
+  }
+  return withMap;
 };

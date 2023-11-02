@@ -40,7 +40,6 @@ const Notifications = ({
     unmarked: {},
     marked: {}
   },
-  dataSx,
   sx
 }) => {
   const t = useRef();
@@ -51,20 +50,24 @@ const Notifications = ({
   const stateRef = useRef({
     registeredIds: {}
   });
+
   const _handleAction = useCallback((reason, options = {}) => {
-    const { document, dataSize } = options;
+    const { document, dataSize, loading, stateCtx } = options;
     switch (reason) {
       case "filter":
-        infiniteScrollRef.current.setData(data => ({
-          ...data,
-          data: data.data.filter(({ id }, i) => {
-            if (id === document.id) {
-              stateRef.current.registeredIds[id] = i;
-              return false;
-            }
-            return true;
-          })
-        }));
+        infiniteScrollRef.current.setData(
+          data => ({
+            ...data,
+            data: data.data.filter(({ id }, i) => {
+              if (id === document.id) {
+                stateRef.current.registeredIds[id] = i;
+                return false;
+              }
+              return true;
+            })
+          }),
+          stateCtx
+        );
         break;
       case "new":
         const index = stateRef.current.registeredIds[document.id];
@@ -77,8 +80,8 @@ const Notifications = ({
         break;
 
       case "data":
-        if (dataSize) setDisabled(false);
-        else setDisabled(true);
+        setDisabled(!dataSize || loading);
+
         break;
       case "close":
         setDisabled(true);
@@ -103,6 +106,7 @@ const Notifications = ({
     };
 
     let appended = false;
+
     const handleAppend = (n, { filter, isNew }) => {
       if (appended) return;
       appended = true;
@@ -158,14 +162,15 @@ const Notifications = ({
 
   const handleDeleteAll = e => {
     e.stopPropagation();
-    const data = infiniteScrollRef.current.data.data;
-    infiniteScrollRef.current.setData({
-      ...infiniteScrollRef.current.data,
-      data: []
-    });
+    const { data, setData } = infiniteScrollRef.current;
+
     setDisabled(true);
-    handleDelete(`/users/notifications`, data, {
-      label: "notification"
+
+    setData({ ...data, data: [] });
+
+    handleDelete(`/users/notifications`, data.data, {
+      label: "notification",
+      loop: false
     });
   };
 
@@ -187,7 +192,38 @@ const Notifications = ({
   };
 
   return (
-    <>
+    <Box sx={sx}>
+      <Stack
+        sx={{
+          p: 2,
+          borderBottom: "1px solid currentColor",
+          borderBottomColor: "divider"
+        }}
+      >
+        <Stack justifyContent="normal">
+          <MarkEmailUnreadSharpIcon
+            sx={{
+              color: "primary.main"
+            }}
+            fontSize="large"
+          />
+          <Typography variant="h4" fontWeight="bold" color="primary.main">
+            Notices
+          </Typography>
+        </Stack>
+        {isProcessingDelete ? (
+          <LoadingDot sx={{ p: 1 }} />
+        ) : type === "unmarked" ? (
+          <Button disabled={disabled} onClick={markOne(-1)}>
+            Mark all
+          </Button>
+        ) : (
+          <Button disabled={disabled} onClick={handleDeleteAll}>
+            Delete all
+          </Button>
+        )}
+      </Stack>
+
       <InfiniteScroll
         key={type}
         ref={infiniteScrollRef}
@@ -199,48 +235,14 @@ const Notifications = ({
           }
         }
         handleAction={_handleAction}
-        sx={sx}
         withCredentials={!!cid}
         exclude={(cache[type].data || []).map(n => n.id).join(",")}
+        verify="z"
       >
         {({ data: { data } }) => {
           return (
             <>
-              <Stack
-                sx={{
-                  p: 2,
-                  borderBottom: "1px solid currentColor",
-                  borderBottomColor: "divider"
-                }}
-              >
-                <Stack justifyContent="normal">
-                  <MarkEmailUnreadSharpIcon
-                    sx={{
-                      color: "primary.main"
-                    }}
-                    fontSize="large"
-                  />
-                  <Typography
-                    variant="h4"
-                    fontWeight="bold"
-                    color="primary.main"
-                  >
-                    Notices
-                  </Typography>
-                </Stack>
-                {isProcessingDelete ? (
-                  <LoadingDot sx={{ p: 1 }} />
-                ) : type === "unmarked" ? (
-                  <Button disabled={disabled} onClick={markOne(-1)}>
-                    Mark all
-                  </Button>
-                ) : (
-                  <Button disabled={disabled} onClick={handleDeleteAll}>
-                    Delete all
-                  </Button>
-                )}
-              </Stack>
-              <Box sx={dataSx}>
+              <Box>
                 {data.length ? (
                   <List sx={{ mt: 0, p: 0 }}>
                     {data.map((n, i) => {
@@ -319,9 +321,9 @@ const Notifications = ({
                           case "delete":
                             return (
                               <div>
-                                @{username} deleted your
+                                @{username} deleted your{" "}
                                 {n.cacheType +
-                                  (n.cacheDocs.length > 1 ? " s " : " ")}
+                                  (n.cacheDocs.length > 1 ? "s " : " ")}
                                 on their{" "}
                                 <StyledLink
                                   to={`/${n.docType}s/${n.document.id}`}
@@ -497,7 +499,7 @@ const Notifications = ({
           Marked
         </Button>
       </ButtonGroup>
-    </>
+    </Box>
   );
 };
 

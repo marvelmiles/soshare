@@ -18,6 +18,9 @@ import {
   clearGetAllIntervallyTask
 } from "../utils/schedule-tasks.js";
 import { SUGGESTED_USERS, SUGGEST_FOLLOWERS_TASK_KEY } from "../config.js";
+import { hashToken } from "../utils/auth.js";
+import mongoose from "mongoose";
+import { validateBlacklist } from "../utils/user.js";
 
 export const getUser = (req, res, next) =>
   getDocument({
@@ -36,7 +39,8 @@ export const getFollowing = async (req, res, next) => {
     dataKey: "following",
     match: {
       _id: req.params.userId
-    }
+    },
+    verify: true
   });
 };
 
@@ -55,9 +59,14 @@ export const getFollowers = async (req, res, next) => {
 
 export const follow = async (req, res, next) => {
   try {
-    if (!req.params.userId) throw createError("Invalid parameter. Check url");
-    if (req.user.id === req.params.userId)
-      throw createError("You can't follow yourself");
+    const userId = req.params.userId;
+
+    if (!userId) throw createError("Invalid parameter. Check url");
+
+    if (req.user.id === userId) throw createError("You can't follow yourself");
+
+    await validateBlacklist(req.user, userId);
+
     const user = await User.findByIdAndUpdate(
       {
         _id: req.user.id
@@ -65,14 +74,14 @@ export const follow = async (req, res, next) => {
 
       {
         $addToSet: {
-          following: req.params.userId
+          following: userId
         }
       },
       { new: true }
     );
     const _user = await User.findByIdAndUpdate(
       {
-        _id: req.params.userId
+        _id: userId
       },
       {
         $addToSet: {
@@ -102,20 +111,25 @@ export const follow = async (req, res, next) => {
 
 export const unfollow = async (req, res, next) => {
   try {
-    if (req.params.userId === req.user.id)
+    const userId = req.params.userId;
+
+    if (userId === req.user.id)
       throw createError("You can't unfollow yourself");
+
+    await validateBlacklist(req.user, userId);
+
     const user = await User.findByIdAndUpdate(
       { _id: req.user.id },
       {
         $pull: {
-          following: req.params.userId
+          following: userId
         }
       },
       { new: true }
     );
 
     const _user = await User.findByIdAndUpdate(
-      { _id: req.params.userId },
+      { _id: userId },
       {
         $pull: {
           followers: req.user.id
@@ -155,7 +169,7 @@ export const getUserPosts = async (req, res, next) => {
 
 export const suggestFollowers = async (req, res, next) => {
   try {
-    const { following, recommendationBlacklist, blockedUsers } =
+    const { following, recommendationBlacklist = [], blockedUsers = [] } =
       (await User.findById(req.user.id)) || {};
     if (!following) throw createError(`User not found`, 404);
 
@@ -172,10 +186,13 @@ export const suggestFollowers = async (req, res, next) => {
       },
       query: req.query
     };
+
     let result = await getAll(queryConfig);
     res.json(result);
+
     const io = req.app.get("socketIo");
     const mapFn = user => user.id.toString();
+
     let socket;
     if (
       (socket = getRoomSocketAtIndex(io, req.user.id)) &&
@@ -378,7 +395,6 @@ export const getUserShorts = async (req, res, next) => {
 
 export const blacklistUser = async (req, res, next) => {
   try {
-    console.log("blakclist....", req.body);
     if (!Array.isArray(req.body))
       throw createError("Invalid request: Expect body to be an array");
 
@@ -437,6 +453,7 @@ export const deleteUserNotification = async (req, res, next) => {
     await Notification.deleteOne({
       _id: req.params.id
     });
+
     res.json("Deleted notification successfully");
   } catch (err) {
     next(err);
@@ -444,27 +461,71 @@ export const deleteUserNotification = async (req, res, next) => {
 };
 
 export const getBlacklist = async (req, res, next) => {
-  console.log("getting blaclist", req.query.select);
+  console.log("getting blacklist", req.query.select, req.query.q);
+
   try {
     const result = {};
 
     for (const key of (req.query.select || "recommendation blocked").split(
       " "
     )) {
+      const search = req.query.q
+        ? {
+            $regex: req.query.q,
+            $options: "i"
+          }
+        : { $ne: "" };
+
       const props = {
         query: req.query,
         model: User,
         match: {
           _id: req.user.id
-        }
+        },
+        populate: [
+          {
+            // select: {
+            //   "settings._id": 0,
+            //   "socials._id": 0,
+            //   password: 0
+            // },
+            options: { virtuals: true },
+            match: {
+              $or: [
+                {
+                  displayName: search
+                },
+                {
+                  username: search
+                },
+                {
+                  email: search
+                },
+                {
+                  bio: search
+                },
+                {
+                  location: search
+                },
+                {
+                  occupation: search
+                }
+              ]
+            }
+          }
+        ]
       };
       switch (key) {
         case "recommendation":
           props.dataKey = "recommendationBlacklist";
+          props.populate[0].path = props.dataKey;
+
           result[key] = await getAll(props);
           continue;
         case "blocked":
           props.dataKey = "blockedUsers";
+          props.populate[0].path = props.dataKey;
+
           result[key] = await getAll(props);
           continue;
         default:
@@ -486,8 +547,6 @@ export const getBlacklist = async (req, res, next) => {
 
 export const whitelistUsers = async (req, res, next) => {
   try {
-    console.log("whitelisted....", req.body);
-
     if (!Array.isArray(req.body))
       throw createError("Invalid request: Expect body to be an array");
 
@@ -526,6 +585,7 @@ export const whitelistUsers = async (req, res, next) => {
         io && io.emit("update-user", user);
       }
     }
+
     res.json(
       `Whitelisted ${req.body.length > 1 ? "users" : "user"} successfully`
     );

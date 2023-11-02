@@ -25,8 +25,10 @@ const CustomInput = ({
     top: "3.5px",
     color: "primary.main"
   };
+
   return (
     <Box
+      className="custom-input"
       sx={{
         position: "relative",
         mb: standard ? 0 : undefined,
@@ -42,7 +44,7 @@ const CustomInput = ({
           border: "1px solid currentColor",
           borderColor: error
             ? {
-                "Weak password": "divider",
+                "Weak password": "error.main",
                 "Medium password": "divider"
               }[error] || "error.dark"
             : "divider",
@@ -163,8 +165,8 @@ const CustomInput = ({
           color={
             error
               ? {
-                  "Weak password": "warning.light",
-                  "Medium password": "warning.light"
+                  "Weak password": "error.dark",
+                  "Medium password": "success.main"
                 }[error] || "error.dark"
               : "transparent"
           }

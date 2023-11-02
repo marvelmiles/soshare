@@ -45,7 +45,9 @@ const ShortFooter = ({
   const { handleDelete } = useDeleteDispatch({
     handleAction
   });
+
   const isOwner = user.id === cid;
+
   const _handleAction = useCallback(
     (reason, options) => {
       if (reason === "mounted") return;

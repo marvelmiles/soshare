@@ -56,7 +56,8 @@ const MediaCarousel = forwardRef(
       actionBar,
       showIndicator = true,
       videoPlayerProps,
-      onCarouselChange
+      onCarouselChange,
+      sx
     },
     ref
   ) => {
@@ -110,6 +111,7 @@ const MediaCarousel = forwardRef(
           if (!e.currentTarget.classList.contains("container-overlayed"))
             e.currentTarget.classList.add("focus-within");
         }}
+        className="custom-media-carousel"
         sx={{
           display,
           borderRadius,
@@ -151,7 +153,8 @@ const MediaCarousel = forwardRef(
               pointerEvents: "none",
               transition: "opacity 0.25s"
             }
-          }
+          },
+          ...sx
         }}
       >
         <Stack
@@ -207,12 +210,14 @@ const MediaCarousel = forwardRef(
                     width: "100%",
                     position: "relative",
                     borderRadius: "inherit",
-                    backgroundColor: "common.black",
                     display: "flex",
                     justifyContent: "center",
                     alignItems: "center",
                     border: "1px solid currentColor",
                     borderColor: "divider",
+                    "& > *": {
+                      backgroundColor: "common.black"
+                    },
                     "& .custom-media-container": {
                       position: "unset",
                       borderRadius: 0,

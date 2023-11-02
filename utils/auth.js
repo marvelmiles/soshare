@@ -1,65 +1,46 @@
 import crypto from "crypto";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import { setFutureDate } from "./index.js";
+import { cookieConfig } from "../constants.js";
 
 export const generateToken = () => crypto.randomBytes(20).toString("hex");
 
 export const hashToken = async (token, rounds = 10) =>
   await bcrypt.hash(token, await bcrypt.genSalt(rounds));
 
-export const setTokens = async (res, id, rememberMe, accessOnly) => {
-  rememberMe = rememberMe === "true";
+export const deleteCookie = (name, res) => {
+  const expires = new Date();
+  expires.setFullYear(1990);
+  res.cookie(name, "", { ...cookieConfig, expires });
+};
 
-  const shortT = new Date();
-  const longT = new Date();
+export const setJWTCookie = (name, uid, res, time = {}, withExtend) => {
+  let { duration = 1, extend, type = "h" } = time;
+  duration = withExtend ? extend : duration;
 
-  if (id) {
-    shortT.setMinutes(shortT.getMinutes() + 30);
+  let expires = new Date();
 
-    if (rememberMe) longT.setDate(longT.getDate() + 28);
-    else longT.setHours(longT.getHours() + 6);
-  } else {
-    shortT.setFullYear(1990);
-    longT.setFullYear(1990);
+  switch (type) {
+    case "h":
+      expires.setHours(expires.getHours() + duration);
+      break;
+    case "d":
+      expires = setFutureDate(duration);
+      break;
+    case "m":
+      expires.setMinutes(expires.getMinutes() + duration);
+      break;
   }
 
   res.cookie(
-    "access_token",
-    id
-      ? jwt.sign(
-          {
-            id
-          },
-          process.env.JWT_SECRET,
-          {
-            expiresIn: "10m"
-          }
-        )
-      : "",
+    name,
+    jwt.sign({ id: uid }, process.env.JWT_SECRET, {
+      expiresIn: duration + type
+    }),
     {
-      httpOnly: true,
-      expires: shortT
+      ...cookieConfig,
+      expires
     }
   );
-
-  if (!accessOnly)
-    res.cookie(
-      "refresh_token",
-      id
-        ? JSON.stringify({
-            jwt: jwt.sign(
-              {
-                id
-              },
-              process.env.JWT_SECRET,
-              { expiresIn: "15m" }
-            ),
-            rememberMe
-          })
-        : "",
-      {
-        httpOnly: true,
-        expires: longT
-      }
-    );
 };

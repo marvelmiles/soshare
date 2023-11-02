@@ -49,7 +49,7 @@ import { mapValidItems } from "utils";
 import Box from "@mui/material/Box";
 import UserSettings from "components/UserSettings";
 import { useMediaQuery } from "@mui/material";
-import { signoutUser } from "context/slices/userSlice";
+import { signOutUser } from "context/slices/userSlice";
 import CustomInput from "components/CustomInput";
 
 Popover.defaultProps = {
@@ -61,6 +61,7 @@ const Navbar = ({ routePage = "homePage" }) => {
   const {
     palette: { mode }
   } = useTheme();
+
   const { socket, setSnackBar, withBackBtn } = useContext();
   const currentUser = useSelector(state => state.user.currentUser || {});
   const stateRef = useRef({
@@ -156,7 +157,7 @@ const Navbar = ({ routePage = "homePage" }) => {
   useEffect(() => {
     setOpenUserSelect(false);
     setOpenDrawer(false);
-    setPopover(prev => ({ ...prev, open: false }));
+    // setPopover(prev => ({ ...prev, open: false }));
   }, [isMd]);
 
   const toggleTheme = useCallback(() => {
@@ -190,7 +191,7 @@ const Navbar = ({ routePage = "homePage" }) => {
 
   const markNotification = async (
     index,
-    { setData, data },
+    { setData, data, infinitePaging },
     { handleState, cacheType, e, to }
   ) => {
     let filter = [];
@@ -199,12 +200,14 @@ const Navbar = ({ routePage = "homePage" }) => {
         e.stopPropagation();
         e.preventDefault();
       }
+
       setUnseens(unseens => ({
         ...unseens,
         notifications: unseens.notifications
-          ? unseens.notifications - (index === -1 ? data.length : 1)
+          ? unseens.notifications - (index === -1 ? data.data.length : 1)
           : 0
       }));
+
       const __data =
         index === -1
           ? (filter = data.data) && []
@@ -215,6 +218,7 @@ const Navbar = ({ routePage = "homePage" }) => {
               }
               return true;
             });
+
       if (cacheType)
         stateRef.current.notifications[cacheType] = {
           data: filter
@@ -262,9 +266,13 @@ const Navbar = ({ routePage = "homePage" }) => {
   };
 
   const handleSignOut = () => {
-    dispatch(signoutUser());
+    dispatch(signOutUser());
     setOpenDrawer(false);
     navigate("/");
+    setSnackBar({
+      message: `Signed out @${currentUser.username}`,
+      severity: "success"
+    });
   };
 
   const signinPath = `/auth/signin?redirect=${encodeURIComponent(
@@ -439,13 +447,17 @@ const Navbar = ({ routePage = "homePage" }) => {
       value={query}
       onChange={({ currentTarget }) => setQuery(currentTarget.value)}
       sx={{
+        mx: {
+          xs: 2,
+          md: 0
+        },
         "& label div.custom-input-content .custom-input": { py: 0 },
         "& > div": {
           borderRadius: "20px"
         }
       }}
       endAdornment={
-        <IconButton type="submit">
+        <IconButton onClick={() => navigate(`/search?q=${query}&tab=posts`)}>
           <SearchIcon />
         </IconButton>
       }
@@ -462,13 +474,13 @@ const Navbar = ({ routePage = "homePage" }) => {
             defaultType={type}
             markNotification={markNotification}
             cache={stateRef.current.notifications}
-            dataSx={{
-              minHeight: "300px",
-              maxHeight: "300px",
-              overflowY: "auto"
-            }}
             sx={{
-              minHeight: "366px"
+              position: "relative",
+              minHeight: "400px",
+              ".data-scrollable": {
+                maxHeight: "400px",
+                overflowY: "auto"
+              }
             }}
           />
         );

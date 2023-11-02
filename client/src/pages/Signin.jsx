@@ -7,7 +7,7 @@ import Checkbox from "@mui/material/Checkbox";
 import { signInWithPopupTimeout } from "api/firebase";
 import http from "api/http";
 import { useDispatch } from "react-redux";
-import { loginUser, signoutUser } from "context/slices/userSlice";
+import { signInUser, signOutUser } from "context/slices/userSlice";
 import { useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
 import { useSearchParams } from "react-router-dom";
@@ -20,6 +20,7 @@ import AccountBoxIcon from "@mui/icons-material/AccountBox";
 import CustomInput from "components/CustomInput";
 import { createRelativeURL } from "api/http";
 import BrandIcon from "components/BrandIcon";
+import { HTTP_CODE_INVALID_USER_ACCOUNT } from "context/constants";
 
 InputBase.defaultProps = {
   value: ""
@@ -55,7 +56,7 @@ const Signin = () => {
       : redirect;
 
   useEffect(() => {
-    dispatch(signoutUser());
+    dispatch(signOutUser());
   }, [dispatch]);
 
   const onSubmit = async e => {
@@ -71,14 +72,14 @@ const Signin = () => {
       switch (e) {
         case "google":
           user = (await signInWithPopupTimeout()).user;
-          user = await http.post(url, {
+          user = (await http.post(url, {
             username: user.displayName,
             displayName: user.displayName,
             email: user.email,
             photoUrl: user.photoURL,
             phoneNumber: user.phoneNumber,
             provider: e
-          });
+          })).data;
           break;
         default:
           if (
@@ -86,31 +87,34 @@ const Signin = () => {
               validateTypeMap: stateRef.current.validateTypeMap
             })
           )
-            user = await http.post(url, formData);
+            user = (await http.post(url, formData)).data;
           else return;
           break;
       }
-      dispatch(loginUser(user));
-      locState.from = "0";
+
+      dispatch(signInUser(user));
+
+      locState.from = 0;
+
       const prop = {
         state: locState
       };
+
       if (redirect) redirect = redirect.replace(/cv/, "view");
 
       navigate(redirect || "/", prop);
-    } catch (message) {
-      if (message.code) {
-        if (message.code === "auth/popup-closed-by-user")
-          message = "Authentication popup closed by you!";
-        else message = "Something went wrong!";
-      } else message = message.message || message;
+    } catch (err) {
+      if (err.code) {
+        if (err.code === "auth/popup-closed-by-user")
+          err.message = "Authentication popup closed by you!";
+      }
 
       reset(true);
 
-      if (message === "Account is not registered")
+      if (err.code === HTTP_CODE_INVALID_USER_ACCOUNT)
         stateRef.current.email = false;
 
-      message && setSnackBar(message);
+      err && setSnackBar(err.message);
     }
   };
 
@@ -212,7 +216,7 @@ const Signin = () => {
           </Stack>
           <Button
             variant="contained"
-            sx={{ width: "100%", mt: 2 }}
+            sx={{ width: "100%", mt: 2, py: 1 }}
             type="submit"
             disabled={isSubmitting}
           >
@@ -220,7 +224,7 @@ const Signin = () => {
           </Button>
           <Button
             variant="contained"
-            sx={{ width: "100%", mt: 2 }}
+            sx={{ width: "100%", mt: 2, py: 1 }}
             onClick={() => onSubmit("google")}
             disabled={isSubmitting}
           >

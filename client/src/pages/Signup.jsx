@@ -14,6 +14,7 @@ const Signup = () => {
     context: { userPlaceholder, userPlaceholderMethod },
     setContext
   } = useContext();
+
   const _handleAction = useCallback(
     reason => {
       switch (reason) {

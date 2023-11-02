@@ -20,7 +20,6 @@ const EmptyData = ({
 }) => (
   <Stack
     className={`custom-empty-data ${className}`}
-    p={1}
     sx={
       centerEmptyText
         ? {
@@ -29,6 +28,7 @@ const EmptyData = ({
             minHeight: "inherit",
             minWidth: "100%",
             overflow: "hidden",
+            flex: 1,
             ...sx
           }
         : sx

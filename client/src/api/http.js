@@ -1,11 +1,9 @@
-// verify
-import rootAxios, { AxiosError } from "axios";
+import rootAxios from "axios";
 import {
-  API_ENDPOINT,
+  API_ORIGIN,
   HTTP_CANCELLED_MSG,
   HTTP_403_MSG,
-  HTTP_401_MSG,
-  HTTP_DEFAULT_MSG
+  HTTP_401_MSG
 } from "context/constants";
 
 let isRefreshing = false;
@@ -46,47 +44,19 @@ export const createRelativeURL = (
 
 export const processQueue = (err, data) => {
   requestQueue.forEach((prom, i) => {
-    if (err) prom.reject(err);
-    else prom.resolve(data);
+    if (err) prom.reject({ err, config: prom.requestConfig });
+    else prom.resolve({ data, config: prom.requestConfig });
   });
   requestQueue = [];
 };
 
-export const getHttpErrMsg = (err, isT) => {
-  isT && console.log(err);
-  let message = HTTP_DEFAULT_MSG;
-  if (err instanceof AxiosError) {
-    switch (err.code?.toLowerCase()) {
-      case "auth/popup-closed-by-user":
-        message = "Popup closed by you";
-        break;
-      default:
-        switch (err.response.status) {
-          case 403:
-            message = HTTP_403_MSG;
-            break;
-          case 401:
-            message = HTTP_401_MSG;
-            break;
-          default:
-            if (err.response.status !== 500)
-              message = err.response.data || err.message || message;
-            break;
-        }
-        break;
-    }
-  } else message = err.message || err;
-  if (message.indexOf("Cast") > -1) message = HTTP_DEFAULT_MSG;
-
-  return message;
+export const getHttpErrMsg = err => {
+  return err.response ? err.response.data : err;
 };
 
 export const isTokenCancelled = rootAxios.isCancel;
 
-export const handleCancelRequest = (
-  url = "paths",
-  msg = HTTP_CANCELLED_MSG
-) => {
+export const handleCancelRequest = (url, msg = HTTP_CANCELLED_MSG) => {
   const handleCancel = key => {
     const source = cancelledMap[key];
     if (source) {
@@ -94,6 +64,7 @@ export const handleCancelRequest = (
       delete cancelledMap[key];
     }
   };
+
   if (url) handleCancel(url);
   else
     for (const key in cancelledMap) {
@@ -101,7 +72,13 @@ export const handleCancelRequest = (
     }
 };
 
-export const refetchHasVisitor = (requestConfig, err = "", method = "get") => {
+export const refetchHasVisitor = async (
+  requestConfig,
+  err = "",
+  method = "get"
+) => {
+  const _err = getHttpErrMsg(err);
+
   if (
     requestConfig &&
     (!requestConfig._refetchedHasVisitor &&
@@ -110,9 +87,13 @@ export const refetchHasVisitor = (requestConfig, err = "", method = "get") => {
   ) {
     requestConfig.withCredentials = false;
     requestConfig._refetchedHasVisitor = true;
-    return Promise.resolve(http.request(requestConfig));
+    try {
+      return await http.request(requestConfig);
+    } catch (err) {
+      return Promise.reject(getHttpErrMsg(err));
+    }
   }
-  return Promise.reject(getHttpErrMsg(err));
+  return Promise.reject(_err);
 };
 
 export const handleRefreshToken = (
@@ -127,21 +108,25 @@ export const handleRefreshToken = (
     .then(res => {
       requestConfig && (requestConfig._refreshed = true);
       processQueue(null);
-      return requestConfig ? http.request(requestConfig) : Promise.resolve(res);
+      return requestConfig ? http.request(requestConfig) : res;
     })
     .catch(err => {
-      err = getHttpErrMsg(err);
+      let refetch = refetchHasVisitior && requestConfig;
+
+      if (typeof err !== "string")
+        err.message = refetch ? HTTP_401_MSG : HTTP_403_MSG;
+
       processQueue(err);
-      return refetchHasVisitior && requestConfig
-        ? refetchHasVisitor(requestConfig, err)
-        : Promise.reject(err);
+
+      return refetchHasVisitor(requestConfig, err);
     })
     .finally(() => {
       isRefreshing = false;
     });
 };
+
 const http = rootAxios.create({
-  baseURL: API_ENDPOINT + "/api"
+  baseURL: API_ORIGIN + "/api"
 });
 
 http.interceptors.request.use(function(config) {
@@ -163,26 +148,24 @@ http.interceptors.response.use(
   },
   async err => {
     const requestConfig = err.config;
-    if (rootAxios.isCancel(err)) return Promise.reject("");
+    if (rootAxios.isCancel(err))
+      return Promise.reject((err.isCancelled = true) && err);
+
     if (err.response?.status === 401) {
       requestConfig._isT && console.log("has 401 ", isRefreshing);
       requestConfig._retryCount++;
       if (isRefreshing) {
-        requestConfig._isT && console.log("is refre ");
+        requestConfig._isT && console.log("is refre ", requestConfig.url);
         return new Promise(function(resolve, reject) {
-          requestQueue.push({ resolve, reject, url: requestConfig.url });
+          requestQueue.push({ resolve, reject, requestConfig });
         })
-          .then(_ =>
+          .then(({ config }) =>
             http
-              .request(requestConfig)
-              .then(res => Promise.resolve(res))
-              .catch(err => refetchHasVisitor(requestConfig, err))
+              .request(config)
+              .then(res => res)
+              .catch(err => refetchHasVisitor(config, err))
           )
-          .catch(_err =>
-            _err === "visitor"
-              ? refetchHasVisitor(requestConfig, err)
-              : Promise.reject(err)
-          );
+          .catch(({ config, err }) => refetchHasVisitor(config, err));
       } else if (requestConfig.withCredentials && !requestConfig._noRefresh)
         return handleRefreshToken(requestConfig);
     }

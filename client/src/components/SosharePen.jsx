@@ -1,6 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import propTypes from "prop-types";
-import { WidgetContainer } from "components/styled";
 import Loading from "components/Loading";
 import {
   Stack,
@@ -34,7 +33,10 @@ import { updateUser } from "context/slices/userSlice";
 import DeleteDialog from "components/DeleteDialog";
 import useDeleteDispatch from "hooks/useDeleteDispatch";
 import { isObject } from "utils/validators";
-const InputBox = ({
+import testVideo from "components/resized.mp4";
+import testImg from "components/img1.jpg";
+
+const SosharePen = ({
   sx,
   autoFocus = true,
   hideTextArea = false,
@@ -81,6 +83,16 @@ const InputBox = ({
     isInValid
   } = useForm({
     placeholders,
+    // {
+    //   [mediaRefName]:
+    //     [
+    //     {
+    //       type: "video",
+    //       url: testVideo
+    //     },
+    //     { type: "image", url: testImg }
+    //   ]
+    // },
     required,
     inputsOnly: submitInputsOnly,
     returnFormObject: true,
@@ -92,6 +104,7 @@ const InputBox = ({
       document: true
     }
   });
+
   const [dialog, setDialog] = useState({});
   const mediaCarouselRef = useRef();
   const fileRef = useRef();
@@ -242,16 +255,9 @@ const InputBox = ({
           dispatch(
             updateUser({
               key: "settings",
-              value:
-                dialog.openFor === "delete"
-                  ? {
-                      hideDelDialog: true
-                    }
-                  : {
-                      [dialog.multiple
-                        ? "hideDelMediasDialog"
-                        : "hideDelMediaDialog"]: data
-                    }
+              value: {
+                hideDelDialog: data
+              }
             })
           );
           break;
@@ -283,18 +289,16 @@ const InputBox = ({
         if (!currentUser.id) {
           const docId =
             placeholders && (placeholders.document.id || placeholders.document);
-          return setSnackBar(undefined, docId && { [docId]: formData });
+          return setSnackBar(
+            undefined,
+            docId && { [docId]: { ...placeholders, ...formData } }
+          );
         }
         const stateCtx = stateRef.current;
         const _formData = handleSubmit(undefined, {
           formData: new FormData()
         });
         if (_formData) {
-          console.log(
-            _formData.getAll(mediaRefName),
-            _formData.get("visibility"),
-            _formData.get("text")
-          );
           let _url =
             url +
             `?filteredMedias=${
@@ -336,22 +340,27 @@ const InputBox = ({
           if (handleAction)
             handleAction(placeholders ? "update" : "new", { document: res });
         }
-      } catch (msg) {
-        msg = message ? message.error || msg : msg;
-        if (Array.isArray(msg)) {
-          let err;
-          err = `Failed to upload`;
-          for (let i = 0; i < msg.length; i++) {
-            err += ` ${msg[i].file.originalname}${
-              i === msg.length - 1 ? "." : ","
+      } catch (err) {
+        if (err.isCancelled) return;
+
+        const errMsg = err.message;
+
+        if (Array.isArray(errMsg)) {
+          let msg;
+          msg = `Failed to upload`;
+          for (let i = 0; i < errMsg.length; i++) {
+            msg += ` ${errMsg[i].file.originalname}${
+              i === errMsg.length - 1 ? "." : ","
             }`;
           }
-          err += ` make sure all requirements are met or check connectivity`;
-          msg = err;
+          msg += ` make sure all requirements are met or check connectivity`;
+          errMsg = msg;
         }
-        msg && setSnackBar(msg);
+
+        setSnackBar(errMsg);
+
         reset(true, { stateChanged: true });
-        handleAction && handleAction("error", msg);
+        handleAction && handleAction("error", errMsg);
       }
     },
     [
@@ -462,7 +471,7 @@ const InputBox = ({
         }
       } else if (!hasErr) stateRef.current.hideErr = undefined;
     } catch (err) {
-      console.log(err);
+      console.error(err);
     }
   }, [errors, mediaRefName, setSnackBar, formData, closeSnackBar, setErrors]);
 
@@ -470,7 +479,7 @@ const InputBox = ({
 
   const handleDeleteAll = e => {
     e.stopPropagation();
-    if (currentUser.settings.hideDelMediasDialog) deleteMedia(true);
+    if (currentUser.settings.hideDelDialog) deleteMedia(true);
     else showDelDialog("delete-temp", true);
   };
 
@@ -483,20 +492,14 @@ const InputBox = ({
 
   return (
     <>
-      <WidgetContainer
+      <Box
         key={stateRef.current.key}
         sx={{
           px: 0,
+          pt: 2,
+          ".custom-media-carousel": { width: "calc(100% - 32px)", mx: "auto" },
           ...sx,
-          overflowX: isSubmitting ? "hidden" : "auto",
-          maxHeight: "none",
-          minHeight: "0",
-          backgroundColor: "transparent",
-          borderBottom: "1px solid #333",
-          borderBottomColor: "divider",
-          borderRadius: 0,
-          mb: 0,
-          width: "100%"
+          overflow: isSubmitting ? "hidden" : "auto"
         }}
       >
         {disable ? (
@@ -510,89 +513,86 @@ const InputBox = ({
           ></div>
         ) : null}
         <form onSubmit={onSubmit}>
-          <Stack
-            alignItems="flex-start"
-            justifyContent="flex-start"
-            gap={{
-              xs: 1,
-              s320: 2
-            }}
-            px={{
-              xs: 1,
-              s320: 2
-            }}
-          >
-            <Avatar
-              variant="sm"
-              src={currentUser.photoUrl}
-              alt={currentUser.username}
-            />
-            <Box
-              sx={{
-                minWidth: "0",
-                flex: "1",
-                display: "flex",
-                flexDirection: "column"
-                // width: "150px"
+          <div>
+            <Stack
+              alignItems="flex-start"
+              justifyContent="flex-start"
+              px={2}
+              gap={{
+                xs: 1,
+                md: 2
               }}
             >
-              <Stack>
-                <Select
-                  className="Mui-custom-select"
-                  value={formData.visibility || "everyone"}
-                  sx={{
-                    width: "100%",
-                    maxWidth: "150px",
-                    marginInline: "auto",
-                    borderRadius: 24,
-                    p: 0,
-                    m: 0,
-                    color: "primary.main",
-                    "&:hover,&:focus": {
-                      background: "none"
-                    },
-                    "& .MuiSvgIcon-root": {
-                      pr: "0.25rem",
-                      fontSize: "32px",
-                      color: "primary.main"
-                    },
-                    "& .MuiInputBase-input": {
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      textTransform: "capitalize",
-                      p: 1
-                    },
-                    ".MuiOutlinedInput-notchedOutline": {
-                      borderColor: "primary.main"
-                    },
-                    "&:hover .MuiOutlinedInput-notchedOutline": {
-                      borderColor: "primary.main"
-                    }
-                  }}
-                  onChange={({ target: { value } }) => {
-                    stateRef.current.hideErr = true;
-                    formData.visibility = value;
-                    reset({ ...formData });
-                  }}
-                >
-                  <MenuItem value="everyone">Everyone</MenuItem>
-                  <MenuItem value="private">Private</MenuItem>
-                  <MenuItem value="followers only">Followers only</MenuItem>
-                </Select>
-                {isSubmitting ? (
-                  <Loading
+              <Avatar
+                variant="md"
+                src={currentUser.photoUrl}
+                alt={currentUser.username}
+              />
+              <Box
+                sx={{
+                  minWidth: "0",
+                  flex: "1",
+                  display: "flex",
+                  flexDirection: "column",
+                  width: "150px"
+                }}
+              >
+                <Stack>
+                  <Select
+                    className="Mui-custom-select"
+                    value={formData.visibility || "everyone"}
                     sx={{
-                      minHeight: "none",
-                      height: "auto",
+                      width: "100%",
+                      maxWidth: "150px",
+                      marginInline: "auto",
+                      borderRadius: 24,
                       p: 0,
-                      width: "auto",
-                      minWidth: 0
+                      m: 0,
+                      color: "primary.main",
+                      "&:hover,&:focus": {
+                        background: "none"
+                      },
+                      "& .MuiSvgIcon-root": {
+                        pr: "0.25rem",
+                        fontSize: "32px",
+                        color: "primary.main"
+                      },
+                      "& .MuiInputBase-input": {
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        textTransform: "capitalize",
+                        p: 1
+                      },
+                      ".MuiOutlinedInput-notchedOutline": {
+                        borderColor: "primary.main"
+                      },
+                      "&:hover .MuiOutlinedInput-notchedOutline": {
+                        borderColor: "primary.main"
+                      }
                     }}
-                  />
-                ) : null}
-              </Stack>
-              {hideTextArea ? null : (
-                <label htmlFor={textareaId}>
+                    onChange={({ target: { value } }) => {
+                      stateRef.current.hideErr = true;
+                      formData.visibility = value;
+                      reset({ ...formData });
+                    }}
+                  >
+                    <MenuItem value="everyone">Everyone</MenuItem>
+                    <MenuItem value="private">Private</MenuItem>
+                    <MenuItem value="followers only">Followers only</MenuItem>
+                  </Select>
+                  {isSubmitting ? (
+                    <Loading
+                      sx={{
+                        minHeight: "none",
+                        height: "auto",
+                        p: 0,
+                        width: "auto",
+                        minWidth: 0
+                      }}
+                    />
+                  ) : null}
+                </Stack>
+                {hideTextArea ? null : (
                   <Typography
                     ref={inputRef}
                     name="text"
@@ -623,62 +623,81 @@ const InputBox = ({
                     data-max={max}
                     className={`inputbox-textarea ${inputClassName}`}
                   />
-                  <Typography
-                    sx={{
-                      float: "right",
-                      pr: 1
-                    }}
-                  >
-                    {(formData.text || "").length || 0} / {max}
-                  </Typography>
-                </label>
-              )}
-            </Box>
-          </Stack>
-          {hideTextArea ? null : <Divider sx={{ my: 1 }} />}
-          <MediaCarousel
-            medias={
-              multiple
-                ? formData[mediaRefName]
-                : formData[mediaRefName] && [formData[mediaRefName]]
-            }
-            showIndicator={multiple && showIndicator}
-            ref={mediaCarouselRef}
-            onCarouselChange={setCurrentSlide}
-            currentSlide={currentSlide}
-            videoPlayerProps={videoPlayerProps}
-            actionBar={
-              showActionBar ? (
-                <>
-                  <IconButton disabled={disable} onClick={handleDeleteAll}>
-                    <CloseIcon />
-                  </IconButton>
-                  {multiple ? (
-                    <IconButton
-                      disabled={disable}
-                      onClick={e => {
-                        e.stopPropagation();
-                        if (currentUser.settings.hideDelMediaDialog)
-                          deleteMedia();
-                        else showDelDialog("delete-temp");
-                      }}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  ) : null}
-                </>
-              ) : (
-                undefined
-              )
-            }
-          />
+                )}
+              </Box>
+            </Stack>
+            {formData[mediaRefName] ? (
+              <>
+                <Divider />
+                <MediaCarousel
+                  medias={
+                    multiple
+                      ? formData[mediaRefName]
+                      : formData[mediaRefName] && [formData[mediaRefName]]
+                  }
+                  showIndicator={multiple && showIndicator}
+                  ref={mediaCarouselRef}
+                  onCarouselChange={setCurrentSlide}
+                  currentSlide={currentSlide}
+                  videoPlayerProps={videoPlayerProps}
+                  actionBar={
+                    showActionBar ? (
+                      <>
+                        <IconButton
+                          disabled={disable}
+                          onClick={handleDeleteAll}
+                        >
+                          <CloseIcon />
+                        </IconButton>
+                        {multiple ? (
+                          <IconButton
+                            disabled={disable}
+                            onClick={e => {
+                              e.stopPropagation();
+                              if (currentUser.settings.hideDelDialog)
+                                deleteMedia();
+                              else showDelDialog("delete-temp");
+                            }}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        ) : null}
+                      </>
+                    ) : (
+                      undefined
+                    )
+                  }
+                />
+              </>
+            ) : null}
+            {hideTextArea ? null : (
+              <label htmlFor={textareaId}>
+                <Typography
+                  sx={{
+                    textAlign: "right",
+                    paddingRight: "16px"
+                  }}
+                >
+                  {(formData.text || "").length || 0} / {max}
+                </Typography>
+              </label>
+            )}
+          </div>
           <Stack
+            className="input-box-actions"
             mt={1}
-            px={2}
             justifyContent="flex-end"
             flexWrap={{
               xs: "wrap",
               s200: "nowrap"
+            }}
+            sx={{
+              border: "1px solid currentColor",
+              borderColor: "divider",
+              borderLeft: "none",
+              borderRight: "none",
+              py: 1,
+              px: 2
             }}
           >
             <input
@@ -779,7 +798,7 @@ const InputBox = ({
             </Stack>
           </Stack>
         </form>
-      </WidgetContainer>
+      </Box>
       <DeleteDialog {...dialog} handleAction={_handleAction} />
 
       <Popover {...moreActionPopover} onClose={closeMoreActionPopover}>
@@ -843,6 +862,6 @@ const InputBox = ({
   );
 };
 
-InputBox.propTypes = {};
+SosharePen.propTypes = {};
 
-export default InputBox;
+export default SosharePen;

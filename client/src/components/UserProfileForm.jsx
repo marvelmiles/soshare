@@ -1,6 +1,6 @@
 import React, { useEffect, useCallback, useState, useRef } from "react";
 import PropTypes from "prop-types";
-import useForm, { isLink } from "hooks/useForm";
+import useForm from "hooks/useForm";
 import { WidgetContainer, StyledLink, StyledAvatar } from "components/styled";
 import { LoadingDot } from "components/Loading";
 import Box from "@mui/material/Box";
@@ -12,14 +12,15 @@ import {
   updatePreviewUser,
   deleteFromPreviewUser
 } from "context/slices/userSlice";
-import { useNavigate, useLocation } from "react-router-dom";
 import { useContext } from "context/store";
 import { Typography, IconButton } from "@mui/material";
-import http from "api/http";
+import http, { handleCancelRequest } from "api/http";
 import Avatar from "@mui/material/Avatar";
 import AddAPhotoIcon from "@mui/icons-material/AddAPhoto";
 import CustomInput from "./CustomInput";
-import { withDebounceFn } from "utils";
+import { debounce } from "@mui/material";
+
+const withDebounceFn = debounce(cb => cb(), 400);
 
 const UserProfileForm = ({
   width,
@@ -41,12 +42,17 @@ const UserProfileForm = ({
   requiredOnly,
   method
 }) => {
+  const { setSnackBar, locState } = useContext();
+
   const stateRef = useRef({
-    fileKey: `drag-drop-area-input-file-upload-${Date.now()}`,
-    inputs: {}
+    fileKey: `drag-drop-area-input-file-upload-${Date.now()}`
   });
+
+  const fileRef = useRef();
+
   const [photoUrl, setPhotoUrl] = useState(placeholders?.photoUrl);
-  const locState = useLocation().state;
+  placeholders = locState.user || placeholders;
+
   const {
     formData,
     errors,
@@ -61,22 +67,12 @@ const UserProfileForm = ({
     dataType: {
       socials: "object"
     },
-    placeholders:
-      locState?.user ||
-      (placeholders && {
-        username: placeholders.username,
-        email: placeholders.email,
-        displayName: placeholders.displayName,
-        bio: placeholders.bio,
-        location: placeholders.location,
-        socials: placeholders.socials
-      }),
     withPlaceholders: false,
     dataSize: 4
   });
-  const { setSnackBar } = useContext();
+
   const dispatch = useDispatch();
-  const navigate = useNavigate();
+
   const fluidSize = {
     xs: "50px",
     s200: "120px",
@@ -87,44 +83,55 @@ const UserProfileForm = ({
     for (const key in formData) {
       switch (key) {
         case "socials":
-          hasChanged =
-            Object.keys(formData[key] || {}).length !==
-            Object.keys(placeholders[key] || {}).length;
+          for (const key in formData.socials) {
+            hasChanged = placeholders.socials[key] !== formData.socials[key];
+          }
           break;
         default:
-          hasChanged = formData[key] !== placeholders[key];
+          hasChanged = formData[key] !== placeholders?.[key];
           break;
       }
       if (hasChanged) break;
     }
-
     return hasChanged;
   })()
     ? !isInValid
     : false;
 
   useEffect(() => {
-    let url;
+    let photoUrl;
+
+    const stateCtx = stateRef.current;
+
     withDebounceFn(() => {
       const node = document.activeElement;
       const key = node.name;
       const name = node.dataset.name;
+
       if (errors[key] || errors[name]) {
         if (node.nodeName === "INPUT") {
           dispatch(deleteFromPreviewUser({ [key]: name }));
         }
       } else {
-        url = formData.avatar ? URL.createObjectURL(formData.avatar) : "";
+        photoUrl = formData.avatar ? URL.createObjectURL(formData.avatar) : "";
 
+        const data = {};
+
+        for (const key in formData) {
+          if (!errors[key]) data[key] = formData[key];
+        }
         dispatch(
           updatePreviewUser({
-            ...formData,
-            photoUrl: url
+            ...data,
+            photoUrl
           })
         );
       }
     });
-    return () => url && URL.revokeObjectURL(url);
+    return () => {
+      stateCtx.url && handleCancelRequest(stateCtx.url);
+      photoUrl && URL.revokeObjectURL(photoUrl);
+    };
   }, [dispatch, isInValid, formData, errors]);
 
   useEffect(() => {
@@ -138,16 +145,24 @@ const UserProfileForm = ({
   const onSubmit = useCallback(
     async e => {
       try {
+        const stateCtx = stateRef.current;
+
         const formData = handleSubmit(e, {
           formData: new FormData()
         });
-        let user;
-        // return console.log(stateRef.current.inputs, formData);
+
         if (formData) {
-          user = await http[method || (placeholders ? "put" : "post")](
-            placeholders ? "/users" : "/auth/signup",
-            stateRef.current.inputs
+          const url = placeholders ? "/users" : "/auth/signup";
+
+          stateCtx.url = url;
+
+          const res = await http[method || (placeholders ? "put" : "post")](
+            url,
+            formData
           );
+
+          if (!res.success) throw res;
+
           setSnackBar({
             message: placeholders ? (
               "Updated profile successfully!"
@@ -160,27 +175,24 @@ const UserProfileForm = ({
             severity: "success"
           });
 
-          reset(placeholders && user);
+          reset(placeholders && res.data);
           handleAction &&
-            handleAction(placeholders ? "update" : "new", { document: user });
+            handleAction(placeholders ? "update" : "new", {
+              document: res.data
+            });
         }
-      } catch (message) {
-        setSnackBar(message);
-        reset(true, {
-          stateChanged: true
-        });
+      } catch (err) {
+        !err.isCancelled && setSnackBar(err.message);
+        reset(true);
       }
     },
     [handleAction, handleSubmit, placeholders, reset, setSnackBar, method]
   );
   const handlePhotoTransfer = file => {
-    reset(
-      {
-        ...formData,
-        avatar: file
-      },
-      { stateChanged: true, withInput: true }
-    );
+    reset({
+      ...formData,
+      avatar: file
+    });
   };
 
   const handlePhotoReset = e => {
@@ -189,42 +201,16 @@ const UserProfileForm = ({
     const data = {
       ...formData
     };
+
     delete data.avatar;
-    reset(data, {
-      resetErrors: false
-    });
+    fileRef.current.value = "";
+
+    reset(data);
   };
   const resetForm = e => {
     e.stopPropagation();
     reset(placeholders);
     dispatch(updatePreviewUser(placeholders));
-  };
-
-  const onChange = e => {
-    handleChange(e, ({ key, value, keyValue, dataName }) => {
-      switch (key) {
-        case "socials":
-          if (
-            placeholders &&
-            (stateRef.current.inputs[key] &&
-              value === placeholders[key][dataName])
-          )
-            delete stateRef.current.inputs[key][dataName];
-          else if (isLink(value)) {
-            if (!stateRef.current.inputs[key])
-              stateRef.current.inputs[key] = {};
-            stateRef.current.inputs[key][dataName] = value;
-          } else if (value) return "Invalid profile link";
-          else delete keyValue[dataName];
-          return false;
-
-        default:
-          if (placeholders && value === placeholders[key]) {
-            delete stateRef.current.inputs[key];
-          } else stateRef.current.inputs[key] = value;
-          return false;
-      }
-    });
   };
 
   return (
@@ -260,12 +246,15 @@ const UserProfileForm = ({
                 }
               }}
               src={placeholders?.photoUrl}
-              title={`${placeholders?.username || "blank"} avatar`}
+              title={`${placeholders?.username ||
+                placeholders?.displayName ||
+                "blank"} avatar`}
             />
           </StyledAvatar>
         ) : (
           <Box>
             <DragDropArea
+              ref={fileRef}
               autoResetOnDrop
               multiple={false}
               mimetype="image"
@@ -278,7 +267,10 @@ const UserProfileForm = ({
               sx={{
                 width: fluidSize,
                 height: fluidSize,
-                mx: "auto"
+                mx: "auto",
+                ...(formData.avatar
+                  ? { borderColor: "primary.dark" }
+                  : undefined)
               }}
             >
               <div
@@ -292,14 +284,31 @@ const UserProfileForm = ({
                   title={
                     formData.avatar
                       ? `${formData.avatar.name} photo`
-                      : `@${((formData.avatar || placeholders?.photoUrl) &&
-                          (formData.username || placeholders?.username)) ||
+                      : `@${formData.username ||
+                          formData.displayName ||
+                          placeholders?.username ||
+                          placeholders?.displayName ||
                           "avatar"}`
                   }
                   sx={{
                     width: "100%",
                     height: "100%",
-                    borderRadius: "inherit"
+                    borderRadius: "inherit",
+                    position: "relative",
+                    "svg#person-icon": {
+                      width: "75%",
+                      height: "75%"
+                    },
+                    "svg#upload-icon": {
+                      position: "absolute",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                      zIndex: 1,
+                      width: "20px",
+                      height: "20px",
+                      color: "grey.600",
+                      top: "30px"
+                    }
                   }}
                 />
                 <IconButton
@@ -415,14 +424,16 @@ const UserProfileForm = ({
             placeholder: "Twitter Link",
             searchValue: "twitter",
             dataName: "twitter",
-            nullify: requiredOnly
+            nullify: requiredOnly,
+            type: "url"
           },
           {
             name: "socials",
             placeholder: "LinkedIn link",
             searchValue: "linkedin",
             dataName: "linkedIn",
-            nullify: requiredOnly
+            nullify: requiredOnly,
+            type: "url"
           },
           {
             name: "bio",
@@ -441,6 +452,7 @@ const UserProfileForm = ({
               : input.dataName
               ? formData[input.name]?.[input.dataName]
               : formData[input.name]) || "";
+
           return input.nullify ? null : (
             <CustomInput
               key={index}
@@ -471,7 +483,7 @@ const UserProfileForm = ({
               required={required && (required === true || required[input.name])}
               value={value}
               data-changed={!!value}
-              onChange={onChange}
+              onChange={handleChange}
             />
           );
         })}
@@ -481,11 +493,11 @@ const UserProfileForm = ({
         <Button
           type="submit"
           variant="contained"
-          sx={{ width: "100%", mt: 2 }}
+          sx={{ width: "100%", mt: 2, py: 1 }}
           disabled={!hasChanged || isSubmitting}
         >
           {isSubmitting ? (
-            <LoadingDot />
+            <LoadingDot sx={{ py: 1 }} />
           ) : (method === "post" ? (
               false
             ) : (

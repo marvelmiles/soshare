@@ -40,15 +40,16 @@ export const createShort = async (req, res, next) => {
 export const getFeedShorts = async (req, res, next) => {
   const start = new Date();
   start.setDate(start.getDate() - 1);
+
   return getFeedMedias({
     model: Short,
     req,
     res,
     next,
     match: {
-      // createdAt: {
-      //   $gte: start
-      // }
+      createdAt: {
+        $gte: start
+      }
     }
   });
 };

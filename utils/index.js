@@ -1,6 +1,7 @@
 import Notification from "../models/Notification.js";
 import { isObject } from "./validators.js";
 import Comment from "../models/Comment.js";
+import { console500MSG } from "./error.js";
 
 export const getAll = async ({
   query = {},
@@ -16,13 +17,12 @@ export const getAll = async ({
       cursor,
       asc = "false",
       withEq = "true",
-      randomize,
+      randomize = "true",
       withMatchedDocs = "false",
       exclude = ""
     } = query;
 
     limit = (Number(limit) || 20) + 1;
-
     asc = asc === "true";
     withEq = withEq === "true";
     withMatchedDocs = withMatchedDocs === "true";
@@ -63,8 +63,6 @@ export const getAll = async ({
     }
 
     if (cursor) cursor = decodeURIComponent(cursor);
-
-    let result, matchedDocs;
 
     if (asc) sort[dataKey ? dataKey : "_id"] = 1;
     else sort[dataKey ? dataKey : "_id"] = -1;
@@ -114,16 +112,19 @@ export const getAll = async ({
             $match: match
           },
           { $sort: sort },
-          {
-            $limit: limit
-          },
+
           {
             $unset: ["_id", "password"]
           }
         ];
 
+    const limitIndex = dataKey ? 6 : 3;
+
     if (randomize)
-      pipelines.splice(dataKey ? 5 : 3, 0, { $sample: { size: limit } });
+      pipelines.splice(limitIndex, 0, {
+        $sample: { size: cursor ? limit : Infinity }
+      });
+    else if (cursor) pipelines.splice(limitIndex, 0, { $limit: limit });
 
     if (cursor) {
       const cursorIdRules = {
@@ -131,21 +132,16 @@ export const getAll = async ({
       };
 
       if (dataKey) {
-        pipelines.splice(
-          randomize ? 6 : 5,
-          0,
-          {
-            $match: {
-              [dataKey]: {
-                ...pipelines[5].$match[dataKey],
-                ...cursorIdRules
-              }
+        pipelines.splice(5, 1, {
+          $match: {
+            [dataKey]: {
+              ...pipelines[5].$match[dataKey],
+              ...cursorIdRules
             }
-          },
-          { $limit: limit }
-        );
+          }
+        });
       } else {
-        pipelines.splice(1, 0, {
+        pipelines.splice(1, 1, {
           $match: {
             ...pipelines[1].$match,
             _id: {
@@ -157,50 +153,42 @@ export const getAll = async ({
       }
     }
 
-    result = await model.populate(await model.aggregate(pipelines), populate);
+    let result = await model.populate(
+      await model.aggregate(pipelines),
+      populate
+    );
 
     match = pipelines[1].$match;
 
-    (withMatchedDocs || randomize) &&
-      (matchedDocs = dataKey
-        ? ((await model.findOne(match)) || {})[dataKey]?.length || 0
-        : await model.countDocuments(match));
-
     if (dataKey && result[0]) result = result[0][dataKey];
 
-    // if (
-    //   (() => {
-    //     const arr = Array.from(new Array(40)).map((_, i) => !!(i % 2));
-    //     const rand = Math.floor(Math.random() * arr.length);
-    //     return arr[rand];
-    //   })()
-    // ) {
-    //   const err = new Error("Internal error set");
-    //   err.status = 500;
-    //   throw err;
-    // }
-
     cursor = null;
+
+    const matchedDocs = result.length;
+
+    if (!cursor) result = result.slice(0, limit);
+
     if (result.length === limit) {
       cursor = result[limit - 1].id;
       result.pop();
     }
 
-    // console.clear();
-    // console.log(matchedDocs, withMatchedDocs, randomize, cursor);
+    return new Promise((rs, rj) => {
+      setTimeout(() => {
+        rs({
+          data: result,
+          paging: {
+            matchedDocs,
+            nextCursor: cursor ? encodeURIComponent(cursor) : null
+          }
 
-    return new Promise(r => {
-      setTimeout(
-        () =>
-          r({
-            data: result,
-            paging: {
-              matchedDocs,
-              nextCursor: cursor ? encodeURIComponent(cursor) : null
-            }
-          }),
-        2000
-      );
+          // data: [],
+          // paging: {
+          //   matchedDocs: 0,
+          //   nextCursor: null
+          // }
+        });
+      }, 2000);
     });
   } catch (err) {
     throw err;
@@ -361,11 +349,7 @@ export const sendAndUpdateNotification = async ({
     }
   } catch (err) {
     match && (match.users = [from]);
-    console.error(
-      `[SERVER_ERROR: Notification]: Match data: ${
-        err.message
-      }: ${JSON.stringify(match)} at ${new Date()}.`
-    );
+    console500MSG(err, "NOTIFICATION_ERROR");
   }
 };
 
@@ -406,11 +390,7 @@ export const handleMiscDelete = async (docId, io, options = {}) => {
 
     cb && cb();
   } catch (err) {
-    console.error(
-      `[SERVER_Error: Misc Delete] id: ${docId}. ${
-        err.message
-      } at ${new Date()}.`
-    );
+    console500MSG(err, "MISC_Delete_ERROR");
   }
 };
 
@@ -500,4 +480,13 @@ export const getThreadsByRelevance = async (docId, query = {}, model, v) => {
   }
 
   return threads;
+};
+
+export const getType = obj => {
+  if (Array.isArray(obj)) return "array";
+  else return typeof obj;
+};
+
+export const setFutureDate = days => {
+  return new Date(new Date().getTime() + days * 86400000);
 };

@@ -9,6 +9,7 @@ import {
 import { createError } from "./error.js";
 import User from "../models/User.js";
 import { deleteFile } from "./file-handlers.js";
+import { isObjectId } from "./validators.js";
 
 export const getFeedMedias = async ({
   req,
@@ -20,13 +21,13 @@ export const getFeedMedias = async ({
   populate,
   refPath,
   isVisiting,
-  vet,
+  verify,
   ...rest
 }) => {
   try {
-    req.query.randomize = "false";
-    req.query.withMatchedDocs = "true";
-    if (req.cookies?.access_token) verifyToken(req);
+    console.log(!!req.cookies.access_token, " with access_token..res-res-hook");
+
+    if (req.cookies.access_token) verifyToken(req);
 
     if (!match && req.params.documentId) {
       match = {
@@ -140,11 +141,14 @@ export const getDocument = async ({
   try {
     const _id = req.params.id || req.params.userId;
 
+    if (!isObjectId(_id)) throw createError("Invalid request!", 404);
+
     if (req.cookies.access_token) verifyToken(req);
+
     let list = [];
-    if (req.user) {
-      list = (await User.findById(req.user.id)).recommendationBlacklist;
-    }
+    if (req.user)
+      list = (await User.findById(req.user.id)).recommendationBlacklist || [];
+
     const query = await createVisibilityQuery({
       userId: req.user?.id,
       searchUser: req.params.userId,
@@ -157,6 +161,7 @@ export const getDocument = async ({
 
     let doc = await model.findOne(query);
     if (!doc) throw createError(`${model.modelName} not found`, 404);
+
     if (list.includes(doc.user)) throw createError(`owner blacklisted`, 400);
     doc = await doc.populate(populate);
 

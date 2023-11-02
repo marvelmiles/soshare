@@ -2,6 +2,10 @@
 // production wise you might want to just console.log unused file
 // and manully delete them just to decrease server workload
 
+// minor issues
+
+// getAll send data in pagination format rather than standard format
+
 import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
@@ -16,10 +20,11 @@ import shortRoutes from "./routes/short.js";
 import miscRoutes from "./routes/misc.js";
 import commentRoutes from "./routes/comment.js";
 import cookieParser from "cookie-parser";
-import { CLIENT_ENDPOINT } from "./config.js";
 import socket from "./socket.js";
-import { createError } from "./utils/error.js";
-import { deleteFile } from "./utils/file-handlers.js";
+import { isProdMode, CLIENT_ORIGIN } from "./constants.js";
+import { errHandler } from "./utils/middlewares.js";
+import timeout from "connect-timeout";
+import { console500MSG } from "./utils/error.js";
 
 // CONFIGURATIONS
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -30,7 +35,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: CLIENT_ENDPOINT,
+    origin: CLIENT_ORIGIN,
     optionsSuccessStatus: 200,
     credentials: true
   })
@@ -47,8 +52,12 @@ app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 
 app.use(cookieParser());
+// app.use(timeout("60s"));
+
 app.use("/assets", express.static(path.join(__dirname, "public/assets")));
+
 app.use(express.static("./client/build"));
+
 // ROUTES
 
 app.use("/api/auth", authRoutes);
@@ -61,28 +70,7 @@ app.get("/*", function(req, res) {
   res.sendFile(path.join(__dirname, "./client/build/index.html"));
 });
 
-app.use((err, req, res, next) => {
-  if (res.headersSent) {
-    console.warn(
-      "[SERVER_ERROR: HEADER SENT]",
-      req.headers.origin,
-      req.originalUrl,
-      " at ",
-      new Date()
-    );
-  } else {
-    err = err.status
-      ? err
-      : (err.message ? (err.url = req.url || "-") : true) && createError(err);
-    if (err) res.status(err.status).json(err.message);
-  }
-
-  if (req.file) deleteFile(req.file.publicUrl);
-  if (req.files)
-    for (const { publicUrl } of req.files) {
-      deleteFile(publicUrl);
-    }
-});
+app.use(errHandler);
 
 // MONGOOSE SETUP
 
@@ -90,7 +78,7 @@ mongoose.set("strictQuery", true);
 mongoose.set("strictPopulate", false);
 
 mongoose
-  .connect(process.env.MONGODB_URI, {
+  .connect(process.env[isProdMode ? "MONGODB_PROD_URI" : "MONGODB_DEV_URI"], {
     useNewUrlParser: true,
     useUnifiedTopology: true
   })
@@ -100,10 +88,4 @@ mongoose
     // User.insertMany(users);
     // Post.insertMany(posts);
   })
-  .catch(error =>
-    console.log(
-      `[SERVER_ERROR: DB_CONNECT_ERR] ${
-        error.message
-      } did not connect at ${new Date()}`
-    )
-  );
+  .catch(err => console500MSG(err, "DB_CONNECT_ERR"));

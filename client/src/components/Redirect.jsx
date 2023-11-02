@@ -6,7 +6,7 @@ import Loading from "components/Loading";
 import { useContext } from "context/store";
 
 const Redirect = ({
-  message = `You are not authorized to view this page and will be redirected soon...`,
+  message = `You are not allowed to view this page and will be redirected soon...`,
   to,
   fallbackPath = "/",
   delay = 5000

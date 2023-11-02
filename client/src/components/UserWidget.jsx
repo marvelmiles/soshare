@@ -13,21 +13,28 @@ import { useSelector } from "react-redux";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import { useContext } from "context/store";
 import { useDispatch } from "react-redux";
-import { updateUser, updatePreviewUser } from "context/slices/userSlice";
+import {
+  updateUser,
+  updatePreviewUser,
+  defaultUser
+} from "context/slices/userSlice";
 import UserTip from "tooltips/UserTip";
+import { anchorAttrs } from "context/constants";
+import Loading from "./Loading";
 
 const UserWidget = ({ width, user }) => {
   const { socket } = useContext();
-  const { previewUser, currentUser } = useSelector(({ user }) => user);
+  const { previewUser, currentUser } = useSelector(state => state.user);
 
-  const [cUser, setCUser] = useState(user || currentUser);
+  const [cUser, setCUser] = useState(defaultUser);
+
   const dispatch = useDispatch();
   const stateRef = useRef({
     withSocket: !user,
     cid: cUser.id
   });
 
-  const isCurrentUser = user?.id ? user.id === currentUser.id : true;
+  const isCurrentUser = user?.id ? user.id === currentUser.id : false;
 
   useEffect(() => {
     if (socket) {
@@ -51,7 +58,8 @@ const UserWidget = ({ width, user }) => {
     isCurrentUser &&
       setCUser(u => ({
         ...u,
-        ...currentUser
+        ...currentUser,
+        photoUrl: currentUser.photoUrl || u.photoUrl
       }));
   }, [currentUser, isCurrentUser]);
 
@@ -59,14 +67,16 @@ const UserWidget = ({ width, user }) => {
     isCurrentUser &&
       setCUser(u => ({
         ...u,
-        ...previewUser
+        ...previewUser,
+        photoUrl: previewUser.photoUrl || u.photoUrl
       }));
   }, [previewUser, isCurrentUser]);
 
   useEffect(() => {
     setCUser(u => ({
       ...u,
-      ...user
+      ...user,
+      photoUrl: user?.photoUrl || u.photoUrl
     }));
   }, [user]);
 
@@ -85,7 +95,13 @@ const UserWidget = ({ width, user }) => {
         color: "text.secondary"
       }
     },
-    divider: { my: 3 }
+    divider: { my: 3 },
+    anchorSx: {
+      color: "text.secondary",
+      "&:hover": {
+        textDecoration: "underline"
+      }
+    }
   };
   return (
     <WidgetContainer
@@ -94,111 +110,113 @@ const UserWidget = ({ width, user }) => {
       }}
       className="widget-container"
     >
-      <UserTip
-        disableSnippet
-        actionBar={
-          isCurrentUser && !user ? (
-            <IconButton component={StyledLink} to={`/u/${cUser.id}`}>
-              <ManageAccountsOutlined />
-            </IconButton>
-          ) : null
-        }
-        user={cUser}
-        isOwner={isCurrentUser}
-      />
-      {cUser.occupation || cUser.location ? (
+      {user && !user.id ? (
+        <Loading />
+      ) : (
         <>
+          <UserTip
+            disableSnippet
+            actionBar={
+              isCurrentUser && !user ? (
+                <IconButton component={StyledLink} to={`/u/${cUser.id}`}>
+                  <ManageAccountsOutlined />
+                </IconButton>
+              ) : null
+            }
+            user={cUser}
+            isOwner={isCurrentUser}
+          />
+          {cUser.occupation || cUser.location ? (
+            <>
+              <Divider sx={styles.divider} />
+              <Box>
+                {cUser.location ? (
+                  <Stack sx={styles.textValue}>
+                    <LocationOnOutlinedIcon />
+                    <Typography>{cUser.location}</Typography>
+                  </Stack>
+                ) : null}
+                {cUser.occupation ? (
+                  <Stack sx={styles.textValue}>
+                    <WorkOutlinedIcon />
+                    <Typography>{cUser.occupation}</Typography>
+                  </Stack>
+                ) : null}
+              </Box>
+            </>
+          ) : null}
           <Divider sx={styles.divider} />
           <Box>
-            {cUser.location ? (
-              <Stack sx={styles.textValue}>
-                <LocationOnOutlinedIcon />
-                <Typography>{cUser.location}</Typography>
-              </Stack>
-            ) : null}
-            {cUser.occupation ? (
-              <Stack sx={styles.textValue}>
-                <WorkOutlinedIcon />
-                <Typography>{cUser.occupation}</Typography>
-              </Stack>
-            ) : null}
-          </Box>
-        </>
-      ) : null}
-      <Divider sx={styles.divider} />
-      <Box>
-        <Typography
-          variant="h5"
-          color="text.secondary"
-          fontWeight="500"
-          mb="1rem"
-        >
-          Social Profiles
-        </Typography>
-        <Stack sx={styles.textValue}>
-          <div title={"Email"}>
-            <MailOutlineIcon sx={{ cursor: "default" }} />
-          </div>
-          <div style={{ minWidth: "100px", flex: 1 }}>
             <Typography
+              variant="h5"
+              color="text.secondary"
               fontWeight="500"
-              sx={{
-                color: "text.secondary"
-              }}
+              mb="1rem"
             >
-              {cUser.email}
+              Social Profiles
             </Typography>
-            <Typography>Mail Service</Typography>
-          </div>
-        </Stack>
-        {Object.keys(cUser.socials).map((l, i) => {
-          const url = cUser.socials[l];
-          return (
-            <Stack sx={styles.textValue} key={i}>
-              {
-                {
-                  twitter: (
-                    <div title={l}>
-                      <TwitterIcon sx={{ cursor: "default" }} />
-                    </div>
-                  ),
-                  linkedIn: (
-                    <div title={l}>
-                      <LinkedInIcon sx={{ cursor: "default" }} />
-                    </div>
-                  )
-                }[l]
-              }
+            <Stack sx={styles.textValue}>
+              <div title={"Email"}>
+                <MailOutlineIcon sx={{ cursor: "default" }} />
+              </div>
               <div style={{ minWidth: "100px", flex: 1 }}>
                 <Typography
-                  component="a"
-                  href={url}
-                  target="_blank"
-                  referrerPolicy="no-referrer"
-                  rel="noopener"
+                  {...anchorAttrs}
                   fontWeight="500"
-                  sx={{
-                    color: "text.secondary",
-                    "&:hover": {
-                      textDecoration: "underline"
-                    }
-                  }}
+                  component="a"
+                  href={`mailto:${cUser.email}`}
+                  sx={styles.anchorSx}
                 >
-                  {url}
+                  {cUser.email}
                 </Typography>
-                <Typography>
-                  {
-                    {
-                      twitter: "Social Network",
-                      linkedIn: "Network platform"
-                    }[l]
-                  }
-                </Typography>
+                <Typography>Mail Service</Typography>
               </div>
             </Stack>
-          );
-        })}
-      </Box>
+            {Object.keys(cUser.socials).map((l, i) => {
+              const url = cUser.socials[l];
+              return (
+                <Stack sx={styles.textValue} key={i}>
+                  {
+                    {
+                      twitter: (
+                        <div title={l}>
+                          <TwitterIcon sx={{ cursor: "default" }} />
+                        </div>
+                      ),
+                      linkedIn: (
+                        <div title={l}>
+                          <LinkedInIcon sx={{ cursor: "default" }} />
+                        </div>
+                      )
+                    }[l]
+                  }
+                  <div style={{ minWidth: "100px", flex: 1 }}>
+                    <Typography
+                      component="a"
+                      href={url}
+                      target="_blank"
+                      referrerPolicy="no-referrer"
+                      rel="noopener"
+                      fontWeight="500"
+                      sx={styles.anchorSx}
+                    >
+                      {url}
+                    </Typography>
+                    <Typography>
+                      {
+                        {
+                          twitter: "Social Network",
+                          linkedIn: "Network platform"
+                        }[l]
+                      }
+                    </Typography>
+                  </div>
+                </Stack>
+              );
+            })}
+          </Box>
+        </>
+      )}
     </WidgetContainer>
   );
 };

@@ -3,7 +3,7 @@ import { FIREBASE_BUCKET_NAME, GMAIL_USER } from "../config.js";
 import { storage } from "../firebase.js";
 import path from "path";
 import nodemailer from "nodemailer";
-import { createError } from "../utils/error.js";
+import { createError, console500MSG } from "../utils/error.js";
 import { Readable } from "stream";
 import { getVideoDurationInSeconds } from "get-video-duration";
 
@@ -14,11 +14,9 @@ export const deleteFile = filePath => {
     .bucket(FIREBASE_BUCKET_NAME)
     .file(filePath)
     .delete()
-    .then(() => {})
+    .then(res => res)
     .catch(err => {
-      console.error(
-        `[Error Deleting ${filePath}]: ${err.message} at ${new Date()}.`
-      );
+      console500MSG(err, "DELETE_FILE_ERROR");
       return err;
     });
 };
@@ -115,6 +113,11 @@ export const uploadToFirebase = (file, config = {}) => {
         createError(`File mimetype ${file.mimetype} not supported`)
       );
 
+    if (!(file.buffer || file.stream))
+      throw reject(
+        createError(`File content is either damaged or corrupt`, 409)
+      );
+
     // 5gb max size limit
     config.maxSizeLimit = config.maxSizeLimit || 5000000000;
     config.maxSize = Number(config.maxSize) || config.maxSizeLimit;
@@ -167,11 +170,6 @@ export const uploadToFirebase = (file, config = {}) => {
       outstream.on("error", handleError);
       outstream.on("finish", handleSuccess);
     };
-
-    if (!(file.buffer || file.stream))
-      throw reject(
-        createError(`File content is either damaged or corrupt`, 409)
-      );
 
     if (isImg || !config.maxDur) return uploadFile(file);
     const stream =

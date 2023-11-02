@@ -34,7 +34,7 @@ const Image = ({
   }, [src, nativeFile]);
 
   const handleReload = useCallback(e => {
-    e.stopPropagation();
+    e && e.stopPropagation();
     setShowBackdrop(false);
     setLoading(true);
     imgRef.current.src = imgRef.current.src;
@@ -46,6 +46,7 @@ const Image = ({
       const handleImageLoad = () => {
         stateRef.current.loaded = true;
         stateRef.current.reloadCount = 0;
+
         setAspectRatio(img);
         setLoading(false);
         setShowBackdrop(false);
@@ -59,7 +60,8 @@ const Image = ({
           stateRef.current.reloadCount++;
           handleReload();
         } else {
-          // img.parentElement.style.paddingBottom = "0px";
+          stateRef.current.reloadCount = 0;
+          stateRef.current.loaded = false;
           setShowBackdrop(true);
           setLoading(false);
         }
@@ -77,13 +79,10 @@ const Image = ({
         stateRef.current.reloadCount = 1;
         handleReload();
       }
-    } else {
-      stateRef.current.loaded = false;
-      stateRef.current.reloadCount = 0;
     }
   }, [isOnline, handleReload]);
 
-  const withOverlay = loading || showBackdrop;
+  const withOverlay = loading || showBackdrop || true;
 
   return (
     <Box

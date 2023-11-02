@@ -9,7 +9,7 @@ export default (options = {}) => {
 
   const { setSnackBar, setContext } = useContext();
 
-  const { following, id: cid } = useSelector(
+  const { following, id: cid, _blockedUsers, _disapprovedUsers } = useSelector(
     ({ user: { currentUser } }) => currentUser
   );
 
@@ -39,6 +39,8 @@ export default (options = {}) => {
         typeof _isFollowing === "boolean" ? _isFollowing : isFollowing;
 
       _user = _user || user;
+
+      if (_blockedUsers[_user.id] || _disapprovedUsers[_user.id]) return;
 
       const url = `/users/${_user.id}/${_isFollowing ? "unfollow" : "follow"}`;
 
@@ -71,8 +73,8 @@ export default (options = {}) => {
         try {
           updateFollowMe(_isFollowing);
           await http.put(url);
-        } catch (message) {
-          message && setSnackBar(message);
+        } catch (err) {
+          !err.isCancelled && setSnackBar(err.message);
           updateFollowMe(!_isFollowing);
         } finally {
           stateRef.current.isProc = false;
@@ -104,7 +106,9 @@ export default (options = {}) => {
       user,
       setContext,
       docId,
-      isLoggedIn
+      isLoggedIn,
+      _disapprovedUsers,
+      _blockedUsers
     ]
   );
   return {

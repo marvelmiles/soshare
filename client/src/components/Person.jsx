@@ -36,10 +36,18 @@ const Person = React.forwardRef(
               textAlign: "center",
               mb: 2,
               minHeight: "220px",
+              width: "100%",
+              maxWidth: {
+                sm: "45%",
+                s640: "200px"
+              },
               ...sx
             }}
           >
-            <Avatar variant="md" sx={{ mx: "auto" }} src={user.photoUrl} />
+            <Avatar
+              sx={{ mx: "auto", width: "50px", height: "50px" }}
+              src={user.photoUrl}
+            />
             <StyledTypography
               variant="h5"
               component={StyledLink}

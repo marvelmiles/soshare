@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Layout from "components/Layout";
 import UserWidget from "components/UserWidget";
 import FollowMeView from "views/FollowMeView";
@@ -12,6 +12,7 @@ import { Stack } from "@mui/material";
 import User404 from "./404/User404";
 import { useDispatch } from "react-redux";
 import Redirect from "components/Redirect";
+import EmptyData from "components/EmptyData";
 
 const ProfilePage = () => {
   let { userId } = useParams();
@@ -19,13 +20,15 @@ const ProfilePage = () => {
 
   const { socket } = useContext();
 
-  const { id: cid, blockedUsers } = useSelector(state => {
+  const { id: cid, _blockedUsers } = useSelector(state => {
     return state.user.currentUser;
   });
 
-  const [user, setUser] = useState();
+  const [loading, setLoading] = useState(true);
 
-  const blocked = !!blockedUsers[(user?.id)];
+  const [user, setUser] = useState({});
+
+  const blocked = !!_blockedUsers[(user?.id)];
 
   const [redirect, setRedirect] = useState(blocked);
 
@@ -35,15 +38,24 @@ const ProfilePage = () => {
 
   const withCid = (searchParams.get("wc") || "").toLowerCase() === "true";
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setUser(await http.get(`/users/${userId}`, { withCredentials: !!cid }));
-      } catch (message) {
-        setUser(null);
-      }
-    })();
+  const fetchUser = useCallback(async () => {
+    try {
+      setUser(
+        (await http.get(`/users/${userId}`, { withCredentials: !!cid })) || {}
+      );
+    } catch (err) {
+      if (err.isCancelled) return;
+
+      if (err.status === 404) setUser({ id: "404" });
+      else setUser({ id: "error" });
+    } finally {
+      setLoading(false);
+    }
   }, [userId, cid]);
+
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
 
   useEffect(() => {
     if (socket) {
@@ -66,6 +78,9 @@ const ProfilePage = () => {
   const width = {
     md: "48%"
   };
+
+  const handleRefetch = () => fetchUser();
+
   return (
     <>
       <Layout
@@ -77,86 +92,92 @@ const ProfilePage = () => {
       >
         {redirect ? (
           <Redirect />
-        ) : user === undefined ? (
+        ) : loading || !user.id ? (
           <Loading />
-        ) : user?.id ? (
-          <Stack
-            alignItems="flex-start"
-            justifyContent="normal"
-            sx={{
-              flexWrap: "wrap",
-              gap: 2,
-              maxWidth: "1024px",
-              mx: "auto",
-              pt: 2,
-              width: "100%",
-              p: 2,
-              "& > *,& > .data-scrollable,& > .widget-container": {
-                flex: "none",
-                minWidth: {
-                  xs: "100%",
-                  md: "48%"
-                },
-                width: {
-                  xs: "100%",
-                  md: "48%"
+        ) : (
+          {
+            error: <EmptyData onClick={handleRefetch} />,
+            404: <User404 contentOnly />
+          }[user.id] || (
+            <Stack
+              alignItems="flex-start"
+              justifyContent="normal"
+              sx={{
+                flexWrap: "wrap",
+                gap: 2,
+                maxWidth: "1024px",
+                mx: "auto",
+                pt: 2,
+                width: "100%",
+                p: 2,
+                "& > *,& > .data-scrollable,& > .widget-container": {
+                  flex: "none",
+                  minWidth: {
+                    xs: "100%",
+                    md: "48%"
+                  },
+                  width: {
+                    xs: "100%",
+                    md: "48%"
+                  }
                 }
-              }
-            }}
-          >
-            <UserWidget
-              key="profile-page-user-widget"
-              width={width}
-              user={user}
-              isCurrentUser={isCurrentUser}
-            />
-
-            {isCurrentUser ? (
-              <UserProfileForm
-                key="profile-page-user-form"
-                placeholders={user}
-                width={width}
-                hidePwd
-              />
-            ) : null}
-
-            <FollowMeView
-              url="followers"
-              title={isCurrentUser ? "Your Followers" : "Followers"}
-              secondaryTitle="followers"
-              width={width}
-              variant="flex"
-              key="followers"
-            />
-
-            <FollowMeView
-              url="following"
-              title={isCurrentUser ? "People you follow" : "Following"}
-              secondaryTitle="following"
-              width={width}
-              priority="unfollow"
-              variant="flex"
-              key="following"
-              infiniteScrollProps={{
-                verify: "m"
               }}
-            />
+            >
+              <UserWidget
+                key={`profile-${user.id}`}
+                width={width}
+                user={user}
+                isCurrentUser={isCurrentUser}
+              />
 
-            {isCurrentUser ? (
+              {isCurrentUser ? (
+                <UserProfileForm
+                  key="profile-page-user-form"
+                  placeholders={user}
+                  width={width}
+                  hidePwd
+                />
+              ) : null}
+
               <FollowMeView
+                url="followers"
+                title={isCurrentUser ? "Your Followers" : "Followers"}
+                secondaryTitle="followers"
                 width={width}
                 variant="flex"
-                key="suggest"
-                title="People to follow"
-                priority="follow"
+                key="followers"
                 infiniteScrollProps={{
-                  verify: "m"
+                  verify: "z"
                 }}
               />
-            ) : null}
-          </Stack>
-        ) : (
-          <User404 contentOnly />
+
+              <FollowMeView
+                url="following"
+                title={isCurrentUser ? "People you follow" : "Following"}
+                secondaryTitle="following"
+                width={width}
+                priority="unfollow"
+                variant="flex"
+                key="following"
+                infiniteScrollProps={{
+                  verify: "z"
+                }}
+              />
+
+              {isCurrentUser ? (
+                <FollowMeView
+                  width={width}
+                  variant="flex"
+                  key="suggest"
+                  title="People to follow"
+                  priority="follow"
+                  infiniteScrollProps={{
+                    verify: "m"
+                  }}
+                />
+              ) : null}
+            </Stack>
+          )
         )}
       </Layout>
     </>

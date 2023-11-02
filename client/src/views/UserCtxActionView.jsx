@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import PropTypes from "prop-types";
 import InfiniteScroll from "components/InfiniteScroll";
 import Stack from "@mui/material/Stack";
@@ -7,14 +7,48 @@ import Person from "components/Person";
 import useContextDispatch from "hooks/useContextDispatch";
 import { useContext } from "context/store";
 import useCallbacks from "hooks/useCallbacks";
+import { v4 as uniq } from "uuid";
 
 const UserCtxActionView = React.forwardRef(
-  ({ ctxKey, emptyLabel, infiniteScrollProps }, ref) => {
+  (
+    {
+      emptyLabel,
+      infiniteScrollProps,
+      whitelistAll,
+      dataKey,
+      handleAction: onSuccess
+    },
+    ref
+  ) => {
     const { socket } = useContext();
     const infiniteScrollRef = useRef();
     const { _handleAction } = useCallbacks(infiniteScrollRef);
 
-    const { handleContextKeyDispatch, activeMap } = useContextDispatch();
+    const { handleContextKeyDispatch, activeMap } = useContextDispatch({
+      handleAction: onSuccess
+    });
+
+    const handleAction = useCallback(
+      ({ username, id }) =>
+        handleContextKeyDispatch(
+          `/users/whitelist/${
+            { _disapprovedUsers: "disapprove", _blockedUsers: "block" }[dataKey]
+          }`,
+          dataKey,
+          {
+            whitelist: true,
+            setData: infiniteScrollRef.current.setData,
+            username,
+            id,
+            users:
+              !username && infiniteScrollRef.current.data.data.map(u => u.id)
+          }
+        ),
+      [handleContextKeyDispatch, dataKey]
+    );
+    useEffect(() => {
+      whitelistAll && handleAction({});
+    }, [whitelistAll, handleAction]);
 
     useEffect(() => {
       if (socket) {
@@ -27,23 +61,9 @@ const UserCtxActionView = React.forwardRef(
       }
     }, [_handleAction, socket]);
 
-    const handleAction = ({ username, id }) =>
-      handleContextKeyDispatch(
-        `/users/whitelist/${
-          { disapprovedUsers: "disapprove", blockedUsers: "block" }[ctxKey]
-        }`,
-        ctxKey,
-        {
-          whitelist: true,
-          username,
-          id,
-          setData: infiniteScrollRef.current.setData
-        }
-      );
-
     return (
       <InfiniteScroll
-        key={`${ctxKey}-user-ctx-action-view`}
+        key={`${dataKey}-user-ctx-action-view`}
         {...infiniteScrollProps}
         ref={props => {
           infiniteScrollRef.current = props;
@@ -54,7 +74,7 @@ const UserCtxActionView = React.forwardRef(
           return (
             <div>
               {data.length ? (
-                <Stack flexWrap="wrap" p={2} pb={0}>
+                <Stack flexWrap="wrap" p={2} pb={0} justifyContent="flex-start">
                   {data.map((u, i) => (
                     <Person
                       key={i}
@@ -62,6 +82,10 @@ const UserCtxActionView = React.forwardRef(
                       onBtnClick={handleAction}
                       btnLabel={"Whitelist"}
                       disabled={activeMap[u.id]}
+                      sx={{
+                        mx:
+                          data.length > 1 && i !== data.length - 1 ? "auto" : ""
+                      }}
                     />
                   ))}
                 </Stack>

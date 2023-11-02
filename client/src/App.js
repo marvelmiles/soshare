@@ -1,5 +1,11 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import {
+  Routes,
+  Route,
+  useNavigate,
+  useLocation,
+  useParams
+} from "react-router-dom";
 import { ThemeProvider, CssBaseline, GlobalStyles } from "@mui/material";
 import { createTheme, INPUT_AUTOFILL_SELECTOR } from "theme";
 import { useSelector } from "react-redux";
@@ -12,17 +18,13 @@ import { Snackbar, useMediaQuery } from "@mui/material";
 import Alert from "@mui/material/Alert";
 import CloseIcon from "@mui/icons-material/Close";
 import io from "socket.io-client";
-import { API_ENDPOINT, HTTP_403_MSG } from "context/constants";
+import { API_ORIGIN } from "context/constants";
 import Post from "pages/Post";
 import Search from "pages/Search";
 import ShortsPage from "pages/ShortsPage";
 import VerificationMail from "pages/VerificationMail";
 import ResetPwd from "pages/ResetPwd";
-import http, {
-  handleRefreshToken,
-  getHttpErrMsg,
-  createRelativeURL
-} from "api/http";
+import http, { handleRefreshToken, createRelativeURL } from "api/http";
 import Auth404 from "pages/404/Auth404";
 import Page404 from "pages/404/Page404";
 import BrandIcon from "components/BrandIcon";
@@ -32,7 +34,11 @@ import { StyledLink } from "components/styled";
 import { HTTP_401_MSG } from "context/constants";
 import { setThemeMode } from "context/slices/configSlice";
 import { useDispatch } from "react-redux";
-import PlayGround from "PlayGround";
+
+// minor issues for now
+
+// in edit media page -> delete a media doesnt'work as expected.
+// infiniteFetch get data in pagination format rather than standard format
 
 let socket;
 
@@ -42,25 +48,43 @@ const App = () => {
   const [readyState, setReadyState] = useState("pending");
   const configMode = useSelector(state => state.config.mode);
   const [isOnline, setIsOnline] = useState(undefined);
+
+  const {
+    id: cid,
+    settings: { theme: userThemeMode }
+  } = useSelector(state => state.user.currentUser);
+
   const systemMode = useMediaQuery("(prefers-color-scheme: dark)")
     ? "dark"
     : "light";
 
-  const [theme, setTheme] = useState(createTheme(systemMode));
-  const cid = useSelector(state => state.user.currentUser.id);
+  const isSystemMode = userThemeMode === "system";
+
+  const [theme, setTheme] = useState(
+    createTheme(isSystemMode ? systemMode : userThemeMode)
+  );
+
   const dispatch = useDispatch();
   const navigate = useNavigate();
+
+  let { userId } = useParams();
+
+  userId = userId || cid;
+
   let { state: locState, pathname, key } = useLocation();
   pathname = pathname.toLowerCase();
   locState = locState || {
-    from: undefined // 0 = ignore
+    from: undefined, // 0 = ignore
+    document: {}, // Post|Comment|Short
+    docSet: {}, // key = docId and value = formData
+    docType: "",
+    reason: ""
   };
 
   const stateRef = useRef({
     isProcUrl: false,
     prevPath: ""
   });
-  stateRef.current.locState = locState;
 
   const resetComposeDoc = useCallback(() => {
     const id = setTimeout(() => {
@@ -70,16 +94,19 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    const prop = {
+      path: "/soshare"
+    };
+
     if (cid) {
-      socket = io.connect(API_ENDPOINT, {
-        path: "/mernsocial",
+      socket = io.connect(API_ORIGIN, {
+        ...prop,
         withCredentials: true
       });
     } else {
-      socket = io.connect(API_ENDPOINT, {
-        path: "/mernsocial"
-      });
+      socket = io.connect(API_ORIGIN, prop);
     }
+
     const handleRegUser = () =>
       socket.emit("register-user", cid, () => setReadyState("ready"));
 
@@ -87,6 +114,7 @@ const App = () => {
 
     const showSessionTimeout = () =>
       cid &&
+      window.location.pathname.toLowerCase() !== "/auth/signin" &&
       navigate(
         createRelativeURL(undefined, "view=session-timeout", {
           view: "cv"
@@ -94,6 +122,7 @@ const App = () => {
       );
 
     let handlingErr;
+
     const handleSocketErr = error => {
       if (handlingErr) return;
       handlingErr = true;
@@ -120,19 +149,16 @@ const App = () => {
     http.interceptors.response.use(
       res => res,
       err => {
-        switch (err) {
-          case HTTP_403_MSG:
-            if (
-              cid &&
-              window.location.pathname.toLowerCase() !== "/auth/signin"
-            )
+        switch (err.status) {
+          case 403:
+            if (!(window.location.pathname.toLowerCase().indexOf("auth") > -1))
               showSessionTimeout();
             break;
           default:
             break;
         }
-        console.log(err);
-        return Promise.reject(getHttpErrMsg(err));
+
+        return Promise.reject(err);
       }
     );
 
@@ -210,31 +236,18 @@ const App = () => {
   }, [configMode]);
 
   useEffect(() => {
-    dispatch(setThemeMode(systemMode));
-  }, [dispatch, systemMode]);
+    dispatch(setThemeMode(isSystemMode ? systemMode : userThemeMode));
+  }, [dispatch, systemMode, isSystemMode, userThemeMode]);
 
   const setSnackBar = useCallback(
-    (
-      snackbar = {
-        autoHideDuration: 10000
-      },
-      outInput
-    ) => {
+    (snackbar = {}, docSet) => {
       if (!snackbar.message) {
-        const stateProp =
-          stateRef.current.locState || outInput
-            ? {
-                ...stateRef.current.locState,
-                outInputs: cid
-                  ? undefined
-                  : {
-                      ...stateRef.current.locState?.outInputs,
-                      ...outInput
-                    }
-              }
-            : undefined;
-        outInput &&
-          navigate("/?compose=comment", {
+        const stateProp = {
+          docSet: cid ? undefined : docSet
+        };
+
+        docSet &&
+          navigate(createRelativeURL(), {
             state: stateProp
           });
         if (typeof snackbar !== "string" && !snackbar.message)
@@ -406,6 +419,7 @@ const App = () => {
         <Provider
           value={{
             setSnackBar,
+            userId,
             socket,
             context,
             locState,
@@ -414,7 +428,7 @@ const App = () => {
             isLoggedIn: !!cid,
             withBackBtn:
               key !== "default" &&
-              locState.from !== "0" &&
+              locState.from !== 0 &&
               (pathname !== "/" || pathname.indexOf("auth") < -1),
             setContext,
             setReadyState,
@@ -434,7 +448,6 @@ const App = () => {
               ready: (
                 <Routes path="/">
                   <Route index element={<HomePage />} />
-                  <Route path="playground" element={<PlayGround />} />
                   <Route path="/auth">
                     <Route path="signin" element={<Signin />} />
                     <Route path="signup" element={<Signup />} />
@@ -448,7 +461,10 @@ const App = () => {
                     />
                     <Route path="*" element={<Auth404 />} />
                   </Route>
-                  <Route path="u/:userId" element={<ProfilePage />} />
+                  <Route
+                    path="u/:userId"
+                    element={<ProfilePage key={userId} />}
+                  />
                   <Route path="search" element={<Search />} />
                   <Route path="shorts" element={<ShortsPage />} />
                   <Route path=":kind/:id" element={<Post />} />
@@ -461,16 +477,14 @@ const App = () => {
       </ThemeProvider>
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={
-          snackbar.autoHideDuration ||
-          (snackbar.severity === "success" ? 5000 : 10000)
-        }
-        onClose={
-          snackbar.onClose === undefined ? closeSnackBar : snackbar.onClose
-        }
+        autoHideDuration={snackbar.autoHideDuration || 8000}
+        onClose={snackbar.onClose && snackbar.onClose}
         sx={{
           bottom: isOnline === undefined ? undefined : "80px !important",
-          maxWidth: snackbar.maxWidth || "400px"
+          maxWidth: snackbar.maxWidth || "400px",
+          "&::first-letter": {
+            textTransform: "uppercase"
+          }
         }}
       >
         <Alert

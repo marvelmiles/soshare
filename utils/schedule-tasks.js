@@ -14,15 +14,17 @@ export const getAllIntervally = (
   options = {}
 ) => {
   clearGetAllIntervallyTask(socket, taskKey);
+
   let { blacklist = [], eventName, delay = 3600, mapFn } = options;
 
   socket.on("suggest-followers", user => (blacklist = blacklist.concat(user)));
   socket.handshake[taskKey] = setInterval(() => {
+    return;
     (async () => {
       try {
         queryConfig.match._id.$nin = blacklist.concat(
           queryConfig.match._id.$nin || [],
-          socket.handshake[SUGGESTED_USERS]
+          socket.handshake[SUGGESTED_USERS] || []
         );
 
         socket.handshake[SUGGESTED_USERS] = [];

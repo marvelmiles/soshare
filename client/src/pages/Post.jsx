@@ -4,7 +4,7 @@ import { useParams, useSearchParams } from "react-router-dom";
 import http from "api/http";
 import { useContext } from "context/store";
 import Comments from "components/Comments";
-import InputBox from "components/InputBox";
+import InputBox from "components/SosharePen";
 import MainView from "views/MainView";
 import { removeFirstItemFromArray } from "utils";
 import Loading from "components/Loading";
@@ -14,14 +14,21 @@ import { useSelector } from "react-redux";
 import Redirect from "components/Redirect";
 
 const Post = () => {
-  const cid = useSelector(state => state.user.currentUser?.id);
-  const [post, setPost] = useState();
-  const [redirect, setRedirect] = useState(false);
+  const { id: cid, _disapprovedUsers, _blockedUsers } = useSelector(
+    state => state.user.currentUser
+  );
+
+  const [post, setPost] = useState({
+    user: {}
+  });
+  const [loading, setLoading] = useState(false);
+
   let { kind = "", id = "" } = useParams();
   kind = kind.toLowerCase();
+
   const {
     socket,
-    context: { blacklistedPosts, blacklistedUsers },
+    context: { _blacklistedPosts },
     setContext,
     setSnackBar
   } = useContext();
@@ -35,7 +42,7 @@ const Post = () => {
 
   const fetchDocument = useCallback(async () => {
     try {
-      setPost(undefined);
+      setLoading(true);
       const post = await http.get(`/${kind}/${id}`, {
         withCredentials: !!cid
       });
@@ -46,21 +53,21 @@ const Post = () => {
         stateRef.current.info = "blacklisted";
       else if (message === "404") stateRef.current.info = "404";
       else setSnackBar(message);
-      setPost(null);
+    } finally {
+      setLoading(false);
     }
   }, [cid, setSnackBar, kind, id]);
   const stateRef = useRef({});
 
   const _handleAction = useCallback(
     (reason, options = {}) => {
-      const { document, value, uid } = options;
+      const { document, value } = options;
       switch (reason) {
         case "filter":
           setContext(context => {
-            context.blacklistedPosts[post.id] = "404";
+            context._blacklistedPosts[post.id] = "404";
             return { ...context };
           });
-          setRedirect(true);
           break;
         case "filter-comment":
           setPost(post => {
@@ -77,20 +84,11 @@ const Post = () => {
             ...document
           }));
           break;
-        case "clear-cache":
-          setContext(context => {
-            delete context.blacklistedPosts[post.id];
-            return { ...context };
-          });
-          break;
-        case "blacklisted":
-          uid && setRedirect(true);
-          break;
         default:
           break;
       }
     },
-    [setContext, post?.id]
+    [setContext, post.id]
   );
 
   useEffect(() => {
@@ -99,12 +97,12 @@ const Post = () => {
 
   useEffect(() => {
     const handleFilter = document => {
-      if (post?.id === document.id && document.user.id !== cid)
+      if (post.id === document.id && document.user.id !== cid)
         _handleAction("filter", { document });
     };
 
     const handleUpdate = document => {
-      post?.id === document.id && _handleAction("update", { document });
+      post.id === document.id && _handleAction("update", { document });
     };
     socket.on(`update-${docType}`, handleUpdate);
     socket.on(`filter-${docType}`, handleFilter);
@@ -113,15 +111,17 @@ const Post = () => {
       socket.removeEventListener(`filter-${docType}`, handleFilter);
       socket.removeEventListener(`update-${docType}`, handleUpdate);
     };
-  }, [socket, docType, _handleAction, post?.id, cid]);
-
-  useEffect(() => {
-    if (blacklistedUsers[(post?.user.id)]) _handleAction("filter");
-  }, [blacklistedUsers, post?.user.id, _handleAction]);
+  }, [socket, docType, _handleAction, post.id, cid]);
 
   if (!docType) stateRef.current.info = "500";
 
-  const statusText = stateRef.current.info || blacklistedPosts[(post?.id)];
+  if (
+    post.user &&
+    (_blockedUsers[post.user.id] || _disapprovedUsers[post.user.id])
+  )
+    stateRef.current.info = "blacklisted";
+
+  const statusText = stateRef.current.info || _blacklistedPosts[post.id];
 
   return (
     <MainView
@@ -138,13 +138,44 @@ const Post = () => {
       }}
       key={`post-main-view-${isEditMode}`}
     >
-      {redirect || (isEditMode && post && post.user.id !== cid) ? (
-        <Redirect />
-      ) : (
+      {
         <>
-          {post === undefined ? (
+          {statusText ? (
+            {
+              blacklisted: (
+                <EmptyData
+                  label={
+                    <span>
+                      We're sorry, you are not allowed to view this {docType}.
+                      We strive to provide a safe and positive community
+                      experience for all our users, and as such, we do not
+                      permit access to content owned by blacklisted curators
+                    </span>
+                  }
+                  maxWidth="500px"
+                />
+              ),
+              "404": (
+                <EmptyData
+                  label={
+                    <>
+                      {{ post: "Post", comment: "Comment" }[docType]} not found
+                      or {docType} visibility has been restricted by the
+                      curator.
+                      <StyledLink to="/search?q=all&tab=posts">
+                        Find a post here!
+                      </StyledLink>
+                    </>
+                  }
+                />
+              ),
+              500: <EmptyData label={<>Page not found</>} />
+            }[statusText]
+          ) : loading || !post.id ? (
             <Loading />
-          ) : !statusText && post?.id ? (
+          ) : isEditMode && post.user.id !== cid ? (
+            <Redirect />
+          ) : (
             <>
               {isEditMode ? (
                 <InputBox
@@ -163,21 +194,16 @@ const Post = () => {
                     delPath: `/${kind}`
                   }}
                 />
-              ) : null}
-              {isEditMode ? null : (
+              ) : (
                 <PostWidget
+                  plainWidget
+                  disableNavigation
                   docType={docType}
                   handleAction={_handleAction}
                   post={post}
-                  plainWidget
-                  sx={{
-                    borderBottom: "1px solid #fff",
-                    borderBottomColor: "divider",
-                    borderTop: "none"
-                  }}
-                  disableNavigation
                 />
               )}
+
               <Comments
                 context={{
                   commentSize: post.comments.length
@@ -188,7 +214,7 @@ const Post = () => {
                 handleAction={_handleAction}
                 isRO={
                   cid
-                    ? post.user?.id === cid || post.rootThread?.user?.id === cid
+                    ? post.user.id === cid || post.rootThread?.user?.id === cid
                     : undefined
                 }
                 rootUid={post.user.id}
@@ -196,49 +222,9 @@ const Post = () => {
                 sx={{ minHeight: 0, height: "auto" }}
               />
             </>
-          ) : (
-            {
-              blacklisted: (
-                <EmptyData
-                  label={
-                    <span>
-                      We're sorry, you cannot view this {docType} as the user
-                      who owns it has been{" "}
-                      {cid ? (
-                        <StyledLink to={`/u/${cid}?view=blacklist`}>
-                          blacklisted
-                        </StyledLink>
-                      ) : (
-                        "blacklisted"
-                      )}
-                      . We strive to provide a safe and positive community
-                      experience for all our users, and as such, we do not
-                      permit access to content owned by blacklisted users
-                    </span>
-                  }
-                  maxWidth="500px"
-                />
-              ),
-              "404": (
-                <EmptyData
-                  maxWidth="300px"
-                  label={
-                    <>
-                      {{ post: "Post", comment: "Comment" }[docType]} not found
-                      or {docType} visibility has been restricted by the
-                      curator.{" "}
-                      <StyledLink to="/search?q=all&tab=posts">
-                        Find a post here!
-                      </StyledLink>
-                    </>
-                  }
-                />
-              ),
-              500: <EmptyData maxWidth="300px" label={<>Page not found</>} />
-            }[statusText] || <EmptyData onClick={fetchDocument} />
           )}
         </>
-      )}
+      }
     </MainView>
   );
 };

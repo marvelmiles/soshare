@@ -46,11 +46,11 @@ const MainView = ({
           ...responsiveStyle
         }}
       >
-        {/* {
+        {
           {
             shorts: <ShortsView key="mainview-shorts" miniShort />
           }[sideView]
-        } */}
+        }
         {cid ? <UserWidget key="main-view-user-widget" /> : null}
       </Box>
 

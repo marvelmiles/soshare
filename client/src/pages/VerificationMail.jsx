@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import useForm from "hooks/useForm";
 import Button from "@mui/material/Button";
@@ -13,8 +13,9 @@ import DoneIcon from "@mui/icons-material/Done";
 import { useLocation } from "react-router-dom";
 import EmailIcon from "@mui/icons-material/Email";
 import CustomInput from "components/CustomInput";
+import { HTTP_CODE_INVALID_USER_ACCOUNT } from "context/constants";
 
-const verifyUser = debounce(async (v, cb, relevance = "placeholder") => {
+const verifyUser = debounce(async (v, cb, relevance = "email") => {
   try {
     if (v) {
       cb(
@@ -34,81 +35,75 @@ const verifyUser = debounce(async (v, cb, relevance = "placeholder") => {
     return cb(err);
   }
 }, 500);
+
 const VerificationMail = props => {
   const { user } = useLocation().state || {};
-  const {
+  let {
     formData,
     isSubmitting,
     handleSubmit,
-    errors: { all: withErr },
+    isInValid,
     handleChange,
     reset
   } = useForm({
     required: true,
     placeholders: user
   });
-  const { setSnackBar, setContext, closeSnackBar } = useContext();
+  const { setSnackBar, closeSnackBar } = useContext();
   const [verifyState, setVerifyState] = useState("");
-  const stateRef = useRef({ err: true });
-  const hasError = stateRef.current.err || withErr;
-  const verifyMsg = {
-    message: (
-      <span>
-        Verification mail isn't registered to an account.
-        <br />{" "}
-        {stateRef.current.isEmail ? (
-          <>
-            <StyledLink
-              to="/auth/signup"
-              onClick={() =>
-                setContext(prev => ({
-                  ...prev,
-                  userPlaceholder: formData,
-                  userPlaceholderMethod: "post"
-                }))
-              }
-            >
-              Signup
-            </StyledLink>{" "}
-            for a new account
-          </>
-        ) : null}{" "}
-      </span>
-    ),
-    severity: "error",
-    onClose() {}
-  };
+
+  const stateRef = useRef({
+    typed: false,
+    email: formData.email,
+    verifyMsg: {
+      message: <span>Verification mail isn't registered to an account.</span>,
+      severity: "error",
+      onClose() {}
+    }
+  });
+
+  if (!stateRef.current.typed) {
+    isInValid = false;
+    isSubmitting = true;
+  }
+
+  const onVerifyUser = useCallback(
+    (err, bool) => {
+      if (err) {
+        setSnackBar(err);
+        setVerifyState("");
+      } else if (bool) {
+        stateRef.current.typed = true;
+        setVerifyState("valid");
+        closeSnackBar();
+        reset(true, { errors: {} });
+      } else {
+        setVerifyState("invalid");
+        setSnackBar(stateRef.current.verifyMsg);
+      }
+    },
+    [closeSnackBar, setSnackBar, reset]
+  );
+
+  useEffect(() => {
+    verifyUser(stateRef.current.email, onVerifyUser);
+  }, [onVerifyUser]);
+
   const onChange = e => {
+    stateRef.current.typed = true;
     handleChange(e, ({ error }) => {
       if (error) {
-        stateRef.current.err = true;
-        stateRef.current.isEmail = false;
         setVerifyState("");
         const id = setTimeout(() => {
           setSnackBar(error);
           clearTimeout(id);
         }, 0);
       } else {
-        stateRef.current.isEmail = true;
         setVerifyState("pending");
-        verifyUser(
-          e.target.value,
-          (err, bool) => {
-            if (err) {
-              setSnackBar(err);
-              setVerifyState("");
-            } else if (bool) {
-              stateRef.current.err = false;
-              setVerifyState("valid");
-              closeSnackBar();
-            } else {
-              stateRef.current.err = true;
-              setVerifyState("invalid");
-              setSnackBar(verifyMsg);
-            }
-          },
-          "email"
-        );
+
+        verifyUser(e.target.value, onVerifyUser);
+
+        return "Invalid verification mail";
       }
     });
   };
@@ -117,20 +112,21 @@ const VerificationMail = props => {
     if (formData) {
       try {
         setSnackBar({
-          message: (await http.post("/auth/recover-password", formData)) + ".",
+          message: (await http.post("/auth/recover-password", formData))
+            .message,
           severity: "success"
         });
-        stateRef.current.isEmail = undefined;
-        stateRef.current.err = true;
+
         setVerifyState("");
-        reset();
-      } catch (err) {
-        if (err === "Account isn't registered") {
-          stateRef.current.err = true;
-          err = verifyMsg;
-        }
-        setSnackBar(err);
+
         reset(true);
+      } catch (err) {
+        reset(true);
+
+        if (err.code === HTTP_CODE_INVALID_USER_ACCOUNT)
+          err = stateRef.current.verifyMsg;
+
+        setSnackBar(err.message);
       }
     }
   };
@@ -157,10 +153,11 @@ const VerificationMail = props => {
         <CustomInput
           label="Verification Mail"
           type="email"
-          error={stateRef.current.isEmail !== undefined && hasError}
+          error={isInValid}
           name="email"
           value={formData.email || ""}
           onChange={onChange}
+          sx={{ my: 1 }}
           endAdornment={
             verifyState && (
               <Stack
@@ -202,14 +199,21 @@ const VerificationMail = props => {
         />
         <Button
           variant="contained"
-          disabled={hasError || isSubmitting}
+          disabled={isInValid || isSubmitting}
           sx={{
-            width: "100%"
+            width: "100%",
+            my: 1
           }}
           type="submit"
         >
-          Continue
+          Send Mail
         </Button>
+        <StyledLink
+          sx={{ textAlign: "center", width: "100%" }}
+          to={"/auth/signin"}
+        >
+          Continue to sign in
+        </StyledLink>
       </WidgetContainer>
     </Stack>
   );

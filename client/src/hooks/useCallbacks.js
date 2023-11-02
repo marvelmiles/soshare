@@ -1,18 +1,24 @@
 import { useRef } from "react";
-import { checkVisibility } from "utils/validators";
+import { isDocVisibleToUser } from "utils/validators";
 import { updateUser } from "context/slices/userSlice";
 import { useDispatch } from "react-redux";
 
 // functions that requires redux with no extra state or hooks
-const useCallbacks = (infiniteScrollRef, currentUser) => {
+const useCallbacks = (infiniteScrollRef, opts = {}) => {
+  const { currentUser = {} } = opts;
+
   const dispatch = useDispatch();
 
   const ref = useRef({
     registeredIds: {},
+    state: !currentUser.id && currentUser,
     _handleAction: (reason, options = {}) => {
       const { document, uid, action, value } = options;
+
       const { setData, data } = infiniteScrollRef.current;
+
       const docId = document && (document.id || document);
+
       if (docId ? ref.current.registeredIds[docId] : ref.current.isProc) return;
 
       if (docId) ref.current.registeredIds[docId] = true;
@@ -22,14 +28,16 @@ const useCallbacks = (infiniteScrollRef, currentUser) => {
       switch (reason) {
         case "new":
           let _data = data.data.slice();
-          (document.visibility
-            ? checkVisibility(document, currentUser)
-            : true) && (_data = [document, ...data.data]);
+
+          const docUserId = document.user?.id;
+
+          if (isDocVisibleToUser(document, currentUser))
+            _data = [document, ...data.data];
 
           setData(
             { ...data, data: _data },
             {
-              numberOfEntries: document.user?.id === currentUser.id ? 0 : 1
+              numberOfEntries: docUserId === currentUser.id ? 0 : 1
             }
           );
 

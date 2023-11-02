@@ -96,7 +96,6 @@ const Loading = ({ sx, className, ...rest }) => {
         minWidth: "100%",
         height: "inherit",
         minHeight: "inherit",
-        my: 2,
         ...sx
       }}
       className={`custom-loading ${className}`}

@@ -151,6 +151,7 @@ export const deleteComment = async (req, res, next) => {
     if (!comment) return res.json("Comment deleted successfully");
 
     const isOwner = comment.user.id === req.user.id;
+
     let withRo;
     if (!isOwner) {
       if (!req.query.ro || req.query.ro !== req.user.id)
@@ -173,10 +174,11 @@ export const deleteComment = async (req, res, next) => {
 
     if (comment.document) {
       const comments = removeFirstItemFromArray(
-        req.user.id,
+        comment.user.id,
         comment.document.comments
       );
       comment.document.comments = comments;
+
       await model.updateOne(
         {
           _id: comment.document.id

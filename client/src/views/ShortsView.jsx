@@ -69,7 +69,6 @@ const ShortsView = ({
     let date = new Date();
     let sec = date.getSeconds();
     timeId = setTimeout(() => {
-      return;
       const filterOlders = () => {
         infiniteScrollRef.current.setData(prev => {
           return {
@@ -108,10 +107,14 @@ const ShortsView = ({
 
   useEffect(() => {
     filterDocsByUserSet(infiniteScrollRef.current, {
-      ...currentUser.disapprovedUsers,
-      ...currentUser.blockedUsers
+      ...currentUser._disapprovedUsers,
+      ...currentUser._blockedUsers
     });
-  }, [currentUser.disapprovedUsers, currentUser.blockedUsers]);
+  }, [currentUser._disapprovedUsers, currentUser._blockedUsers]);
+
+  const isPrivateUser =
+    window.location.pathname.toLowerCase().indexOf("/u/") > -1 &&
+    currentUser.id === privateUid;
 
   return (
     <InfiniteScroll
@@ -138,7 +141,9 @@ const ShortsView = ({
       scrollNodeRef={scrollNodeRef}
       withCredentials={!!currentUser.id}
       readyState={
-        composeDoc?.done === false ? "pending" : infiniteScrollProps?.readyState
+        composeDoc?.done === false && currentUser.isLogin
+          ? "pending"
+          : infiniteScrollProps?.readyState
       }
       searchId={
         composeDoc?.docType === "short"
@@ -165,7 +170,7 @@ const ShortsView = ({
 
             <Stack
               justifyContent={"normal"}
-              alignItems="flex-start"
+              // alignItems="flex-start"
               sx={
                 miniShort
                   ? {
@@ -204,9 +209,9 @@ const ShortsView = ({
           <EmptyData
             label={
               emptyLabel ||
-              (privateUid
+              (isPrivateUser
                 ? `You don't have any short at the moment!`
-                : `We're sorry it seems there is no shorts at the moment`)
+                : "Sorry, there are no shorts to view at the moment or the short's curator has been blacklisted!")
             }
           />
         );

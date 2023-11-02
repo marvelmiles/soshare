@@ -8,12 +8,15 @@ import { createTheme } from "theme.js";
 
     if (!rootElement) {
       if (!id) {
+        const theme = localStorage.getItem("theme") || "light";
         const {
           palette: { primary, background }
         } = createTheme(
-          window.matchMedia?.("(prefers-color-scheme: dark)").matches
-            ? "dark"
-            : "light"
+          theme === "system"
+            ? window.matchMedia?.("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light"
+            : theme
         );
 
         const styles = `
