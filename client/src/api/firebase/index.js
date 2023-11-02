@@ -1,12 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
-import { isProdMode } from "context/constants";
 
 const firebaseConfig = {
   apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
-  authDomain: isProdMode
-    ? "https://soshare.onrender.com"
-    : "mern-demo-5cd45.firebaseapp.com",
+  authDomain: "mern-demo-5cd45.firebaseapp.com",
   projectId: "mern-demo-5cd45",
   storageBucket: "mern-demo-5cd45.appspot.com",
   messagingSenderId: "169582668963",
