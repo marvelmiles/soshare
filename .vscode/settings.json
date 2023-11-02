@@ -1,0 +1,18 @@
+{
+  "editor.formatOnPaste": true,
+  "editor.formatOnSave": true,
+  "editor.formatOnType": true,
+  "html.format.indentInnerHtml": true,
+  "html.format.indentHandlebars": true,
+  "files.autoSave": "afterDelay",
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "php.validate.run": "onType",
+  "eslint.alwaysShowStatus": true,
+  "eslint.autoFixOnSave": true,
+  "eslint.nodePath": "C:\\Users\\USER\\AppData\\Roaming\\npm",
+  "files.autoSaveDelay": 100,
+  "workbench.startupEditor": "newUntitledFile",
+  "window.zoomLevel": 0,
+  "terminal.integrated.rendererType": "dom",
+  "workbench.statusBar.feedback.visible": false
+}
