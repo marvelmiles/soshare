@@ -64,7 +64,7 @@ app.use(
     contentSecurityPolicy: {
       directives: {
         "default-src": csp,
-        "srcipt-src": csp,
+        "script-src": csp,
         "frame-src": csp,
         "connect-src": csp
       }
