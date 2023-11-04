@@ -1,13 +1,8 @@
 import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  GoogleAuthProvider,
-  signInWithPopup,
-  signInWithRedirect
-} from "firebase/auth";
+import { getAuth, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY,
+  apiKey: "AIzaSyATXDAFfOzi0c7kkQi0KjSDAk4znRJ2c0g",
   authDomain: "mern-demo-5cd45.firebaseapp.com",
   projectId: "mern-demo-5cd45",
   storageBucket: "mern-demo-5cd45.appspot.com",
@@ -28,7 +23,7 @@ export const signInWithPopupTimeout = (timeout = 60000) => {
     //   reject("Request timedout!");
     //   clearTimeout(id);
     // }, timeout);
-    signInWithRedirect(auth, googleProvider)
+    signInWithPopup(auth, googleProvider)
       .then(result => {
         // clearTimeout(id);
         resolve(result);
