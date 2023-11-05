@@ -33,6 +33,8 @@ const app = express();
 
 const csp = [
   "'self'",
+  "blob:",
+  "data:",
   "https://apis.google.com",
   "https://*.gstatic.com",
   "https://*.googleapis.com",
@@ -66,7 +68,9 @@ app.use(
         "default-src": csp,
         "script-src": csp,
         "frame-src": csp,
-        "connect-src": csp
+        "connect-src": csp,
+        "img-src": csp,
+        "media-src": csp
       }
     },
     crossOriginResourcePolicy: { policy: "cross-origin" }

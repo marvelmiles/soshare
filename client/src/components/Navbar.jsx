@@ -674,7 +674,7 @@ const Navbar = ({ routePage = "homePage" }) => {
             },
             {
               title: mode + " mode",
-              icon: DarkModeIcon,
+              icon: mode === "dark" ? LightModeIcon : DarkModeIcon,
               onClick: toggleTheme
             },
             {
