@@ -3,7 +3,11 @@ import PropTypes from "prop-types";
 import Stack from "@mui/material/Stack";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
-import { StyledTypography, StyledLink } from "components/styled";
+import {
+  StyledTypography,
+  StyledLink,
+  avatarProfileSx
+} from "components/styled";
 import { defaultUser } from "context/slices/userSlice";
 import { useSearchParams } from "react-router-dom";
 import Button from "@mui/material/Button";
@@ -55,6 +59,7 @@ const UserTip = ({
           alt={`${user.username} avatar`}
           title={`@${user.username || user.displayName}`}
           variant="md"
+          sx={avatarProfileSx}
         />
         <Stack
           alignItems="flex-start"
@@ -124,6 +129,7 @@ const UserTip = ({
                       state={locState}
                       onClick={e => e.stopPropagation()}
                       sx={{ color: "inherit" }}
+                      replace
                       to={createRelativeURL("view", `view=${l.type}`)}
                     >
                       {l.count} {l.label}
@@ -218,7 +224,7 @@ const UserTip = ({
                 PopperProps={{
                   sx: {
                     "& .MuiTooltip-tooltip": {
-                      maxWidth: "200px",
+                      maxWidth: "300px",
                       userSelect: "text !important"
                     }
                   }

@@ -22,7 +22,7 @@ export const SESSION_COOKIE_DURATION = {
     type: "m"
   },
   accessToken: {
-    duration: 1,
+    duration: 10,
     type: "m"
   },
   refreshToken: {

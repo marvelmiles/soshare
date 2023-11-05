@@ -164,8 +164,6 @@ const UserProfileForm = ({
             formData
           );
 
-          if (!res.success) throw res;
-
           setSnackBar({
             message: placeholders ? (
               "Updated profile successfully!"
@@ -215,7 +213,7 @@ const UserProfileForm = ({
     reset(placeholders);
     dispatch(updatePreviewUser(placeholders));
   };
-  console.log(photoUrl);
+
   return (
     <WidgetContainer
       sx={{

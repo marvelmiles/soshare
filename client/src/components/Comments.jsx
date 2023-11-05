@@ -33,11 +33,13 @@ const Comments = ({
   scrollNodeRef = null
 }) => {
   const currentUser = useSelector(state => state.user.currentUser);
+
   const {
     socket,
-    context: { _blockedUsers, composeDoc },
+    context: { composeDoc },
     setContext
   } = useContext();
+
   const stateRef = useRef({
     url: `/comments/feed/${documentId}`,
     pending: {},
@@ -334,11 +336,11 @@ const Comments = ({
   useEffect(() => {
     filterDocsByUserSet(
       infiniteScrollRef.current,
-      _blockedUsers,
+      { ...currentUser._blockedUsers, ...currentUser._disapprovedUsers },
       "threads",
       stateRef.current
     );
-  }, [_blockedUsers]);
+  }, [currentUser._blockedUsers, currentUser._disapprovedUsers]);
 
   return (
     <>
@@ -442,7 +444,10 @@ const Comments = ({
                 data.map((comment, i) => {
                   if (!comment) return null;
 
-                  if (_blockedUsers[comment.user.id])
+                  if (
+                    currentUser._blockedUsers[comment.user.id] ||
+                    currentUser._disapprovedUsers[comment.user.id]
+                  )
                     delete stateRef.current.rootIds[comment.id];
                   else stateRef.current.rootIds[comment.id] = i;
 
@@ -464,7 +469,10 @@ const Comments = ({
                       />
                       {comment.threads.length
                         ? comment.threads?.map((_c, _i) => {
-                            if (_blockedUsers[_c.user.id]) {
+                            if (
+                              currentUser._blockedUsers[comment.user.id] ||
+                              currentUser._disapprovedUsers[comment.user.id]
+                            ) {
                               delete stateRef.current.registeredIds[_c.id];
                               delete stateRef.current.rootIds[_c.id];
                             } else {

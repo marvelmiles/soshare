@@ -4,7 +4,8 @@ import PropTypes from "prop-types";
 import {
   WidgetContainer,
   StyledTypography,
-  StyledLink
+  StyledLink,
+  avatarProfileSx
 } from "components/styled";
 import {
   Stack,
@@ -165,7 +166,7 @@ const PostWidget = React.forwardRef(
                         s280: "calc(100% - 8px)",
                         s360: "calc(100% - 22px)"
                       },
-                      width: "1px",
+                      width: "1.8px",
                       borderRadius: "2px",
                       left: {
                         // half of avatar size
@@ -212,7 +213,11 @@ const PostWidget = React.forwardRef(
             }
           >
             <Tooltip key={post.user.id} arrow={false} title={userTip}>
-              <Avatar src={post.user.photoUrl} variant="md" />
+              <Avatar
+                src={post.user.photoUrl}
+                variant="md"
+                sx={avatarProfileSx}
+              />
             </Tooltip>
             <Box
               sx={{
@@ -317,8 +322,7 @@ const PostWidget = React.forwardRef(
                     {enableSnippet
                       ? post.text.slice(0, 80) +
                         (post.text.length >= 80 ? "..." : "")
-                      : post.text}{" "}
-                    {post.id}
+                      : post.text}
                   </span>
                   <span>
                     {post.moreText && showAll && !enableSnippet

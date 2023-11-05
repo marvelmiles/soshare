@@ -31,6 +31,7 @@ import http from "api/http";
 import DeleteDialog from "components/DeleteDialog";
 import useDeleteDispatch from "hooks/useDeleteDispatch";
 import { isObject } from "utils/validators";
+import { avatarProfileSx } from "components/styled";
 import testVideo from "components/resized.mp4";
 import testImg from "components/img1.jpg";
 
@@ -521,6 +522,7 @@ const SosharePen = ({
                 variant="md"
                 src={currentUser.photoUrl}
                 alt={currentUser.username}
+                sx={avatarProfileSx}
               />
               <Box
                 sx={{

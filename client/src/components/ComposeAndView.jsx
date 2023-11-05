@@ -111,16 +111,9 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
         replace: true
       });
 
-      false && console.log(searchParams, setSearchParams, navigate);
-
       stateCtx.taskId = setTimeout(resetState, 0);
-
-      // navigate(-1, {
-      //   state: stateCtx.locState,
-      //   replace: true
-      // });
     },
-    [searchParams, setSearchParams, navigate]
+    [searchParams, setSearchParams]
   );
 
   const _handleAction = useCallback(

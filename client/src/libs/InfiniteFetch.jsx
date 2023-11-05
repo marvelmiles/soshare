@@ -632,7 +632,8 @@ const InfiniteFetch = React.forwardRef(
 
             setRetry(false);
 
-            onResponse && onResponse(undefined, newData, stateCtx);
+            onResponse &&
+              (newData = onResponse(undefined, newData, stateCtx) || newData);
 
             setData(newData);
             stateCtx.onFetch && stateCtx.onFetch(undefined, newData, stateCtx);

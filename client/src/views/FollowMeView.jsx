@@ -25,7 +25,9 @@ const FollowMeView = ({
   privateUid,
   excludeCUser
 }) => {
-  const { socket, userId } = useContext();
+  const { userId } = useParams();
+
+  const { socket } = useContext();
 
   const { previewUser, currentUser } = useSelector(state => state.user);
 
@@ -39,13 +41,7 @@ const FollowMeView = ({
     toggle: {},
     follow: {},
     unfollow: {},
-    priority,
-    url:
-      {
-        suggest: `/users/${userId}/suggest-followers`,
-        followers: `/users/${userId}/followers`,
-        following: `/users/${userId}/following`
-      }[url] || url
+    priority
   });
 
   const { _handleAction } = useCallbacks(infiniteScrollRef, { currentUser });
@@ -178,6 +174,8 @@ const FollowMeView = ({
   }, [handleFollowingAction, previewUser.followUser, currentUser]);
   const loading = dataSize === undefined || dataSize < 0;
 
+  console.log(userId);
+
   return (
     <WidgetContainer
       ref={scrollNodeRef}
@@ -215,7 +213,13 @@ const FollowMeView = ({
         sx={{
           px: 2
         }}
-        url={stateRef.current.url}
+        url={
+          {
+            suggest: `/users/${userId}/suggest-followers`,
+            followers: `/users/${userId}/followers`,
+            following: `/users/${userId}/following`
+          }[url] || url
+        }
         searchParams={searchParams}
         {...infiniteScrollProps}
         exclude={excludeCUser && currentUser.id ? currentUser.id : ""}

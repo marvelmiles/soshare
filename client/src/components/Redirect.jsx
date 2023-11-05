@@ -9,7 +9,7 @@ const Redirect = ({
   message = `You are not allowed to view this page and will be redirected soon...`,
   to,
   fallbackPath = "/",
-  delay = 5000
+  delay = 3000
 }) => {
   const navigate = useNavigate();
   const { withBackBtn, locState } = useContext();

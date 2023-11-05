@@ -272,3 +272,8 @@ export const authLayoutSx = {
   minHeight: 0,
   height: "auto"
 };
+
+export const avatarProfileSx = {
+  border: "1px solid currentColor",
+  borderColor: "divider"
+};

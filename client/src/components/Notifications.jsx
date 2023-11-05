@@ -29,7 +29,7 @@ import { useContext } from "context/store";
 import { Link } from "react-router-dom";
 import moment from "moment";
 import PostWidget from "components/PostWidget";
-import { StyledLink } from "./styled";
+import { StyledLink, avatarProfileSx } from "./styled";
 import Tooltip from "@mui/material/Tooltip";
 import UserTip from "tooltips/UserTip";
 
@@ -413,7 +413,11 @@ const Notifications = ({
                           <Stack flexWrap="wrap" justifyContent="normal">
                             {n.users.map(({ id, photoUrl }) => (
                               <Link key={id} to={`/u/${id}`}>
-                                <Avatar src={photoUrl} alt="" />
+                                <Avatar
+                                  src={photoUrl}
+                                  alt=""
+                                  sx={avatarProfileSx}
+                                />
                               </Link>
                             ))}
                           </Stack>

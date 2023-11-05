@@ -102,7 +102,7 @@ const MoreActions = ({
         });
         setOpenDeleteDialog(false);
       };
-      if (reason !== "checked") closeDialog();
+      if (false && reason !== "checked") closeDialog();
 
       switch (reason) {
         case "delete":

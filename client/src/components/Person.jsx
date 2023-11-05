@@ -4,7 +4,11 @@ import Stack from "@mui/material/Stack";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Avatar from "@mui/material/Avatar";
-import { StyledTypography, StyledLink } from "components/styled";
+import {
+  StyledTypography,
+  StyledLink,
+  avatarProfileSx
+} from "components/styled";
 import { Link } from "react-router-dom";
 
 const Person = React.forwardRef(
@@ -45,7 +49,12 @@ const Person = React.forwardRef(
             }}
           >
             <Avatar
-              sx={{ mx: "auto", width: "50px", height: "50px" }}
+              sx={{
+                mx: "auto",
+                width: "50px",
+                height: "50px",
+                ...avatarProfileSx
+              }}
               src={user.photoUrl}
             />
             <StyledTypography
@@ -103,6 +112,7 @@ const Person = React.forwardRef(
                 src={user.photoUrl}
                 component={Link}
                 to={`/u/${user.id}`}
+                sx={avatarProfileSx}
               />
               <Box
                 sx={{

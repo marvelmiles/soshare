@@ -38,6 +38,7 @@ const ShortsView = ({
     stateCtx: stateRef.current,
     currentUser
   });
+
   useEffect(() => {
     if (socket) {
       const handleFilter = document => {
@@ -49,17 +50,13 @@ const ShortsView = ({
           _handleAction("new", { document: short });
       };
 
-      const handleUpdateUser = user => _handleAction("update", { user });
-
       socket.on("short", handleAppend);
       socket.on("filter-short", handleFilter);
-      socket.on("update-user", handleUpdateUser);
 
       return () => {
         socket
           .removeEventListener("short", handleAppend)
-          .removeEventListener("filter-short", handleFilter)
-          .removeEventListener("update-user", handleUpdateUser);
+          .removeEventListener("filter-short", handleFilter);
       };
     }
   }, [socket, _handleAction, privateUid]);
@@ -120,6 +117,7 @@ const ShortsView = ({
     <InfiniteScroll
       key={`${miniShort}-${stateRef.current.url}`}
       url={stateRef.current.url}
+      verify="u"
       sx={
         miniShort
           ? {

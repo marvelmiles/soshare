@@ -67,35 +67,42 @@ export const filterDocsByUserSet = (
 ) => {
   const { data, setData } = infiniteScrollUtils;
   const arr = [];
+  let update = false;
   for (let i = 0; i < data.data.length; i++) {
     const doc = data.data[i];
     const deleteFromReg = doc => {
+      update = true;
+      if (!stateCtx) return;
+
       delete stateCtx.registeredIds[doc.id];
+      delete stateCtx.rootIds[doc.id];
 
       if (doc[subPath])
         for (const { id } of doc[subPath]) {
           delete stateCtx.registeredIds[id];
+          delete stateCtx.rootIds[id];
         }
     };
 
     if (doc.user && usersSet[doc.user.id]) {
       const doc = data.data[i];
-      stateCtx?.registeredIds && deleteFromReg(doc);
+      deleteFromReg(doc);
     } else arr.push(doc);
 
     if (doc[subPath])
       for (let i = 0; i < doc[subPath].length; i++) {
         if (usersSet[doc[subPath][i].user.id]) {
           const array = doc[subPath].splice(i);
-          stateCtx?.registeredIds && array.forEach(deleteFromReg);
+          array.forEach(deleteFromReg);
           break;
         }
       }
   }
-  setData({
-    ...data,
-    data: arr
-  });
+  update &&
+    setData({
+      ...data,
+      data: arr
+    });
 };
 
 export const setAspectRatio = element => {
