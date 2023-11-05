@@ -332,7 +332,7 @@ const PostWidget = React.forwardRef(
               ) : null}
 
               {enableSnippet && (post.medias?.length || post.media) ? (
-                <Typography>include media file(s)...</Typography>
+                <Typography>contains media file(s)...</Typography>
               ) : post.medias?.length || post.media ? (
                 <MediaCarousel medias={post.medias || [post.media]} />
               ) : null}
