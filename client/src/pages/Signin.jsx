@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import useForm from "hooks/useForm";
 import { Stack, InputBase, Button } from "@mui/material";
-import { WidgetContainer, StyledLink } from "components/styled";
+import { WidgetContainer, StyledLink, authLayoutSx } from "components/styled";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Checkbox from "@mui/material/Checkbox";
 import { signInWithPopupTimeout, auth as firebaseAuth } from "api/firebase";
@@ -61,7 +61,7 @@ const Signin = () => {
   }, [dispatch]);
 
   useEffect(() => {
-    onAuthStateChanged(firebaseAuth, (...u) => console.log(u));
+    // onAuthStateChanged(firebaseAuth, (...u) => console.log(u));
   }, []);
 
   const onSubmit = async e => {
@@ -107,7 +107,7 @@ const Signin = () => {
 
       if (redirect) redirect = redirect.replace(/cv/, "view");
 
-      // navigate(redirect || "/", prop);
+      navigate(redirect || "/", prop);
     } catch (err) {
       if (err.code) {
         if (err.code === "auth/popup-closed-by-user")
@@ -138,11 +138,7 @@ const Signin = () => {
   return (
     <>
       <Stack sx={{ minHeight: "100vh", width: "100%" }}>
-        <WidgetContainer
-          sx={{ maxWidth: "576px", mx: "auto" }}
-          component="form"
-          onSubmit={onSubmit}
-        >
+        <WidgetContainer sx={authLayoutSx} component="form" onSubmit={onSubmit}>
           <BrandIcon staticFont />
           <CustomInput
             name="placeholder"
@@ -193,7 +189,7 @@ const Signin = () => {
             }
           />
 
-          <Stack sx={{ mt: "-8px" }}>
+          <Stack sx={{ mt: "-4px" }}>
             <FormControlLabel
               disabled={isSubmitting}
               control={
@@ -233,7 +229,7 @@ const Signin = () => {
           </Button>
           <Button
             variant="contained"
-            sx={{ width: "100%", mt: 2, py: 1 }}
+            sx={{ width: "100%", mt: 2, py: 1, display: "none" }}
             onClick={() => onSubmit("google")}
             disabled={isSubmitting}
           >

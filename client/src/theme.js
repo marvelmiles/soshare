@@ -286,6 +286,7 @@ export const createTheme = mode =>
         s200: 200,
         s280: 280,
         s320: 320,
+        s360: 360,
         s640: 640,
         xxxl: 1595,
         s1200: 1200,

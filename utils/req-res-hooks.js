@@ -10,6 +10,10 @@ import { createError } from "./error.js";
 import User from "../models/User.js";
 import { deleteFile } from "./file-handlers.js";
 import { isObjectId } from "./validators.js";
+import {
+  HTTP_CODE_USER_BLACKLISTED,
+  HTTP_CODE_DOCUMENT_NOT_FOUND
+} from "../constants.js";
 
 export const getFeedMedias = async ({
   req,
@@ -141,13 +145,16 @@ export const getDocument = async ({
   try {
     const _id = req.params.id || req.params.userId;
 
-    if (!isObjectId(_id)) throw createError("Invalid request!", 404);
+    const msg404 = `${model.modelName} not found`;
+
+    if (!isObjectId(_id))
+      throw createError(msg404, 404, HTTP_CODE_DOCUMENT_NOT_FOUND);
 
     if (req.cookies.access_token) verifyToken(req);
 
     let list = [];
     if (req.user)
-      list = (await User.findById(req.user.id)).recommendationBlacklist || [];
+      list = (await User.findById(req.user.id))?.recommendationBlacklist || [];
 
     const query = await createVisibilityQuery({
       userId: req.user?.id,
@@ -160,9 +167,11 @@ export const getDocument = async ({
     });
 
     let doc = await model.findOne(query);
-    if (!doc) throw createError(`${model.modelName} not found`, 404);
 
-    if (list.includes(doc.user)) throw createError(`owner blacklisted`, 400);
+    if (!doc) throw createError(msg404, 404, HTTP_CODE_DOCUMENT_NOT_FOUND);
+
+    if (list.includes(doc.user))
+      throw createError(`owner blacklisted`, 400, HTTP_CODE_USER_BLACKLISTED);
     doc = await doc.populate(populate);
 
     res.json(doc);

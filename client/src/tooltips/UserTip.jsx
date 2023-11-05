@@ -85,7 +85,7 @@ const UserTip = ({
               variant="caption"
               maxLine={maxLine}
             >
-              @{user.username}
+              @{user.username || user.displayName}
             </StyledTypography>
             <div style={{ whiteSpace: "wrap" }}>
               {[

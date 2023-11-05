@@ -354,7 +354,7 @@ export const sendAndUpdateNotification = async ({
 };
 
 export const handleMiscDelete = async (docId, io, options = {}) => {
-  const { withComment = true, cb, $or = [] } = options;
+  const { withComment = true, cb, notificationMatch = {} } = options;
 
   try {
     if (withComment) {
@@ -364,20 +364,21 @@ export const handleMiscDelete = async (docId, io, options = {}) => {
           { document: docId },
           {
             rootThread: docId
-          },
-          ...$or
+          }
         ]
       };
 
-      (await Comment.find(deleteQuery)).forEach(
-        c => c.media?.url && deleteFile(c.media.url)
-      );
+      const comments = await Comment.find(deleteQuery);
 
-      await Comment.deleteMany(deleteQuery);
+      for (const c of comments) {
+        await c.deleteOne();
+        if (c.media?.url) deleteFile(c.media.url);
+      }
     }
 
     const docQuery = {
-      document: docId
+      document: docId,
+      ...notificationMatch
     };
 
     const notices = await Notification.find(docQuery);

@@ -67,7 +67,7 @@ const App = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  let { userId } = useParams();
+  let { userId = "", kind = "", id = "" } = useParams();
 
   userId = userId || cid;
 
@@ -83,7 +83,8 @@ const App = () => {
 
   const stateRef = useRef({
     isProcUrl: false,
-    prevPath: ""
+    prevPath: "",
+    defaultPage: pathname
   });
 
   const resetComposeDoc = useCallback(() => {
@@ -292,6 +293,8 @@ const App = () => {
 
   const _isOnline = isOnline === undefined ? window.navigator.onLine : isOnline;
 
+  const isDefaultPage = pathname === stateRef.current.defaultPage;
+
   return (
     <div id="app-root">
       <ThemeProvider theme={theme}>
@@ -427,9 +430,10 @@ const App = () => {
             isOnline,
             isLoggedIn: !!cid,
             withBackBtn:
+              !isDefaultPage &&
               key !== "default" &&
               locState.from !== 0 &&
-              (pathname !== "/" || pathname.indexOf("auth") < -1),
+              (pathname.indexOf("auth") === -1 && pathname !== "/"),
             setContext,
             setReadyState,
             closeSnackBar
@@ -467,7 +471,7 @@ const App = () => {
                   />
                   <Route path="search" element={<Search />} />
                   <Route path="shorts" element={<ShortsPage />} />
-                  <Route path=":kind/:id" element={<Post />} />
+                  <Route path=":kind/:id" element={<Post key={kind + id} />} />
                   <Route path="*" element={<Page404 />} />
                 </Routes>
               )
@@ -478,7 +482,7 @@ const App = () => {
       <Snackbar
         open={snackbar.open}
         autoHideDuration={snackbar.autoHideDuration || 8000}
-        onClose={snackbar.onClose && snackbar.onClose}
+        onClose={snackbar.onClose ? snackbar.onClose : closeSnackBar}
         sx={{
           bottom: isOnline === undefined ? undefined : "80px !important",
           maxWidth: snackbar.maxWidth || "400px",

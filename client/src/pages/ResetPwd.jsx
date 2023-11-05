@@ -1,7 +1,7 @@
 import React from "react";
 import PropTypes from "prop-types";
 import { useParams } from "react-router-dom";
-import { WidgetContainer, StyledLink } from "components/styled";
+import { WidgetContainer, StyledLink, authLayoutSx } from "components/styled";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import http from "api/http";
@@ -35,12 +35,7 @@ const ResetPwd = props => {
     <Stack sx={{ minHeight: "100vh", width: "100%" }}>
       <WidgetContainer
         component="form"
-        sx={{
-          maxWidth: "400Px",
-          mx: "auto",
-          minHeight: "0",
-          height: "auto"
-        }}
+        sx={authLayoutSx}
         onSubmit={async e => {
           try {
             const f = handleSubmit(e);
@@ -106,7 +101,7 @@ const ResetPwd = props => {
           type="submit"
           disabled={isSubmitting || isInValid}
           variant="contained"
-          sx={{ width: "100%", mt: 2, mb: 1 }}
+          sx={{ width: "100%", mt: 2, mb: 1, py: 1 }}
         >
           Reset
         </Button>

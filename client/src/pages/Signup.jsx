@@ -1,7 +1,7 @@
 import React, { useCallback } from "react";
 import UserProfileForm from "../components/UserProfileForm";
 import { Stack, Typography } from "@mui/material";
-import { StyledLink } from "../components/styled";
+import { StyledLink, authLayoutSx } from "components/styled";
 import { createRelativeURL } from "api/http";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
@@ -44,7 +44,7 @@ const Signup = () => {
     >
       <UserProfileForm
         requiredOnly
-        sx={{ maxWidth: "576px" }}
+        sx={authLayoutSx}
         handleAction={_handleAction}
         placeholders={userPlaceholder}
         method={userPlaceholderMethod}

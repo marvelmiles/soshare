@@ -34,7 +34,7 @@ const UserWidget = ({ width, user }) => {
     cid: cUser.id
   });
 
-  const isCurrentUser = user?.id ? user.id === currentUser.id : false;
+  const isCurrentUser = user?.id ? user.id === currentUser.id : true;
 
   useEffect(() => {
     if (socket) {

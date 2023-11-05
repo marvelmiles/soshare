@@ -211,7 +211,7 @@ const ShortsView = ({
               emptyLabel ||
               (isPrivateUser
                 ? `You don't have any short at the moment!`
-                : "Sorry, there are no shorts to view at the moment or the short's curator has been blacklisted!")
+                : "Sorry, there are no shorts to view at the moment or short's visibility has been restricted!")
             }
           />
         );

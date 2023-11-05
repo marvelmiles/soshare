@@ -209,15 +209,17 @@ export const deleteComment = async (req, res, next) => {
     }
 
     handleMiscDelete(comment.id, io, {
-      $or: [
-        {
-          cacheDocs: {
-            $elemMatch: {
-              _id: comment.id
+      notificationMatch: {
+        $or: [
+          {
+            cacheDocs: {
+              $elemMatch: {
+                _id: comment.id
+              }
             }
           }
-        }
-      ],
+        ]
+      },
       cb() {
         withRo &&
           sendAndUpdateNotification({

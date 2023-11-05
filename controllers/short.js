@@ -29,7 +29,7 @@ export const createShort = async (req, res, next) => {
     res.json(short);
     const io = req.app.get("socketIo");
     if (io) {
-      short.visibility !== "private" && io.emit("short", short);
+      io.emit("short", short);
       io.emit("update-user", short.user);
     }
   } catch (err) {

@@ -78,6 +78,7 @@ const UserProfileForm = ({
     s200: "120px",
     s280: "120px"
   };
+
   const hasChanged = (() => {
     let hasChanged = false;
     for (const key in formData) {
@@ -136,9 +137,11 @@ const UserProfileForm = ({
 
   useEffect(() => {
     const url = formData.avatar ? URL.createObjectURL(formData.avatar) : "";
+
     setPhotoUrl(url || formData.photoUrl || placeholders?.photoUrl);
+
     return () => {
-      url && URL.revokeObjectURL(url);
+      // url && URL.revokeObjectURL(url);
     };
   }, [formData.avatar, placeholders?.photoUrl, formData.photoUrl]);
 
@@ -212,7 +215,7 @@ const UserProfileForm = ({
     reset(placeholders);
     dispatch(updatePreviewUser(placeholders));
   };
-
+  console.log(photoUrl);
   return (
     <WidgetContainer
       sx={{

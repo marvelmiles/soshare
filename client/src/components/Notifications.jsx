@@ -42,11 +42,12 @@ const Notifications = ({
   },
   sx
 }) => {
-  const t = useRef();
   const { socket } = useContext();
   const [disabled, setDisabled] = useState(true);
   const [type, setType] = useState(defaultType);
+
   const cid = useSelector(state => state.user.currentUser?.id);
+
   const stateRef = useRef({
     registeredIds: {}
   });
@@ -154,14 +155,25 @@ const Notifications = ({
     cache[type].data = [];
   }, [cache, type]);
 
+  const setCancelRequest = (bool = false) => {
+    const { setConfig } = infiniteScrollRef.current;
+    setConfig({
+      cancelRequest: bool
+    });
+  };
+
   const handleTabSwitch = (type, e = {}) => {
     e && e.stopPropagation && e.stopPropagation();
+    setCancelRequest(true);
     setDisabled(e.disabled !== false);
     type && setType(type);
   };
 
   const handleDeleteAll = e => {
     e.stopPropagation();
+
+    setCancelRequest();
+
     const { data, setData } = infiniteScrollRef.current;
 
     setDisabled(true);
@@ -176,6 +188,7 @@ const Notifications = ({
 
   const deleteOne = notice => e => {
     e.stopPropagation();
+    setCancelRequest();
     handleDelete(`/users/notifications`, [notice], {
       label: "notification"
     });
@@ -183,6 +196,8 @@ const Notifications = ({
 
   const markOne = (i, to) => e => {
     e.stopPropagation();
+    setCancelRequest();
+
     if (type === "unmarked")
       markNotification(i, infiniteScrollRef.current, {
         to,
@@ -242,215 +257,211 @@ const Notifications = ({
         {({ data: { data } }) => {
           return (
             <>
-              <Box>
-                {data.length ? (
-                  <List sx={{ mt: 0, p: 0 }}>
-                    {data.map((n, i) => {
-                      const renderMsg = () => {
-                        let withRo;
-                        const formatedDate = moment(n.createdAt).fromNow();
-                        const moreInfo = (
-                          <span>
+              {data.length ? (
+                <List sx={{ mt: 0, p: 0 }}>
+                  {data.map((n, i) => {
+                    const renderMsg = () => {
+                      let withRo;
+                      const formatedDate = moment(n.createdAt).fromNow();
+                      const moreInfo = (
+                        <span>
+                          {
                             {
-                              {
-                                like: " liked",
-                                comment: ` soshared a ${n.docType} on`
-                              }[n.type]
-                            }{" "}
-                            {n.document?.user?.id === cid ||
-                            (withRo = n.document?.document?.user?.id === cid)
-                              ? "your"
-                              : "a"}{" "}
-                            {withRo ? (
+                              like: " liked",
+                              comment: ` soshared a ${n.docType} on`
+                            }[n.type]
+                          }{" "}
+                          {n.document?.user?.id === cid ||
+                          (withRo = n.document?.document?.user?.id === cid)
+                            ? "your"
+                            : "a"}{" "}
+                          {withRo ? (
+                            <StyledLink
+                              style={{ color: "inherit" }}
+                              to={`/${n.document.docType}s/${n.document.document.id}`}
+                            >
+                              {n.document.docType}
+                            </StyledLink>
+                          ) : n.document ? (
+                            n.docType
+                          ) : (
+                            <StyledLink
+                              style={{ color: "inherit" }}
+                              to={`/${n.docType}s/${n.document?.id || ""}`}
+                            >
+                              {n.docType}
+                            </StyledLink>
+                          )}{" "}
+                          {formatedDate}.
+                        </span>
+                      );
+                      const username = (
+                        <Tooltip
+                          arrow={false}
+                          title={
+                            <UserTip
+                              user={n.users[0]}
+                              isOwner={cid === n.users[0].id}
+                            />
+                          }
+                        >
+                          <span>{n.users[0].username}</span>
+                        </Tooltip>
+                      );
+                      switch (n.type) {
+                        case "like":
+                        case "comment":
+                          const usersLen = n.users.length - 1;
+                          return (
+                            <div>
+                              @{username}
+                              {usersLen
+                                ? ` and ${
+                                    usersLen - 1
+                                      ? `${usersLen} others${moreInfo} `
+                                      : ` @${n.users[1].username}${moreInfo}`
+                                  }`
+                                : moreInfo}
+                            </div>
+                          );
+                        case "follow":
+                          return (
+                            <div>
+                              @{username} followed
+                              {n.to.id === cid ? " you " : " a friend "}
+                              {formatedDate}.
+                            </div>
+                          );
+                        case "delete":
+                          return (
+                            <div>
+                              @{username} deleted your{" "}
+                              {n.cacheType +
+                                (n.cacheDocs.length > 1 ? "s " : " ")}
+                              on their{" "}
                               <StyledLink
-                                style={{ color: "inherit" }}
-                                to={`/${n.document.docType}s/${n.document.document.id}`}
-                              >
-                                {n.document.docType}
-                              </StyledLink>
-                            ) : n.document ? (
-                              n.docType
-                            ) : (
-                              <StyledLink
-                                style={{ color: "inherit" }}
-                                to={`/${n.docType}s/${n.document?.id || ""}`}
+                                to={`/${n.docType}s/${n.document.id}`}
                               >
                                 {n.docType}
-                              </StyledLink>
-                            )}{" "}
-                            {formatedDate}.
-                          </span>
-                        );
-                        const username = (
-                          <Tooltip
-                            arrow={false}
-                            title={
-                              <UserTip
-                                user={n.users[0]}
-                                isOwner={cid === n.users[0].id}
-                              />
-                            }
-                          >
-                            <span>{n.users[0].username}</span>
-                          </Tooltip>
-                        );
-                        switch (n.type) {
-                          case "like":
-                          case "comment":
-                            const usersLen = n.users.length - 1;
-                            return (
-                              <div>
-                                @{username}
-                                {usersLen
-                                  ? ` and ${
-                                      usersLen - 1
-                                        ? `${usersLen} others${moreInfo} `
-                                        : ` @${n.users[1].username}${moreInfo}`
-                                    }`
-                                  : moreInfo}
-                              </div>
-                            );
-                          case "follow":
-                            return (
-                              <div>
-                                @{username} followed
-                                {n.to.id === cid ? " you " : " a friend "}
-                                {formatedDate}.
-                              </div>
-                            );
-                          case "delete":
-                            return (
-                              <div>
-                                @{username} deleted your{" "}
-                                {n.cacheType +
-                                  (n.cacheDocs.length > 1 ? "s " : " ")}
-                                on their{" "}
-                                <StyledLink
-                                  to={`/${n.docType}s/${n.document.id}`}
-                                >
-                                  {n.docType}
-                                </StyledLink>{" "}
-                                {formatedDate}.
-                              </div>
-                            );
-                          default:
-                            return (
-                              <div>
-                                @{username}
-                                {moreInfo}
-                              </div>
-                            );
-                        }
-                      };
-                      return (
-                        <ListItemButton
-                          key={n.id}
-                          disableRipple
-                          component="li"
+                              </StyledLink>{" "}
+                              {formatedDate}.
+                            </div>
+                          );
+                        default:
+                          return (
+                            <div>
+                              @{username}
+                              {moreInfo}
+                            </div>
+                          );
+                      }
+                    };
+                    return (
+                      <ListItemButton
+                        key={n.id}
+                        disableRipple
+                        component="li"
+                        sx={{
+                          "&": {
+                            borderBottom: "1px solid currentColor",
+                            borderBottomColor: "divider",
+                            alignItems: "flex-start",
+                            zIndex: 2
+                          },
+                          "&:hover": {
+                            backgroundColor: "common.selectedHover"
+                          }
+                        }}
+                        onClick={markOne(
+                          i,
+                          n.document
+                            ? `/${n.docType}s/${n.document.id}`
+                            : n.users[0]
+                            ? `/u/${n.users[0].id}`
+                            : ""
+                        )}
+                      >
+                        <ListItemAvatar
                           sx={{
-                            "&": {
-                              borderBottom: "1px solid currentColor",
-                              borderBottomColor: "divider",
-                              alignItems: "flex-start",
-                              zIndex: 2
+                            minWidth: "40px",
+                            ".MuiSvgIcon-root": {
+                              fontSize: "3em"
                             },
-                            "&:hover": {
-                              backgroundColor: "common.selectedHover"
-                            }
+                            alignSelf: "flex-start"
                           }}
-                          onClick={markOne(
-                            i,
-                            n.document
-                              ? `/${n.docType}s/${n.document.id}`
-                              : n.users[0]
-                              ? `/u/${n.users[0].id}`
-                              : ""
-                          )}
                         >
-                          <ListItemAvatar
-                            sx={{
-                              minWidth: "40px",
-                              ".MuiSvgIcon-root": {
-                                fontSize: "3em"
-                              },
-                              alignSelf: "flex-start"
-                            }}
-                          >
-                            {{
-                              like: (
-                                <FavoriteIcon sx={{ color: "common.heart" }} />
-                              ),
-                              follow: (
-                                <PersonIcon
-                                  sx={{
-                                    color: "primary.main"
-                                  }}
-                                />
-                              )
-                            }[n.type] || (
-                              <NotificationsIcon
+                          {{
+                            like: (
+                              <FavoriteIcon sx={{ color: "common.heart" }} />
+                            ),
+                            follow: (
+                              <PersonIcon
                                 sx={{
                                   color: "primary.main"
                                 }}
                               />
-                            )}
-                          </ListItemAvatar>
-                          <Box sx={{ flex: 1 }}>
-                            <Stack flexWrap="wrap" justifyContent="normal">
-                              {n.users.map(({ id, photoUrl }) => (
-                                <Link key={id} to={`/u/${id}`}>
-                                  <Avatar src={photoUrl} alt="" />
-                                </Link>
-                              ))}
-                            </Stack>
-                            <Typography sx={{ mt: 1 }}>
-                              {renderMsg()}
-                            </Typography>
-                            {n.document ? (
-                              <PostWidget post={n.document} enableSnippet />
-                            ) : null}
-                          </Box>
-                          <Box
-                            sx={{
-                              alignSelf: "flex-start"
-                            }}
-                          >
-                            {type === "unmarked" ? (
-                              <Checkbox
-                                icon={<RadioButtonUncheckedIcon />}
-                                checkedIcon={<CircleIcon />}
-                                onClick={markOne(i)}
-                              />
-                            ) : (
-                              <IconButton
-                                sx={{
-                                  backgroundColor: "action.selected"
-                                }}
-                                onClick={deleteOne(n)}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
-                            )}
-                          </Box>
-                        </ListItemButton>
-                      );
-                    })}
-                  </List>
-                ) : (
-                  <EmptyData
-                    sx={{
-                      py: 2
-                    }}
-                    label={
-                      {
-                        unmarked:
-                          "You don't have any notification at the moment.",
-                        marked: "Your notification box is empty at the moment."
-                      }[type]
-                    }
-                  />
-                )}
-              </Box>
+                            )
+                          }[n.type] || (
+                            <NotificationsIcon
+                              sx={{
+                                color: "primary.main"
+                              }}
+                            />
+                          )}
+                        </ListItemAvatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Stack flexWrap="wrap" justifyContent="normal">
+                            {n.users.map(({ id, photoUrl }) => (
+                              <Link key={id} to={`/u/${id}`}>
+                                <Avatar src={photoUrl} alt="" />
+                              </Link>
+                            ))}
+                          </Stack>
+                          <Typography sx={{ mt: 1 }}>{renderMsg()}</Typography>
+                          {n.document ? (
+                            <PostWidget post={n.document} enableSnippet />
+                          ) : null}
+                        </Box>
+                        <Box
+                          sx={{
+                            alignSelf: "flex-start"
+                          }}
+                        >
+                          {type === "unmarked" ? (
+                            <Checkbox
+                              icon={<RadioButtonUncheckedIcon />}
+                              checkedIcon={<CircleIcon />}
+                              onClick={markOne(i)}
+                            />
+                          ) : (
+                            <IconButton
+                              sx={{
+                                backgroundColor: "action.selected"
+                              }}
+                              onClick={deleteOne(n)}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          )}
+                        </Box>
+                      </ListItemButton>
+                    );
+                  })}
+                </List>
+              ) : (
+                <EmptyData
+                  sx={{
+                    py: 2
+                  }}
+                  label={
+                    {
+                      unmarked:
+                        "You don't have any notification at the moment.",
+                      marked: "Your notification box is empty at the moment."
+                    }[type]
+                  }
+                />
+              )}
             </>
           );
         }}

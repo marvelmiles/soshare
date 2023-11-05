@@ -133,26 +133,10 @@ const PostWidget = React.forwardRef(
             backgroundColor: "transparent !important",
             mb: 0,
             p: enableSnippet ? 0 : undefined,
-
             ...(showThread
               ? {
                   borderBottom: "none",
-                  borderRadius: "0",
-                  position: "relative",
-                  "&::before": {
-                    content: `""`,
-                    backgroundColor: "primary.main",
-                    position: "absolute",
-                    top: "30px",
-                    // 100% - avatar size +  16px pt
-                    height: `calc(100% - 20px)`,
-                    width: "1px",
-                    transform: {
-                      xs: "translateX(10px)",
-                      s280: "translateX(22px)"
-                    },
-                    bottom: "0px"
-                  }
+                  borderRadius: "0"
                 }
               : undefined),
 
@@ -162,7 +146,37 @@ const PostWidget = React.forwardRef(
               alignItems: "flex-start",
               maxWidth,
               mx: "auto",
-              cursor: noNavigate ? "default" : "pointer"
+              cursor: noNavigate ? "default" : "pointer",
+
+              ...(showThread
+                ? {
+                    position: "relative",
+                    "&::before": {
+                      content: `""`,
+                      backgroundColor: "primary.main",
+                      position: "absolute",
+                      top: {
+                        xs: "25px",
+                        s280: "35px",
+                        s360: "50px"
+                      },
+                      height: {
+                        xs: "100%",
+                        s280: "calc(100% - 8px)",
+                        s360: "calc(100% - 22px)"
+                      },
+                      width: "1px",
+                      borderRadius: "2px",
+                      left: {
+                        // half of avatar size
+                        xs: "10px",
+                        s280: "15px",
+                        s360: "22px"
+                      },
+                      bottom: "0px"
+                    }
+                  }
+                : undefined)
             }
           },
           ...sx
@@ -303,7 +317,8 @@ const PostWidget = React.forwardRef(
                     {enableSnippet
                       ? post.text.slice(0, 80) +
                         (post.text.length >= 80 ? "..." : "")
-                      : post.text}
+                      : post.text}{" "}
+                    {post.id}
                   </span>
                   <span>
                     {post.moreText && showAll && !enableSnippet
@@ -345,7 +360,8 @@ const PostWidget = React.forwardRef(
                               document: post,
                               docType,
                               reason: "comment"
-                            }
+                            },
+                            replace: true
                           }
                         );
                       }}

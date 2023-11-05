@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback, useEffect } from "react";
 import PropTypes from "prop-types";
 import useForm from "hooks/useForm";
 import Button from "@mui/material/Button";
-import { WidgetContainer, StyledLink } from "components/styled";
+import { WidgetContainer, StyledLink, authLayoutSx } from "components/styled";
 import Loading from "components/Loading";
 import { Stack, debounce } from "@mui/material";
 import Typography from "@mui/material/Typography";
@@ -133,16 +133,7 @@ const VerificationMail = props => {
 
   return (
     <Stack sx={{ minHeight: "100vh", width: "100%" }}>
-      <WidgetContainer
-        sx={{
-          maxWidth: "400px",
-          mx: "auto",
-          height: "auto",
-          minHeight: "0"
-        }}
-        component="form"
-        onSubmit={onSubmit}
-      >
+      <WidgetContainer sx={authLayoutSx} component="form" onSubmit={onSubmit}>
         <Typography variant="h5" textAlign="center" my color="text.secondary">
           Verification Mail
         </Typography>
@@ -202,7 +193,8 @@ const VerificationMail = props => {
           disabled={isInValid || isSubmitting}
           sx={{
             width: "100%",
-            my: 1
+            my: 1,
+            py: 1
           }}
           type="submit"
         >

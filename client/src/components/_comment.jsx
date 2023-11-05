@@ -40,10 +40,10 @@ const Comments = ({
   } = useContext();
   const stateRef = useRef({
     url: `/comments/feed/${documentId}`,
+    registeredIds: {},
     pending: {},
     notiferDelay: -1,
     searchParams,
-    registeredIds: {},
     rootIds: {}
   });
   const infiniteScrollRef = useRef();
@@ -52,34 +52,23 @@ const Comments = ({
     (comment, shallowAppend) => {
       const data = infiniteScrollRef.current?.data;
       const stateCtx = stateRef.current;
-
       const docId = comment.document.id;
-      const isDocRoot = docId === documentId;
-
-      const rIndex = stateCtx.rootIds[docId];
-      const isRoot = stateCtx.registeredIds[docId] === undefined;
-
-      const idsRecord = stateCtx[isRoot ? "rootIds" : "registeredIds"];
-
-      let rootComment = data.data[rIndex] || {
-        threads: []
-      };
-
-      if (isDocRoot ? false : !rootComment.id) return;
-
-      const dIndex = stateCtx.registeredIds[docId];
-      const doc = rootComment.threads[dIndex] || data.data[dIndex];
 
       if (
         stateCtx.registeredIds[comment.id] >= -1 ||
         !(
           isDocVisibleToUser(comment, currentUser) &&
-          (isDocRoot || isRoot || doc)
+          (docId === documentId ||
+            (comment.rootThread &&
+              data.data[stateCtx.registeredIds[comment.rootThread]]) ||
+            data.data[stateCtx.registeredIds[docId]])
         )
       )
         return;
 
-      idsRecord[comment.id] = -1;
+      console.log(comment);
+
+      stateCtx.registeredIds[comment.id] = -1;
 
       stateRef.current.notifierDelay =
         comment.user.id === currentUser.id ? -1 : undefined;
@@ -90,8 +79,47 @@ const Comments = ({
           }
         : undefined;
 
-      if (isDocRoot) {
-        idsRecord[comment.id] = data.data.length;
+      const rIndex = stateCtx.registeredIds[(comment.document?.document?.id)];
+      let rootComment = data.data[rIndex];
+
+      const dIndex = stateCtx.registeredIds[docId];
+
+      const _addRoot = rIndex => {
+        let rootComment = data.data[rIndex];
+
+        if (!rootComment) return;
+
+        if (docId === rootComment.id) {
+          console.log("in...");
+          delete stateCtx.registeredIds[(rootComment.threads[0]?.id)];
+          rootComment = comment.document;
+          stateCtx.registeredIds[comment.id] = 0;
+          rootComment.threads[0] = comment;
+        } else {
+          const dIndex = stateCtx.registeredIds[docId];
+
+          const endIndex = dIndex + 1;
+          for (let i = endIndex; i < rootComment.threads.length; i++) {
+            delete stateCtx.registeredIds[rootComment.threads[i].id];
+          }
+          rootComment.threads[dIndex] = comment.document;
+          rootComment.threads = rootComment.threads.slice(0, endIndex);
+          stateCtx.registeredIds[comment.id] = rootComment.threads.length;
+
+          if (dIndex + 1 !== maxThread) rootComment.threads[endIndex] = comment;
+        }
+
+        data.data[rIndex] = rootComment;
+        infiniteScrollRef.current.setData(
+          {
+            ...data
+          },
+          shallowProp
+        );
+      };
+
+      if (docId === documentId) {
+        stateCtx.registeredIds[comment.id] = data.data.length;
 
         infiniteScrollRef.current.setData(
           {
@@ -100,116 +128,64 @@ const Comments = ({
           },
           shallowProp
         );
-
         handleAction &&
           handleAction("update", {
             document: comment.document
           });
-      } else {
-        stateCtx.rootIds[comment.id] = rIndex;
-
-        if (isRoot) {
-          delete idsRecord[(rootComment.threads[0]?.id)];
-
-          rootComment = comment.document;
-          idsRecord[comment.id] = 0;
-
-          rootComment.threads[0] = comment;
-
-          data.data[rIndex] = rootComment;
-        } else {
-          const endIndex = dIndex + 1;
-
-          for (let i = endIndex; i < rootComment.threads.length; i++) {
-            delete idsRecord[rootComment.threads[i].id];
-          }
-
-          rootComment.threads[dIndex] = comment.document;
-          rootComment.threads = rootComment.threads.slice(0, endIndex);
-          idsRecord[comment.id] = rootComment.threads.length;
-
-          if (dIndex + 1 !== maxThread) {
-            comment._rootId = doc._rootId;
-            rootComment.threads[endIndex] = comment;
-          }
-        }
-
-        infiniteScrollRef.current.setData(
-          {
-            ...data
-          },
-          shallowProp
-        );
-      }
+      } else if (rootComment) {
+        console.log("view");
+        _addRoot();
+      } else _addRoot(dIndex);
     },
     [currentUser, documentId, handleAction, maxThread]
   );
 
   const removeComment = useCallback(
-    ({ id, document, user: { id: uid } }, cacheData = true) => {
+    ({ id, rootThread, document, user: { id: uid } }, cacheData = true) => {
       const stateCtx = stateRef.current;
 
-      const docId = document.id;
-
-      const isDocRoot = docId === documentId;
-
       const data = infiniteScrollRef.current.data;
-
-      const idsRecord = stateCtx[isDocRoot ? "rootIds" : "registeredIds"];
-
-      const index = idsRecord[id];
-
+      const index = stateCtx.registeredIds[id];
+      const docId = document.id;
       if (!(index > -1)) return;
 
       cacheData &&
         document.comments &&
         (document.comments = removeFirstItemFromArray(uid, document.comments));
 
-      const deleteFromReg = ({ id }) => delete idsRecord[id];
-
+      const deleteFromReg = ({ id }) => delete stateCtx.registeredIds[id];
       let filterConfig;
-
-      if (isDocRoot) {
+      if (docId === documentId) {
         data.data.splice(index, 1).forEach(deleteFromReg);
         handleAction && handleAction("update", { document });
       } else {
-        const rIndex = stateCtx.rootIds[id];
-
+        const rIndex = stateCtx.registeredIds[rootThread];
         let rootComment = data.data[rIndex],
           dIndex;
-
         const handleAnomaly = () => {
           // invoke just incase of multiple traffic collision maybe :(
           // based on dev and test it doesn't happen
-          // aim is to find comment by loop (top-down). since it id or
-          // rootComment doesn't exist in record.
         };
-
         if (rootComment) {
-          if (docId === rootComment.id) {
+          if (docId === rootThread) {
             rootComment.threads.forEach(deleteFromReg);
             rootComment.threads = [];
           } else {
-            dIndex = idsRecord[docId];
-
+            dIndex = stateCtx.registeredIds[docId];
             if (dIndex > -1 && rootComment.threads[dIndex].id === docId) {
-              // server populate error handling
               if (typeof document.document === "string") {
-                const _dIndex = idsRecord[document.document];
-
+                const _dIndex = stateCtx.registeredIds[document.document];
                 document.document =
                   document.docType === "comment"
                     ? rootComment.threads[_dIndex]
                     : data.data[_dIndex];
               }
-
               rootComment.threads[dIndex] = document;
 
               rootComment.threads.splice(index).forEach(deleteFromReg);
             } else handleAnomaly();
           }
         } else handleAnomaly();
-
         if (
           rootComment.threads[dIndex] &&
           rootComment.threads[dIndex].comments.length
@@ -217,7 +193,6 @@ const Comments = ({
           filterConfig = {
             preventFetch: true
           };
-
         data.data[rIndex] = rootComment;
       }
 
@@ -310,7 +285,7 @@ const Comments = ({
 
     socket.on("comment", handleAppend);
     socket.on("update-comment", handleUpdate);
-    socket.on("filter-comment", handleFilter);
+    // socket.on("filter-comment", handleFilter);
 
     return () => {
       socket.removeEventListener("filter-comment", handleFilter);
@@ -424,10 +399,7 @@ const Comments = ({
           const renderSecAction = id => {
             return (
               <Button
-                replace
-                onClick={e => {
-                  e.stopPropagation();
-                }}
+                onClick={e => e.stopPropagation()}
                 component={Link}
                 to={`?view=comments&cid=${id}`}
               >
@@ -443,8 +415,8 @@ const Comments = ({
                   if (!comment) return null;
 
                   if (_blockedUsers[comment.user.id])
-                    delete stateRef.current.rootIds[comment.id];
-                  else stateRef.current.rootIds[comment.id] = i;
+                    delete stateRef.current.registeredIds[comment.id];
+                  else stateRef.current.registeredIds[comment.id] = i;
 
                   return (
                     <div key={comment.id}>
@@ -463,24 +435,20 @@ const Comments = ({
                         withDialog={false}
                       />
                       {comment.threads.length
-                        ? comment.threads?.map((_c, _i) => {
-                            if (_blockedUsers[_c.user.id]) {
+                        ? comment.threads?.map((_c, i) => {
+                            if (_blockedUsers[_c.user.id])
                               delete stateRef.current.registeredIds[_c.id];
-                              delete stateRef.current.rootIds[_c.id];
-                            } else {
-                              stateRef.current.registeredIds[_c.id] = _i;
-                              stateRef.current.rootIds[_c.id] = i;
-                            }
+                            else stateRef.current.registeredIds[_c.id] = i;
 
                             return _c ? (
                               <PostWidget
                                 key={_c.id}
-                                showThread={_i !== comment.threads.length - 1}
+                                showThread={i !== comment.threads.length - 1}
                                 searchParams={searchParams}
                                 post={_c}
                                 docType="comment"
                                 handleAction={_handleAction}
-                                caption={getThreadOwners(comment, _i)}
+                                caption={getThreadOwners(comment, i)}
                                 isRO={isRO}
                                 sx={{
                                   pt: 0

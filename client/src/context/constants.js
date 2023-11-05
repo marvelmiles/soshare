@@ -18,6 +18,10 @@ export const HTTP_CODE_INVALID_USER_ACCOUNT = "INVALID_USER_ACCOUNT";
 
 export const HTTP_CODE_TIMEDOUT = "REQUEST_TIMEDOUT";
 
+export const HTTP_CODE_USER_BLACKLISTED = "USER_BLACKLISTED";
+
+export const HTTP_CODE_DOCUMENT_NOT_FOUND = "DOCUMENT_NOT_FOUND";
+
 export const anchorAttrs = {
   target: "_blank",
   rel: "noopener noreferrer"

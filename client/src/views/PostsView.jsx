@@ -151,7 +151,7 @@ const PostsView = ({
                     emptyLabel ||
                     (isPrivateUser
                       ? `You don't have any post at the moment!`
-                      : "Sorry, there are no posts to view at the moment or the post's curator has been blacklisted!")
+                      : "Sorry, there are no posts to view at the moment or post's visibility has been restricted!")
                   }
                 />
               )}

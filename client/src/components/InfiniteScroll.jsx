@@ -2,13 +2,9 @@ import React, { useCallback } from "react";
 import PropTypes from "prop-types";
 import InfiniteFetch from "libs/InfiniteFetch";
 import { useContext } from "context/store";
-import { useSelector } from "react-redux";
 
 const InfiniteScroll = React.forwardRef(
   ({ children, handleAction, ...rest }, ref) => {
-    const { _blockedUsers, _disapprovedUsers } = useSelector(
-      state => state.user.currentUser
-    );
     const { setSnackBar } = useContext();
 
     const onDataChange = useCallback(

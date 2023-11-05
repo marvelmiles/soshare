@@ -41,7 +41,7 @@ const InfiniteFetch = React.forwardRef(
       withCredentials,
       maxSize,
       maxSizeElement,
-      limit = isProdMode ? 30 : 1,
+      limit = isProdMode ? 30 : 4,
       scrollNodeRef, // Null or useRef
       searchId,
       randomize,
@@ -57,7 +57,7 @@ const InfiniteFetch = React.forwardRef(
       withMatchedDocs,
       shallowLoading,
       maxRetry = 3,
-      maxUserRetry = 5,
+      maxUserRetry = 10,
       verify,
       onBeforeFetch,
       onResponse
@@ -111,7 +111,8 @@ const InfiniteFetch = React.forwardRef(
       exclude: "",
       withMatchedDocs: false,
       dataChanged: false,
-      preventFetch: false
+      preventFetch: false,
+      cancelRequest: true
     });
 
     const observedNodeRef = useRef();
@@ -188,7 +189,7 @@ const InfiniteFetch = React.forwardRef(
       : nextCursor === null;
 
     const hasReachedMaxUserRetry =
-      stateRef.current.userRetryCount === stateRef.current.maxUserRetry;
+      stateRef.current.userRetryCount >= stateRef.current.maxUserRetry;
 
     const loading =
       !(showRetryMsg || hasReachedMaxUserRetry) &&
@@ -215,7 +216,9 @@ const InfiniteFetch = React.forwardRef(
       const stateCtx = stateRef.current;
 
       return () => {
-        stateCtx.cancelKey = handleCancelRequest(stateCtx.cancelKey);
+        stateCtx.cancelKey &&
+          stateCtx.cancelRequest &&
+          handleCancelRequest(stateCtx.cancelKey);
       };
     }, []);
 
@@ -429,8 +432,7 @@ const InfiniteFetch = React.forwardRef(
       let shouldFetch =
         isV &&
         isReady &&
-        ((isEnd && retry) ||
-          (!stateCtx.isFetching && (shouldSearch || willFetch)));
+        (retry || (!stateCtx.isFetching && (shouldSearch || willFetch)));
 
       const _httpConfig = {
         withCredentials,
@@ -635,9 +637,13 @@ const InfiniteFetch = React.forwardRef(
             setData(newData);
             stateCtx.onFetch && stateCtx.onFetch(undefined, newData, stateCtx);
           } catch (err) {
-            isT && console.error(err, "inf err");
             stateCtx.onFetch && stateCtx.onFetch(err);
             onResponse && onResponse(err);
+
+            if (!err.isCancelled) {
+              setRetry(false);
+              setShowRetryMsg(true);
+            }
           } finally {
             stateCtx.willFetch = false;
             stateCtx.isFetching = false;
@@ -672,22 +678,17 @@ const InfiniteFetch = React.forwardRef(
       searchId
     ]);
 
-    const handleRefetch = useCallback(
-      e => {
-        e.stopPropagation();
+    const handleRefetch = useCallback(e => {
+      e.stopPropagation();
 
-        stateRef.current.userRetryCount = hasReachedMaxUserRetry
-          ? 1
-          : stateRef.current.userRetryCount + 1;
+      stateRef.current.userRetryCount = stateRef.current.userRetryCount + 1;
 
-        stateRef.current.retryCount = 0;
-        stateRef.current.forceRetryCount = 0;
+      stateRef.current.retryCount = 0;
+      stateRef.current.forceRetryCount = 0;
 
-        setShowRetryMsg(false);
-        setRetry(true);
-      },
-      [hasReachedMaxUserRetry]
-    );
+      setShowRetryMsg(false);
+      setRetry(true);
+    }, []);
 
     endElement = isEnd
       ? endElement || (
@@ -730,7 +731,17 @@ const InfiniteFetch = React.forwardRef(
           ".data-scrollabe-main": {
             display: "flex",
             flexDirection: "column",
-            flex: loading ? 0 : !data.data.length && centerOnEmpty ? 1 : 0
+            flex: loading
+              ? 0
+              : !data.data.length &&
+                !(
+                  showRetryMsg ||
+                  nullifyChildren ||
+                  stateRef.current.userRetryCount > 0
+                ) &&
+                centerOnEmpty
+              ? 1
+              : 0
           },
           ...sx
         }}
@@ -761,10 +772,13 @@ const InfiniteFetch = React.forwardRef(
               ref={observedNodeRef}
             ></div>
           </div>
-
           <div style={{ padding: "4px 0" }}>
             {hasReachedMaxUserRetry || (showRetryMsg && nullifyChildren) ? (
-              <EmptyData nullifyBrand withReload onClick={handleRefetch} />
+              <EmptyData
+                nullifyBrand
+                withReload
+                onClick={hasReachedMaxUserRetry ? undefined : handleRefetch}
+              />
             ) : showRetryMsg ? (
               <EmptyData
                 sx={{

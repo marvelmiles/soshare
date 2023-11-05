@@ -91,32 +91,36 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
 
       stateCtx.commentHolder = {};
       stateCtx.dType = "";
-      const compose = searchParams.get("compose");
-      const view = searchParams.get("view");
-      compose && (stateRef.current.compose = compose);
-      view && (stateRef.current.view = view);
 
       if (stateRef.current.path) handleCancelRequest(stateRef.current.path);
 
       setCtx({});
 
-      dialogType = e ? e.currentTarget.dataset.dialogType : dialogType;
+      const dataset = e ? (e.currentTarget || e.node).dataset : {};
 
-      if (stateCtx.locState.from === 0) {
-        for (const key of (dialogType + " tab wc search").split(" ")) {
-          searchParams.delete(key);
-        }
+      dialogType = dataset.dialogType || dialogType;
 
-        setSearchParams(searchParams, { state: stateCtx.locState });
-      } else
-        navigate(-1, {
-          replace: true,
-          state: stateCtx.locState
-        });
+      for (const key of (
+        dialogType + ` tab wc search ${dialogType === "view" ? "cid" : ""}`
+      ).split(" ")) {
+        searchParams.delete(key);
+      }
+
+      setSearchParams(searchParams, {
+        state: stateCtx.locState,
+        replace: true
+      });
+
+      false && console.log(searchParams, setSearchParams, navigate);
 
       stateCtx.taskId = setTimeout(resetState, 0);
+
+      // navigate(-1, {
+      //   state: stateCtx.locState,
+      //   replace: true
+      // });
     },
-    [navigate, searchParams, setSearchParams]
+    [searchParams, setSearchParams, navigate]
   );
 
   const _handleAction = useCallback(
@@ -201,7 +205,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
       case "create-post":
       case "create-short":
         const fileId = `${key}-file-picker`;
-        const handlePreview = () => {};
+
         return (
           <>
             <DialogTitle
@@ -332,7 +336,10 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
           </>
         );
       case "comment":
-        if (stateRef.current.commentHolder.document !== locState.document.id) {
+        if (
+          locState.document &&
+          stateRef.current.commentHolder.document !== locState.document.id
+        ) {
           stateRef.current.commentHolder = {
             document: locState.document.id,
             ...(locState.docSet
@@ -352,7 +359,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                 method="post"
                 accept=".jpg,.jpeg,.png,.gif"
                 url={`/comments/new/${locState.docType || "post"}?ro=${
-                  locState.document.user.id
+                  locState.document?.user?.id
                 }`}
                 placeholder="Send your opinion"
                 mediaRefName="media"
@@ -439,6 +446,16 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
       case "comments":
         return (
           <>
+            {/* <DialogTitle>
+              <IconButton
+                data-dialog-close="strict"
+                data-dialog-type="view"
+                onClick={closeDialog}
+                sx={{ float: "right" }}
+              >
+                <CloseIcon />
+              </IconButton>
+            </DialogTitle> */}
             <DialogContent
               sx={{
                 p: 0
@@ -539,7 +556,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
   };
 
   if (
-    (compose === "comment" && !locState.document.id) ||
+    (compose === "comment" && !locState.document?.id) ||
     (compose === "comments" && !cid)
   )
     stateRef.current.dType = "compose";

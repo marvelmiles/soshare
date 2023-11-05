@@ -28,8 +28,6 @@ import { useContext } from "context/store";
 import { useSelector } from "react-redux";
 import DeleteIcon from "@mui/icons-material/Delete";
 import http from "api/http";
-import { useDispatch } from "react-redux";
-import { updateUser } from "context/slices/userSlice";
 import DeleteDialog from "components/DeleteDialog";
 import useDeleteDispatch from "hooks/useDeleteDispatch";
 import { isObject } from "utils/validators";
@@ -116,7 +114,7 @@ const SosharePen = ({
     key: fileId || `input-box-file-dialog-${new Date().getTime()}`,
     inputs: {}
   });
-  const dispatch = useDispatch();
+
   const actionBtnSx = {
     alignItems: "center",
     flexWrap: "wrap",
@@ -251,16 +249,6 @@ const SosharePen = ({
         case "delete":
           handleDelete(urls.delPath, [placeholders.id]);
           break;
-        case "checked":
-          dispatch(
-            updateUser({
-              key: "settings",
-              value: {
-                hideDelDialog: data
-              }
-            })
-          );
-          break;
         case "close":
           setDialog({
             ...dialog,
@@ -271,7 +259,7 @@ const SosharePen = ({
           break;
       }
     },
-    [deleteMedia, dialog, dispatch, handleDelete, urls, placeholders]
+    [deleteMedia, dialog, handleDelete, urls, placeholders]
   );
   const handleDeleteMediaFromDB = e => {
     e && e.stopPropagation();
@@ -309,15 +297,17 @@ const SosharePen = ({
             _url,
             _formData
           );
-          setSnackBar({
-            message:
-              message && message.success
-                ? message.success
-                : placeholders
-                ? `Updated ${docType || mediaRefName} successfully!`
-                : `Your ${docType || mediaRefName} has been soshared!`,
-            severity: "success"
-          });
+
+          res.visibility !== "private" &&
+            setSnackBar({
+              message:
+                message && message.success
+                  ? message.success
+                  : placeholders
+                  ? `Updated ${docType || mediaRefName} successfully!`
+                  : `Your ${docType || mediaRefName} has been soshared!`,
+              severity: "success"
+            });
           if (placeholders && !res[mediaRefName] && res.url) {
             res = {
               ...res,
@@ -439,18 +429,22 @@ const SosharePen = ({
           msg = errors[key].code
             ? "Invalid file format or browser have no support for it!"
             : errors[key];
+
           if (msg)
             if (isObject(msg)) {
+              let _msg = "";
               for (let index in msg) {
                 index = Number(index);
-                if (index > -1 && msg[index]) {
-                  msg += `${msg.length ? "\n" : ""}${index + 1}) ${
-                    msg[index].code
+                const v = msg[index];
+                if (index > -1 && v) {
+                  _msg += `${_msg.length ? "\n" : ""}${index + 1}) ${
+                    v.code
                       ? "Invalid file format or browser have no support for it!"
                       : "Maximum upload or duration limit exceeded!"
                   } ${formData[mediaRefName][index].name}.`;
                 }
               }
+              msg = _msg;
             } else if (withLimit)
               msg = "Maximum upload or duration limit exceeded!";
         }

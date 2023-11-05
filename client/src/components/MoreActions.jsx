@@ -20,6 +20,8 @@ import EditIcon from "@mui/icons-material/Edit";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import useContextDispatch from "hooks/useContextDispatch";
+import { updateUser } from "context/slices/userSlice";
+import { useDispatch } from "react-redux";
 
 const MoreActions = ({
   document = {
@@ -50,6 +52,8 @@ const MoreActions = ({
     };
   });
   const { setSnackBar } = useContext();
+
+  const dispatch = useDispatch();
 
   const { handleContextKeyDispatch } = useContextDispatch();
 
@@ -87,7 +91,7 @@ const MoreActions = ({
     );
 
   const _handleAction = useCallback(
-    reason => {
+    (reason, props) => {
       const closeDialog = () => {
         handleAction("update", {
           document: {
@@ -98,7 +102,7 @@ const MoreActions = ({
         });
         setOpenDeleteDialog(false);
       };
-      closeDialog();
+      if (reason !== "checked") closeDialog();
 
       switch (reason) {
         case "delete":
@@ -106,6 +110,16 @@ const MoreActions = ({
             undefined,
             [urls.delPath.idOnly || urls.idOnly ? document.id : document],
             { label: docType }
+          );
+          break;
+        case "checked":
+          dispatch(
+            updateUser({
+              key: "settings",
+              value: {
+                hideDelDialog: props.value
+              }
+            })
           );
           break;
       }
@@ -116,7 +130,8 @@ const MoreActions = ({
       handleAction,
       handleDelete,
       urls.delPath.idOnly,
-      urls.idOnly
+      urls.idOnly,
+      dispatch
     ]
   );
 

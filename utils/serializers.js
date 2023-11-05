@@ -1,6 +1,7 @@
 import { Types } from "mongoose";
 import { createError } from "./error.js";
 import User from "../models/User.js";
+import { HTTP_CODE_DOCUMENT_NOT_FOUND } from "../constants.js";
 
 export const serializePostBody = (req, withErr = true) => {
   if (withErr && !(req.files.length || req.body.text))
@@ -36,7 +37,8 @@ export const createVisibilityQuery = async ({
   if (userId) {
     const user = await User.findById(userId);
 
-    if (!user) throw createError("User not found", 404);
+    if (!user)
+      throw createError("User not found", 404, HTTP_CODE_DOCUMENT_NOT_FOUND);
 
     const isUser = searchUser === userId;
 

@@ -12,6 +12,10 @@ import EmptyData from "components/EmptyData";
 import { StyledLink } from "components/styled";
 import { useSelector } from "react-redux";
 import Redirect from "components/Redirect";
+import {
+  HTTP_CODE_DOCUMENT_NOT_FOUND,
+  HTTP_CODE_USER_BLACKLISTED
+} from "context/constants";
 
 const Post = () => {
   const { id: cid, _disapprovedUsers, _blockedUsers } = useSelector(
@@ -47,12 +51,12 @@ const Post = () => {
         withCredentials: !!cid
       });
       setPost(post);
-    } catch (message) {
-      message = message.message || message;
-      if (message === `owner blacklisted`)
+    } catch ({ code, message, isCancelled }) {
+      if (code === HTTP_CODE_USER_BLACKLISTED)
         stateRef.current.info = "blacklisted";
-      else if (message === "404") stateRef.current.info = "404";
-      else setSnackBar(message);
+      else if (code === HTTP_CODE_DOCUMENT_NOT_FOUND)
+        stateRef.current.info = "404";
+      else if (!isCancelled) setSnackBar(message);
     } finally {
       setLoading(false);
     }
@@ -160,9 +164,8 @@ const Post = () => {
                   label={
                     <>
                       {{ post: "Post", comment: "Comment" }[docType]} not found
-                      or {docType} visibility has been restricted by the
-                      curator.
-                      <StyledLink to="/search?q=all&tab=posts">
+                      or {docType} visibility has been restricted.{" "}
+                      <StyledLink to="/search?q=&tab=posts">
                         Find a post here!
                       </StyledLink>
                     </>

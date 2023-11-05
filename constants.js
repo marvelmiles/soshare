@@ -1,5 +1,9 @@
 export const HTTP_CODE_INVALID_USER_ACCOUNT = "INVALID_USER_ACCOUNT";
 
+export const HTTP_CODE_USER_BLACKLISTED = "USER_BLACKLISTED";
+
+export const HTTP_CODE_DOCUMENT_NOT_FOUND = "DOCUMENT_NOT_FOUND";
+
 export const isProdMode = process.env.NODE_ENV === "production";
 
 export const HTTP_MSG_INVALID_ACC_CRED = "Account credentials is invalid!";

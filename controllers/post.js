@@ -28,7 +28,7 @@ export const createPost = async (req, res, next) => {
     res.json(post);
     const io = req.app.get("socketIo");
     if (io) {
-      post.visibility !== "private" && io.emit("post", post);
+      io.emit("post", post);
       io.emit("update-user", post.user);
     }
   } catch (err) {
@@ -90,7 +90,7 @@ export const updatePost = async (req, res, next) => {
       { new: true }
     ).populate("user");
     const io = req.app.get("socketIo");
-    if (io && post.visibility !== "private") io.emit("update-post", post);
+    if (io) io.emit("update-post", post);
     res.json(post);
     for (const url of filteredMedias) {
       deleteFile(url);

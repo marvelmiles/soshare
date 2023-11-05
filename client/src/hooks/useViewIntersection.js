@@ -11,7 +11,9 @@ const useViewIntersection = (targetRef, options) => {
     let observer;
 
     if (currentTarget) {
-      const root = options?.root ? options.root.current || options.root : null;
+      const root = options?.root
+        ? options.root.current || (options.root.nodeType ? options.root : null)
+        : null;
 
       const callbackFunction = entries => {
         const entry = entries[0];
@@ -26,7 +28,7 @@ const useViewIntersection = (targetRef, options) => {
         root
       });
 
-      observer.observe(currentTarget);
+      if (observer) observer.observe(currentTarget);
     }
 
     return () => {

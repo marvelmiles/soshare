@@ -7,6 +7,7 @@ import Fab from "@mui/material/Fab";
 import Zoom from "@mui/material/Zoom";
 import KeyboardArrowUpIcon from "@mui/icons-material/KeyboardArrowUp";
 import { handleScrollUp } from "utils";
+import { useContext } from "context/store";
 
 const Layout = ({
   children,
@@ -22,6 +23,11 @@ const Layout = ({
   closeDialog
 }) => {
   const [showBtn, setShowBtn] = useState(false);
+
+  const {
+    context: { commentIds }
+  } = useContext();
+
   useEffect(() => {
     let handleScroll;
     if (withGoUpIndicator) {
@@ -89,6 +95,7 @@ const Layout = ({
         uid={uid}
         isCurrentUser={isCurrentUser}
         close={closeDialog}
+        currentViewId={commentIds[0]}
       />
       <Zoom
         in={showBtn}

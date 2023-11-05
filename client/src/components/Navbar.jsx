@@ -99,7 +99,7 @@ const Navbar = ({ routePage = "homePage" }) => {
   useEffect(() => {
     if (socket) {
       const handleAppendNotification = (n, { filter, isNew }) => {
-        if (isNew && !filter && n.to.id === currentUser.id) {
+        if (isNew && !filter && n.to?.id === currentUser.id) {
           let count = 0;
           setUnseens(unseens => {
             if (count) {
@@ -576,7 +576,7 @@ const Navbar = ({ routePage = "homePage" }) => {
                   <NotificationsIcon />
                 </StyledBadge>
               </IconButton>
-              <IconButton>
+              {/* <IconButton>
                 <StyledBadge
                   sx={{
                     ".MuiBadge-badge": {
@@ -589,7 +589,7 @@ const Navbar = ({ routePage = "homePage" }) => {
                 >
                   <MessageIcon />
                 </StyledBadge>
-              </IconButton>
+              </IconButton> */}
 
               <IconButton onClick={showUserSettings}>
                 <ManageAccountsIcon />

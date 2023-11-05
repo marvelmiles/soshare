@@ -264,3 +264,11 @@ export const StyledAvatar = styled(Box)`
    `;
   }}
 `;
+
+export const authLayoutSx = {
+  maxWidth: "576px",
+  mx: "auto",
+  width: "95%",
+  minHeight: 0,
+  height: "auto"
+};
