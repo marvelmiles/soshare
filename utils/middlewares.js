@@ -79,6 +79,7 @@ export const errHandler = (err, req, res, next) => {
 
 export const validateCors = (origin = "", cb) => {
   if (
+    true ||
     !origin ||
     origin === CLIENT_ORIGIN ||
     origin.toLowerCase().indexOf("localhost") > -1
