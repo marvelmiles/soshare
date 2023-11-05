@@ -84,6 +84,6 @@ export const validateCors = (origin = "", cb) => {
     origin === CLIENT_ORIGIN ||
     origin.toLowerCase().indexOf("localhost") > -1
   )
-    cb(null, true);
+    cb(null, { origin: true });
   else cb(createError(`Origin ${origin} blocked by cors`, 403));
 };
