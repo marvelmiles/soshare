@@ -2,6 +2,7 @@ import Notification from "../models/Notification.js";
 import { isObject } from "./validators.js";
 import Comment from "../models/Comment.js";
 import { console500MSG } from "./error.js";
+import { isProdMode } from "../constants.js";
 
 export const getAll = async ({
   query = {},
@@ -173,23 +174,31 @@ export const getAll = async ({
       result.pop();
     }
 
-    return new Promise((rs, rj) => {
-      setTimeout(() => {
-        rs({
+    return isProdMode
+      ? {
           data: result,
           paging: {
             matchedDocs,
             nextCursor: cursor ? encodeURIComponent(cursor) : null
           }
+        }
+      : new Promise((rs, rj) => {
+          setTimeout(() => {
+            rs({
+              data: result,
+              paging: {
+                matchedDocs,
+                nextCursor: cursor ? encodeURIComponent(cursor) : null
+              }
 
-          // data: [],
-          // paging: {
-          //   matchedDocs: 0,
-          //   nextCursor: null
-          // }
+              // data: [],
+              // paging: {
+              //   matchedDocs: 0,
+              //   nextCursor: null
+              // }
+            });
+          }, 2000);
         });
-      }, 2000);
-    });
   } catch (err) {
     throw err;
   }
