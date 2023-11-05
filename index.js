@@ -46,13 +46,7 @@ const csp = [
 
 // MIDDLEWARES
 
-app.use(
-  cors({
-    origin: validateCors,
-    optionsSuccessStatus: 200,
-    credentials: true
-  })
-);
+app.use(cors(validateCors));
 
 app.use(
   express.json({
@@ -61,21 +55,21 @@ app.use(
   })
 );
 app.use(express.urlencoded({ extended: true }));
-app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        "default-src": csp,
-        "script-src": csp,
-        "frame-src": csp,
-        "connect-src": csp,
-        "img-src": csp,
-        "media-src": csp
-      }
-    },
-    crossOriginResourcePolicy: { policy: "cross-origin" }
-  })
-);
+// app.use(
+//   helmet({
+//     contentSecurityPolicy: {
+//       directives: {
+//         "default-src": csp,
+//         "script-src": csp,
+//         "frame-src": csp,
+//         "connect-src": csp,
+//         "img-src": csp,
+//         "media-src": csp
+//       }
+//     },
+//     crossOriginResourcePolicy: { policy: "cross-origin" }
+//   })
+// );
 
 app.use(cookieParser());
 // app.use(timeout("60s"));

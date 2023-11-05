@@ -78,12 +78,17 @@ export const errHandler = (err, req, res, next) => {
 };
 
 export const validateCors = (origin = "", cb) => {
+  console.log("hoom");
   if (
     true ||
     !origin ||
     origin === CLIENT_ORIGIN ||
     origin.toLowerCase().indexOf("localhost") > -1
   )
-    cb(null, { origin: true });
+    cb(null, {
+      origin: true,
+      optionsSuccessStatus: 200,
+      credentials: true
+    });
   else cb(createError(`Origin ${origin} blocked by cors`, 403));
 };
