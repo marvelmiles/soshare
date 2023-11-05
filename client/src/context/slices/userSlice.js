@@ -74,6 +74,9 @@ const userSlice = createSlice({
       updateStatePath(state, "previewUser", payload);
     },
     updateUser(state, { payload }) {
+      if (payload.key === "settings" && payload.value.theme)
+        localStorage.setItem("theme", payload.value.theme);
+
       updateStatePath(state, "currentUser", payload);
     },
     deleteFromPreviewUser(state, { payload }) {

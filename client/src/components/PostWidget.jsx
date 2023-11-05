@@ -126,14 +126,13 @@ const PostWidget = React.forwardRef(
           width: "100%",
           "& > div": {
             borderBottom: "1px solid currentColor",
-            borderBottomColor: enableSnippet ? "transparent" : "divider",
+            borderBottomColor: "divider",
             borderRadius: 0,
             height: "auto",
             minHeight: 0,
             maxHeight: "none",
             backgroundColor: "transparent !important",
             mb: 0,
-            p: enableSnippet ? 0 : undefined,
             ...(showThread
               ? {
                   borderBottom: "none",
@@ -332,7 +331,9 @@ const PostWidget = React.forwardRef(
                 </Typography>
               ) : null}
 
-              {!enableSnippet && (post.medias?.length || post.media) ? (
+              {enableSnippet && (post.medias?.length || post.media) ? (
+                <Typography>include media file(s)...</Typography>
+              ) : post.medias?.length || post.media ? (
                 <MediaCarousel medias={post.medias || [post.media]} />
               ) : null}
               {hideToolbox || enableSnippet ? null : (

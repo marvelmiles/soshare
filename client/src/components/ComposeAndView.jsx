@@ -344,7 +344,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
         return (
           <>
             <DialogContent sx={{ p: 0 }} ref={scrollNodeRef}>
-              <PostWidget post={locState.document} />
+              <PostWidget post={locState.document} enableSnippet />
               <SosharePen
                 withPlaceholders={false}
                 submitInputsOnly={false}
