@@ -47,14 +47,6 @@ const csp = [
 // MIDDLEWARES
 
 app.use(
-  cors({
-    origin: validateCors,
-    optionsSuccessStatus: 200,
-    credentials: true
-  })
-);
-
-app.use(
   express.json({
     limit: "200mb",
     extended: true
@@ -76,6 +68,13 @@ app.use(
     crossOriginResourcePolicy: { policy: "cross-origin" }
   })
 );
+
+app.use(cors());
+// {
+//   origin: validateCors,
+//     optionsSuccessStatus: 200,
+//       credentials: true
+// }
 
 app.use(cookieParser());
 // app.use(timeout("60s"));

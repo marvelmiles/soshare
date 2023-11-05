@@ -606,7 +606,7 @@ const VideoPlayer = React.forwardRef(
         {backdrop ? (
           <div
             className={`custom-overlay ${reason}`}
-            onClick={e => onClick(e, reason)}
+            onClick={e => onClick && onClick(e, reason)}
           >
             {{
               reload: (
@@ -646,6 +646,7 @@ const VideoPlayer = React.forwardRef(
 
         <video
           {...props}
+          crossOrigin="anonymous"
           className={`custom-media video ${props.videoClassName || ""}`}
           autoPlay={stateRef.current.autoPlay}
           src={videoUrl}

@@ -523,6 +523,7 @@ const SosharePen = ({
                 src={currentUser.photoUrl}
                 alt={currentUser.username}
                 sx={avatarProfileSx}
+                crossOrigin="anonymous"
               />
               <Box
                 sx={{
