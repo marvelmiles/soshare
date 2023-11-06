@@ -646,7 +646,7 @@ const VideoPlayer = React.forwardRef(
 
         <video
           {...props}
-          crossOrigin="anonymous"
+          // crossOrigin="anonymous"
           className={`custom-media video ${props.videoClassName || ""}`}
           autoPlay={stateRef.current.autoPlay}
           src={videoUrl}
