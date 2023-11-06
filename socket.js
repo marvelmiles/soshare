@@ -5,12 +5,17 @@ import { verifyToken, validateCors } from "./utils/middlewares.js";
 import { createError } from "./utils/error.js";
 import { clearGetAllIntervallyTask } from "./utils/schedule-tasks.js";
 import cookie from "cookie";
+import { CLIENT_ORIGIN } from "./constants.js";
 
 export default (app, port = process.env.PORT || 8800) => {
   const httpServer = createServer(app);
   const io = new Server(httpServer, {
     cors: {
-      origin: validateCors,
+      origin: [
+        "https://storage.googleapis.com/mern-demo-5cd45.appspot.com/medias%2F1699198641353-WhatsApp%20Image%202023-10-05%20at%203.27.22%20PM%20(1).jpeg",
+        CLIENT_ORIGIN
+      ],
+      optionsSuccessStatus: 200,
       credentials: true
     },
     path: "/soshare"

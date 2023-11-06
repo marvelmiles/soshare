@@ -21,7 +21,7 @@ import miscRoutes from "./routes/misc.js";
 import commentRoutes from "./routes/comment.js";
 import cookieParser from "cookie-parser";
 import socket from "./socket.js";
-import { isProdMode } from "./constants.js";
+import { isProdMode, CLIENT_ORIGIN } from "./constants.js";
 import { errHandler, validateCors } from "./utils/middlewares.js";
 import timeout from "connect-timeout";
 import { console500MSG, createError } from "./utils/error.js";
@@ -46,7 +46,16 @@ const csp = [
 
 // MIDDLEWARES
 
-app.use(cors(validateCors));
+app.use(
+  cors({
+    origin: [
+      "https://storage.googleapis.com/mern-demo-5cd45.appspot.com/medias%2F1699198641353-WhatsApp%20Image%202023-10-05%20at%203.27.22%20PM%20(1).jpeg",
+      CLIENT_ORIGIN
+    ],
+    optionsSuccessStatus: 200,
+    credentials: true
+  })
+);
 
 app.use(
   express.json({

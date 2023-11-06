@@ -136,7 +136,7 @@ const Image = ({
         />
       ) : null}
       <img
-        crossOrigin="anonymous"
+        // crossOrigin="anonymous"
         className={"custom-media image"}
         src={url}
         ref={imgRef}
