@@ -55,21 +55,25 @@ app.use(
   })
 );
 app.use(express.urlencoded({ extended: true }));
-// app.use(
-//   helmet({
-//     contentSecurityPolicy: {
-//       directives: {
-//         "default-src": csp,
-//         "script-src": csp,
-//         "frame-src": csp,
-//         "connect-src": csp,
-//         "img-src": csp,
-//         "media-src": csp
-//       }
-//     },
-//     crossOriginResourcePolicy: { policy: "cross-origin" }
-//   })
-// );
+
+// in production helmet cause Failed to load resource:
+// net:: ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoep
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        "default-src": csp,
+        "script-src": csp,
+        "frame-src": csp,
+        "connect-src": csp,
+        "img-src": csp,
+        "media-src": csp
+      }
+    }
+    // crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
 
 app.use(cookieParser());
 // app.use(timeout("60s"));
