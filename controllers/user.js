@@ -224,10 +224,16 @@ export const suggestFollowers = async (req, res, next) => {
 export const updateUser = async (req, res, next) => {
   try {
     req.body.photoUrl = req.file?.publicUrl;
-    const { photoUrl, _id, socials, email, username } =
-      (await User.findById(req.user.id)) || {};
+    const { photoUrl, _id, socials } = (await User.findById(req.user.id)) || {};
 
-    if (req.body.email === email || req.body.username === username)
+    if (
+      !!(await User.findOne({
+        _id: {
+          $ne: _id
+        },
+        $or: [{ email: req.body.email }, { username: req.body.username }]
+      }))
+    )
       throw createError(
         HTTP_MSG_USER_EXISTS,
         400,
