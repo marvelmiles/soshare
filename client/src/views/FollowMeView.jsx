@@ -174,8 +174,6 @@ const FollowMeView = ({
   }, [handleFollowingAction, previewUser.followUser, currentUser]);
   const loading = dataSize === undefined || dataSize < 0;
 
-  console.log(userId);
-
   return (
     <WidgetContainer
       ref={scrollNodeRef}

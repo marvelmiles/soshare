@@ -7,7 +7,7 @@ import {
   useParams
 } from "react-router-dom";
 import { ThemeProvider, CssBaseline, GlobalStyles } from "@mui/material";
-import { createTheme, INPUT_AUTOFILL_SELECTOR } from "theme";
+import { createTheme, INPUT_AUTOFILL_SELECTOR, fontFamily } from "theme";
 import { useSelector } from "react-redux";
 import HomePage from "pages/HomePage";
 import ProfilePage from "pages/ProfilePage";
@@ -302,7 +302,8 @@ const App = () => {
         <GlobalStyles
           styles={{
             "*": {
-              fontFamily: "'Rubik', sans-serif"
+              fontFamily,
+              tapHighlightColor: "rgba(255, 255, 255, 0)"
             },
             textarea: {
               resize: "none",

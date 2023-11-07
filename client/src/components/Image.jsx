@@ -135,12 +135,7 @@ const Image = ({
           className="custom-overlay"
         />
       ) : null}
-      <img
-        // crossOrigin="anonymous"
-        className={"custom-media image"}
-        src={url}
-        ref={imgRef}
-      />
+      <img className={"custom-media image"} src={url} ref={imgRef} />
     </Box>
   );
 };

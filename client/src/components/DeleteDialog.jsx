@@ -8,7 +8,8 @@ import {
   Button,
   FormControlLabel,
   Checkbox,
-  CircularProgress
+  CircularProgress,
+  useMediaQuery
 } from "@mui/material";
 Dialog.defaultProps = {
   open: false
@@ -29,14 +30,36 @@ const DeleteDialog = ({
   action = "hideDelDialog"
 }) => {
   const [deleting, setDeleting] = useState(false);
+
+  const isS280 = useMediaQuery("(min-width:280px)");
+
   const styles = {
     actions: {
-      px: "16px !important"
+      px: "16px !important",
+      ...(isS280
+        ? undefined
+        : {
+            display: {
+              xs: "flex"
+            },
+            flexWrap: "wrap-reverse",
+            ".MuiButton-root": {
+              m: 0,
+              my: 1
+            },
+            "& > *": {
+              width: "100%"
+            }
+          })
     },
     icon: {
       mr: "8px"
     },
-    content: { pt: "18px !important", pb: 0, width: "100%" }
+    content: {
+      pt: "14px !important",
+      pb: 0,
+      width: "100%"
+    }
   };
   useEffect(() => {
     open === false && setDeleting(false);

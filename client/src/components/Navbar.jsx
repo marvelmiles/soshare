@@ -661,11 +661,11 @@ const Navbar = ({ routePage = "homePage" }) => {
               onClick: showNotifications,
               badgeContent: unseens.notifications
             },
-            {
-              nullify: !currentUser.id,
-              title: "Chat",
-              icon: MessageIcon
-            },
+            // {
+            //   nullify: !currentUser.id,
+            //   title: "Chat",
+            //   icon: MessageIcon
+            // },
             {
               nullify: !currentUser.id,
               title: "Settings",

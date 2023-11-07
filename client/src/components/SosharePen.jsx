@@ -104,6 +104,12 @@ const SosharePen = ({
     }
   });
 
+  isInValid =
+    isInValid ||
+    (() => {
+      return !(formData.text || formData[mediaRefName]);
+    })();
+
   const [dialog, setDialog] = useState({});
   const mediaCarouselRef = useRef();
   const fileRef = useRef();
@@ -262,6 +268,7 @@ const SosharePen = ({
     },
     [deleteMedia, dialog, handleDelete, urls, placeholders]
   );
+
   const handleDeleteMediaFromDB = e => {
     e && e.stopPropagation();
     if (currentUser.settings.hideDelDialog) _handleAction("delete");
@@ -283,10 +290,15 @@ const SosharePen = ({
             docId && { [docId]: { ...placeholders, ...formData } }
           );
         }
+
+        if (isInValid) return;
+
         const stateCtx = stateRef.current;
+
         const _formData = handleSubmit(undefined, {
           formData: new FormData()
         });
+
         if (_formData) {
           let _url =
             url +
@@ -369,7 +381,8 @@ const SosharePen = ({
       setSnackBar,
       url,
       withPlaceholders,
-      docType
+      docType,
+      isInValid
     ]
   );
   const showMoreTools = ({ currentTarget }) =>
@@ -523,7 +536,6 @@ const SosharePen = ({
                 src={currentUser.photoUrl}
                 alt={currentUser.username}
                 sx={avatarProfileSx}
-                // crossOrigin="anonymous"
               />
               <Box
                 sx={{
@@ -719,10 +731,11 @@ const SosharePen = ({
                   ...actionBtnSx,
                   display: {
                     xs: "none",
-                    s200: "inline-flex"
+                    s320: "inline-flex"
                   },
                   justifyContent: "center",
-                  padding: 1
+                  padding: 1,
+                  flexWrap: "no-wrap"
                 }}
                 htmlFor={stateRef.current.key}
               >
@@ -747,13 +760,21 @@ const SosharePen = ({
               alignItems="flex-start"
               flexWrap="wrap"
               gap="8px"
-              justifyContent="center"
+              sx={{
+                width: {
+                  xs: "100%"
+                },
+                justifyContent: {
+                  xs: "space-between",
+                  s320: "flex-end"
+                }
+              }}
             >
               <IconButton
                 sx={{
                   display: {
                     xs: "inline-flex",
-                    s200: "none"
+                    s320: "none"
                   }
                 }}
                 onClick={showMoreTools}
@@ -768,7 +789,7 @@ const SosharePen = ({
                     mx: 1,
                     display: {
                       xs: "none",
-                      sm: "inlne-flex"
+                      s320: "inline-flex"
                     }
                   }}
                   onClick={handleDeleteMediaFromDB}
@@ -798,7 +819,16 @@ const SosharePen = ({
       </Box>
       <DeleteDialog {...dialog} handleAction={_handleAction} />
 
-      <Popover {...moreActionPopover} onClose={closeMoreActionPopover}>
+      <Popover
+        PaperProps={{
+          sx: {
+            width: "80%",
+            maxWidth: "250px"
+          }
+        }}
+        {...moreActionPopover}
+        onClose={closeMoreActionPopover}
+      >
         <List>
           {[
             {
@@ -839,11 +869,17 @@ const SosharePen = ({
                 sx={{
                   borderBottom: "1px solid currentColor",
                   borderColor: "divider",
-                  p: 2,
+                  py: 1,
+                  px: 2,
                   display: l.display
                 }}
               >
-                <ListItemIcon>
+                <ListItemIcon
+                  sx={{
+                    width: "auto",
+                    minWidth: "25px"
+                  }}
+                >
                   <l.icon />
                 </ListItemIcon>
                 <ListItemText

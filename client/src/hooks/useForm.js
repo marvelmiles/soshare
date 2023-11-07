@@ -112,7 +112,9 @@ const useForm = config => {
           e.stopPropagation();
         }
         let withErr;
+
         setIsSubmitting(true);
+
         const validate = (key, dataName, dataType) => {
           if (
             {

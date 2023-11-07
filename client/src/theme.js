@@ -1,6 +1,8 @@
 import { alpha, darken } from "@mui/material/styles";
 import { createTheme as createMuiTheme } from "@mui/material";
 
+export const fontFamily = "'Rubik', sans-serif";
+
 export const createTheme = mode =>
   createMuiTheme({
     palette: {
@@ -253,7 +255,7 @@ export const createTheme = mode =>
     },
     typography: {
       allVariants: {
-        fontFamily: "'Rubik', sans-serif",
+        fontFamily,
         fontSize: "12px"
       },
       h1: {

@@ -216,7 +216,6 @@ const PostWidget = React.forwardRef(
                 src={post.user.photoUrl}
                 variant="md"
                 sx={avatarProfileSx}
-                // crossOrigin="anonymous"
               />
             </Tooltip>
             <Box

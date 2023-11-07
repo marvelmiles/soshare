@@ -14,9 +14,15 @@ import Loading from "components/Loading";
 import { StyledLink } from "components/styled";
 import { filterDocsByUserSet } from "utils";
 
+// NOTE
+
 // decided to use index-based rendering
 // scability and real-time updates
 // runs splicing since array is mutable from infinite scroll :)
+
+// future changes
+
+// comment.threads should be a client prop not server
 
 const Comments = ({
   documentId,
