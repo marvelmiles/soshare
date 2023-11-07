@@ -30,6 +30,7 @@ Dialog.defaultProps = {
 
 const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
   isCurrentUser = isCurrentUser === undefined ? !!uid : isCurrentUser;
+
   openFor = {
     "create-post": true,
     "create-short": true,
@@ -60,8 +61,15 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
     processing: false,
     disable: true
   });
+
   const cid = searchParams.get("cid") || "";
+
+  const vuid = searchParams.get("vuid") || "";
+
+  uid = vuid || uid;
+
   const scrollNodeRef = useRef();
+
   const navigate = useNavigate();
 
   const portalNodeRef = useRef();
@@ -101,7 +109,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
       dialogType = dataset.dialogType || dialogType;
 
       for (const key of (
-        dialogType + ` tab wc search ${dialogType === "view" ? "cid" : ""}`
+        dialogType + ` tab wc search ${dialogType === "view" ? "cid vuid" : ""}`
       ).split(" ")) {
         searchParams.delete(key);
       }
@@ -383,6 +391,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                 {
                   "user-posts": (
                     <PostsView
+                      key={uid}
                       privateUid={uid}
                       plainWidget
                       url={`/users/${uid}/posts`}
@@ -394,6 +403,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
                   ),
                   "user-shorts": (
                     <ShortsView
+                      key={uid}
                       privateUid={uid}
                       hideDataNotifier
                       componentProps={{ plainWidget: true }}

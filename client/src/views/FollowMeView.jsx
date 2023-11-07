@@ -11,6 +11,7 @@ import InfiniteScroll from "components/InfiniteScroll";
 import useFollowDispatch from "hooks/useFollowDispatch";
 import useCallbacks from "hooks/useCallbacks";
 import { addToSet } from "utils";
+import { useSearchParams } from "react-router-dom";
 
 const FollowMeView = ({
   title = "",
@@ -25,7 +26,13 @@ const FollowMeView = ({
   privateUid,
   excludeCUser
 }) => {
-  const { userId } = useParams();
+  const [_searchParams] = useSearchParams();
+
+  const vuid = _searchParams.get("vuid") || "";
+
+  let { userId } = useParams();
+
+  userId = vuid || userId;
 
   const { socket } = useContext();
 

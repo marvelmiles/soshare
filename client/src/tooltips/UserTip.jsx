@@ -130,7 +130,16 @@ const UserTip = ({
                       onClick={e => e.stopPropagation()}
                       sx={{ color: "inherit" }}
                       replace
-                      to={createRelativeURL("view", `view=${l.type}`)}
+                      to={createRelativeURL(
+                        "view",
+                        `view=${l.type}${
+                          window.location.pathname
+                            .toLowerCase()
+                            .indexOf("/u/") === -1
+                            ? `&vuid=${user.id}`
+                            : ""
+                        }`
+                      )}
                     >
                       {l.count} {l.label}
                     </StyledLink>

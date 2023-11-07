@@ -189,43 +189,46 @@ export const deleteDocument = async ({
 }) => {
   try {
     const doc = await model.findById(req.params.id);
+
     if (!doc) return res.json(`Successfully deleted ${model.modelName}`);
     if (doc.user !== req.user.id)
       throw createError("Delete operation denied", 401);
+
     await model.deleteOne({
       _id: req.params.id
     });
 
-    setTimeout(() => {
-      res.json(`Successfully deleted ${model.modelName}`);
-      (async () => {
-        const user = await User.findByIdAndUpdate(
-          {
-            _id: doc.user
-          },
-          withCount
-            ? {
-                $inc: { [`${model.modelName}Count`]: -1 }
-              }
-            : {},
-          { new: true }
-        );
-        const io = req.app.get("socketIo");
-        if (io) {
-          doc.user = user;
-          io.emit(`filter-${model.modelName}`, doc);
-          doc.user && io.emit("update-user", user);
-        }
-        handleMiscDelete(doc.id, io, {
-          withComment: model.modelName !== "short"
-        });
-        if (doc.medias) {
-          for (let { url } of doc.medias) {
-            deleteFile(url);
+    res.json(`Successfully deleted ${model.modelName}`);
+
+    const user = await User.findByIdAndUpdate(
+      {
+        _id: doc.user
+      },
+      withCount
+        ? {
+            $inc: { [`${model.modelName}Count`]: -1 }
           }
-        } else if (doc.url) deleteFile(doc.url);
-      })();
-    }, 10000);
+        : {},
+      { new: true }
+    );
+
+    const io = req.app.get("socketIo");
+
+    if (io) {
+      doc.user = user;
+      io.emit(`filter-${model.modelName}`, doc);
+      doc.user && io.emit("update-user", user);
+    }
+
+    handleMiscDelete(doc.id, io, {
+      withComment: model.modelName !== "short"
+    });
+
+    if (doc.medias) {
+      for (let { url } of doc.medias) {
+        deleteFile(url);
+      }
+    } else if (doc.url) deleteFile(doc.url);
   } catch (err) {
     next(err);
   }
