@@ -60,19 +60,20 @@ app.use(express.urlencoded({ extended: true }));
 // net:: ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoep
 
 app.use(
-  helmet({
-    contentSecurityPolicy: {
-      directives: {
-        "default-src": csp,
-        "script-src": csp,
-        "frame-src": csp,
-        "connect-src": csp,
-        "img-src": csp,
-        "media-src": csp
-      }
-    }
-    // crossOriginResourcePolicy: { policy: "cross-origin" }
-  })
+  helmet()
+  //   {
+  //   contentSecurityPolicy: {
+  //     directives: {
+  //       "default-src": csp,
+  //       "script-src": csp,
+  //       "frame-src": csp,
+  //       "connect-src": csp,
+  //       "img-src": csp,
+  //       "media-src": csp
+  //     }
+  //   }
+  //   // crossOriginResourcePolicy: { policy: "cross-origin" }
+  // }
 );
 
 app.use(cookieParser());
