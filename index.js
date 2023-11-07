@@ -56,7 +56,7 @@ app.use(
 );
 app.use(express.urlencoded({ extended: true }));
 
-// in production helmet cause Failed to load resource:
+// in production helmet causes Failed to load resource:
 // net:: ERR_BLOCKED_BY_RESPONSE.NotSameOriginAfterDefaultedToSameOriginByCoep
 
 app.use(
@@ -71,9 +71,8 @@ app.use(
         "media-src": csp
       }
     },
-    referrerPolicy: false,
-    expectCt: false
-    // crossOriginResourcePolicy: { policy: "cross-origin" }
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" }
   })
 );
 
