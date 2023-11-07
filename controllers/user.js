@@ -254,21 +254,19 @@ export const updateUser = async (req, res, next) => {
         ...req.body.socials
       };
     }
-    if (req.body.password) {
-      if (req.body.password.length < 8)
-        throw createError("A minimum of 8 character password is required", 400);
-      req.body.password = await bcrypt.hash(
-        req.body.password,
-        await bcrypt.genSalt()
-      );
-    }
+
+    delete req.body.password;
 
     const user = await User.findByIdAndUpdate(req.user.id, req.body, {
       new: true
     });
+
     const io = req.app.get("socketIo");
+
     if (io) io.emit("update-user", user, true);
+
     res.json(user);
+
     if (req.file && photoUrl) {
       await deleteFile(photoUrl);
     }
