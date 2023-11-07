@@ -301,7 +301,7 @@ const App = () => {
         <CssBaseline />
         <GlobalStyles
           styles={{
-            "*": {
+            "html body *": {
               fontFamily,
               tapHighlightColor: "rgba(255, 255, 255, 0)"
             },
