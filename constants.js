@@ -8,6 +8,9 @@ export const isProdMode = process.env.NODE_ENV === "production";
 
 export const HTTP_MSG_INVALID_ACC_CRED = "Account credentials is invalid!";
 
+export const HTTP_MSG_USER_EXISTS =
+  "A user with the specified username or email exist";
+
 export const CLIENT_ORIGIN = isProdMode
   ? "https://soshare.onrender.com"
   : "http://localhost:3000";

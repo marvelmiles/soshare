@@ -21,6 +21,10 @@ import { SUGGESTED_USERS, SUGGEST_FOLLOWERS_TASK_KEY } from "../config.js";
 import { hashToken } from "../utils/auth.js";
 import mongoose from "mongoose";
 import { validateBlacklist } from "../utils/user.js";
+import {
+  HTTP_MSG_USER_EXISTS,
+  HTTP_CODE_INVALID_USER_ACCOUNT
+} from "../constants.js";
 
 export const getUser = (req, res, next) =>
   getDocument({
@@ -220,12 +224,22 @@ export const suggestFollowers = async (req, res, next) => {
 export const updateUser = async (req, res, next) => {
   try {
     req.body.photoUrl = req.file?.publicUrl;
-    const { photoUrl, _id, socials } = (await User.findById(req.user.id)) || {};
+    const { photoUrl, _id, socials, email, username } =
+      (await User.findById(req.user.id)) || {};
+
+    if (req.body.email === email || req.body.username === username)
+      throw createError(
+        HTTP_MSG_USER_EXISTS,
+        400,
+        HTTP_CODE_INVALID_USER_ACCOUNT
+      );
+
     if (!_id) {
       next(createError("Account doesn't exist", 400));
       req.file.publicUrl && deleteFile(req.file.publicUrl);
       return;
     }
+
     if (req.body.socials) {
       if (!isObject(req.body.socials))
         return next(

@@ -18,7 +18,8 @@ import {
   SESSION_COOKIE_DURATION,
   COOKIE_KEY_ACCESS_TOKEN,
   COOKIE_KEY_REFRESH_TOKEN,
-  HTTP_MSG_INVALID_ACC_CRED
+  HTTP_MSG_INVALID_ACC_CRED,
+  HTTP_MSG_USER_EXISTS
 } from "../constants.js";
 import fs from "fs";
 import path from "path";
@@ -48,7 +49,7 @@ export const signup = async (req, res, next) => {
 
     if (user)
       throw createError(
-        "A user with the specified username or email exist",
+        HTTP_MSG_USER_EXISTS,
         400,
         HTTP_CODE_INVALID_USER_ACCOUNT
       );
