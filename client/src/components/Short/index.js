@@ -24,7 +24,8 @@ const Short = React.forwardRef(
       miniShort,
       handleAction,
       loop,
-      stateCtx
+      stateCtx,
+      mx
     },
     ref
   ) => {
@@ -75,20 +76,11 @@ const Short = React.forwardRef(
       e => {
         e.stopPropagation();
         window.location.pathname.toLowerCase() !== "/shorts" &&
-          navigate(`/shorts`);
-        miniShort &&
-          setContext(prev => ({
-            ...prev,
-            composeDoc: {
-              docType: "short",
-              reason: "search",
-              document: {
-                id: short.id
-              }
-            }
-          }));
+          navigate(`/shorts`, {
+            state: { shortId: miniShort ? short.id : undefined }
+          });
       },
-      [navigate, short.id, setContext, miniShort]
+      [navigate, short.id, miniShort]
     );
     const onError = useCallback(
       err => {
@@ -137,11 +129,11 @@ const Short = React.forwardRef(
                 borderRadius: "8px",
                 height: "190px",
                 maxWidth: "150px",
-                // mx: "auto",
                 minHeight: "200px",
                 ".custom-overlay": {
                   cursor: "pointer"
-                }
+                },
+                mx
               }
             : {
                 mx: "auto",

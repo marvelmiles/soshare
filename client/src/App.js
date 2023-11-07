@@ -164,10 +164,10 @@ const App = () => {
     );
 
     setSnackbar(prev => ({ ...prev, open: false }));
-    setContext(context => ({
-      ...context,
-      composeDoc: context.composeDoc?.url ? context.composeDoc : undefined
-    }));
+    // setContext(context => ({
+    //   ...context,
+    //   composeDoc: context.composeDoc?.url ? context.composeDoc : undefined
+    // }));
 
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);

@@ -29,7 +29,7 @@ const UserCtxActionView = React.forwardRef(
     });
 
     const handleAction = useCallback(
-      ({ username, id }) =>
+      ({ username, id }) => {
         handleContextKeyDispatch(
           `/users/whitelist/${
             { _disapprovedUsers: "disapprove", _blockedUsers: "block" }[dataKey]
@@ -43,7 +43,8 @@ const UserCtxActionView = React.forwardRef(
             users:
               !username && infiniteScrollRef.current.data.data.map(u => u.id)
           }
-        ),
+        );
+      },
       [handleContextKeyDispatch, dataKey]
     );
     useEffect(() => {
@@ -69,12 +70,20 @@ const UserCtxActionView = React.forwardRef(
           infiniteScrollRef.current = props;
           ref && (ref.current = props);
         }}
+        allowCancelRequest={false}
       >
         {({ data: { data } }) => {
           return (
             <div>
               {data.length ? (
-                <Stack flexWrap="wrap" p={2} pb={0} justifyContent="flex-start">
+                <Stack
+                  flexWrap="wrap"
+                  p={2}
+                  pl={3}
+                  pb={0}
+                  justifyContent="normal"
+                  gap={5}
+                >
                   {data.map((u, i) => (
                     <Person
                       key={i}
@@ -82,10 +91,6 @@ const UserCtxActionView = React.forwardRef(
                       onBtnClick={handleAction}
                       btnLabel={"Whitelist"}
                       disabled={activeMap[u.id]}
-                      sx={{
-                        mx:
-                          data.length > 1 && i !== data.length - 1 ? "auto" : ""
-                      }}
                     />
                   ))}
                 </Stack>

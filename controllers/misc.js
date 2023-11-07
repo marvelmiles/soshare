@@ -47,9 +47,6 @@ export const search = async (req, res, next) => {
                   },
                   {
                     moreText: search
-                  },
-                  {
-                    visibility: search
                   }
                 ]
               }
@@ -101,13 +98,7 @@ export const search = async (req, res, next) => {
               query: {
                 $or: [
                   {
-                    location: search
-                  },
-                  {
                     text: search
-                  },
-                  {
-                    visibility: search
                   }
                 ]
               }

@@ -22,7 +22,8 @@ export const updateStatePath = (state, path, payload) => {
       ...state[path]
     };
   } else {
-    if (payload.socials) {
+    if (payload.forceUpdate) delete payload.forceUpdate;
+    else if (payload.socials) {
       payload.socials = {
         ...state[
           {
@@ -33,6 +34,7 @@ export const updateStatePath = (state, path, payload) => {
         ...payload.socials
       };
     }
+
     state[path] = {
       ...state[path],
       ...payload

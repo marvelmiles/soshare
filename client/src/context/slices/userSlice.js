@@ -64,7 +64,7 @@ const userSlice = createSlice({
         },
         _disapprovedUsers: mapToObject(payload.recommendationBlacklist),
         _blockedUsers: mapToObject(payload.blockedUsers)
-      };
+      }
     },
     updatePreviewUser(state, { payload }) {
       if (payload.nullify) return (state.previewUser = undefined);

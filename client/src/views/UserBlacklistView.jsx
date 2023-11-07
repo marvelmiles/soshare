@@ -139,6 +139,7 @@ const UserBlacklistView = ({
     >
       {({ tab, tabChanged, defaultValue }) => {
         const infiniteScrollProps = {
+          withCount: false,
           scrollNodeRef,
           dataKey: tab,
           url: `/users/blacklist`,

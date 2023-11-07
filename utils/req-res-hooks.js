@@ -57,6 +57,7 @@ export const getFeedMedias = async ({
       userId: req.user?.id,
       ...rest
     });
+
     if (req.query.withThread === "true") {
       if (req.query.ro || req.query.threadPriorities) {
         for (let i = 0; i < result.data.length; i++) {
@@ -68,7 +69,6 @@ export const getFeedMedias = async ({
         }
       }
     }
-
     res.json(result);
   } catch (err) {
     next(err);

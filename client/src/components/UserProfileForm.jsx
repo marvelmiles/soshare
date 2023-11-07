@@ -10,7 +10,8 @@ import Stack from "@mui/material/Stack";
 import { useDispatch } from "react-redux";
 import {
   updatePreviewUser,
-  deleteFromPreviewUser
+  deleteFromPreviewUser,
+  updateUser
 } from "context/slices/userSlice";
 import { useContext } from "context/store";
 import { Typography, IconButton } from "@mui/material";
@@ -141,7 +142,7 @@ const UserProfileForm = ({
     setPhotoUrl(url || formData.photoUrl || placeholders?.photoUrl);
 
     return () => {
-      // url && URL.revokeObjectURL(url);
+      url && URL.revokeObjectURL(url);
     };
   }, [formData.avatar, placeholders?.photoUrl, formData.photoUrl]);
 
@@ -176,10 +177,15 @@ const UserProfileForm = ({
             severity: "success"
           });
 
-          reset(placeholders && res.data);
+          reset(placeholders && res);
+
+          res.forceUpdate = true;
+
+          placeholders && dispatch(updateUser(res));
+
           handleAction &&
             handleAction(placeholders ? "update" : "new", {
-              document: res.data
+              document: res
             });
         }
       } catch (err) {
@@ -187,7 +193,15 @@ const UserProfileForm = ({
         reset(true);
       }
     },
-    [handleAction, handleSubmit, placeholders, reset, setSnackBar, method]
+    [
+      handleAction,
+      handleSubmit,
+      placeholders,
+      reset,
+      setSnackBar,
+      method,
+      dispatch
+    ]
   );
   const handlePhotoTransfer = file => {
     reset({

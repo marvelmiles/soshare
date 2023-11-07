@@ -20,7 +20,8 @@ export const getAll = async ({
       withEq = "true",
       randomize = "true",
       withMatchedDocs = "false",
-      exclude = ""
+      exclude = "",
+      withCount
     } = query;
 
     limit = (Number(limit) || 20) + 1;
@@ -29,145 +30,169 @@ export const getAll = async ({
     withMatchedDocs = withMatchedDocs === "true";
     randomize = randomize === "true";
     exclude = exclude ? exclude.split(",") : [];
+    withCount = withCount ? withCount === "true" : !dataKey;
 
-    if (match._id?.$nin) {
-      exclude = exclude.concat(match._id.$nin);
-      delete match._id?.$nin;
-    }
+    const _getResult = async (cursor, withCursorRules = true) => {
+      if (match._id?.$nin) {
+        exclude = exclude.concat(match._id.$nin);
+        delete match._id?.$nin;
+      }
 
-    if (populate === undefined) {
-      const select = {
-        "settings._id": 0,
-        "socials._id": 0,
-        password: 0
-      };
+      if (populate === undefined) {
+        const select = {
+          "settings._id": 0,
+          "socials._id": 0,
+          password: 0
+        };
 
-      const options = { virtuals: true };
-      populate = [
-        {
-          select,
-          options,
-          path: "user"
-        },
-        {
-          path: "document",
-          populate: "user"
-        },
-        dataKey
-          ? {
-              select,
-              options,
-              path: dataKey
-            }
-          : ""
-      ];
-    }
-
-    if (cursor) cursor = decodeURIComponent(cursor);
-
-    if (asc) sort[dataKey ? dataKey : "_id"] = 1;
-    else sort[dataKey ? dataKey : "_id"] = -1;
-
-    if (isObject(match._id)) {
-      match._id = {
-        ...match._id,
-        $nin: exclude
-      };
-    } else {
-      const value = match._id;
-
-      match._id = {
-        $nin: exclude
-      };
-      value && (match._id.$eq = value);
-    }
-
-    const $addFields = { _id: { $toString: "$_id" }, id: "$_id" };
-
-    const pipelines = dataKey
-      ? [
-          { $addFields },
-          { $match: match },
-          { $project: { [dataKey]: 1 } },
-          { $unwind: `$${dataKey}` }, // flatten dataKey as current data
+        const options = { virtuals: true };
+        populate = [
           {
-            $sort: sort
+            select,
+            options,
+            path: "user"
           },
           {
-            $match: {
-              [dataKey]: {
-                $nin: exclude
+            path: "document",
+            populate: "user"
+          },
+          dataKey
+            ? {
+                select,
+                options,
+                path: dataKey
+              }
+            : ""
+        ];
+      }
+
+      if (cursor) cursor = decodeURIComponent(cursor);
+
+      if (asc) sort[dataKey ? dataKey : "_id"] = 1;
+      else sort[dataKey ? dataKey : "_id"] = -1;
+
+      if (isObject(match._id)) {
+        match._id = {
+          ...match._id,
+          $nin: exclude
+        };
+      } else {
+        const value = match._id;
+
+        match._id = {
+          $nin: exclude
+        };
+        value && (match._id.$eq = value);
+      }
+
+      const $addFields = { _id: { $toString: "$_id" }, id: "$_id" };
+
+      const pipelines = dataKey
+        ? [
+            { $addFields },
+            { $match: match },
+            { $project: { [dataKey]: 1 } },
+            { $unwind: `$${dataKey}` }, // flatten dataKey as current data
+            {
+              $sort: sort
+            },
+            {
+              $match: {
+                [dataKey]: {
+                  $nin: exclude
+                }
+              }
+            },
+            {
+              $group: {
+                _id: "$_id",
+                [dataKey]: { $push: `$${dataKey}` }
               }
             }
-          },
-          {
-            $group: {
-              _id: "$_id",
-              [dataKey]: { $push: `$${dataKey}` }
+          ]
+        : [
+            { $addFields },
+            {
+              $match: match
+            },
+            { $sort: sort },
+
+            {
+              $unset: ["_id", "password"]
             }
-          }
-        ]
-      : [
-          { $addFields },
-          {
-            $match: match
-          },
-          { $sort: sort },
+          ];
 
-          {
-            $unset: ["_id", "password"]
-          }
-        ];
+      const limitIndex = dataKey ? 6 : 3;
 
-    const limitIndex = dataKey ? 6 : 3;
-
-    if (randomize)
-      pipelines.splice(limitIndex, 0, {
-        $sample: { size: cursor ? limit : Infinity }
-      });
-    else if (cursor) pipelines.splice(limitIndex, 0, { $limit: limit });
-
-    if (cursor) {
-      const cursorIdRules = {
-        [asc ? (withEq ? "$gte" : "$gt") : withEq ? "$lte" : "$lt"]: cursor
-      };
-
-      if (dataKey) {
-        pipelines.splice(5, 1, {
-          $match: {
-            [dataKey]: {
-              ...pipelines[5].$match[dataKey],
-              ...cursorIdRules
-            }
-          }
+      if (randomize)
+        pipelines.splice(limitIndex, 0, {
+          $sample: { size: cursor ? limit : Infinity }
         });
-      } else {
-        pipelines.splice(1, 1, {
-          $match: {
-            ...pipelines[1].$match,
-            _id: {
-              ...pipelines[1].$match._id,
-              ...cursorIdRules
+      else if (cursor) pipelines.splice(limitIndex, 0, { $limit: limit });
+
+      if (cursor) {
+        const cursorIdRules = withCursorRules
+          ? {
+              [asc
+                ? withEq
+                  ? "$gte"
+                  : "$gt"
+                : withEq
+                ? "$lte"
+                : "$lt"]: cursor
             }
-          }
-        });
+          : {};
+
+        if (dataKey) {
+          pipelines.splice(5, 1, {
+            $match: {
+              [dataKey]: {
+                ...pipelines[5].$match[dataKey],
+                ...cursorIdRules
+              }
+            }
+          });
+        } else {
+          pipelines.splice(1, 1, {
+            $match: {
+              ...pipelines[1].$match,
+              _id: {
+                ...pipelines[1].$match._id,
+                ...cursorIdRules
+              }
+            }
+          });
+        }
       }
-    }
 
-    let result = await model.populate(
-      await model.aggregate(pipelines),
-      populate
-    );
+      match = pipelines[1].$match;
 
-    match = pipelines[1].$match;
+      let result = await model.populate(
+        await model.aggregate(pipelines),
+        populate
+      );
 
-    if (dataKey && result[0]) result = result[0][dataKey];
+      match = pipelines[1].$match;
+
+      if (dataKey && result[0]) result = result[0][dataKey];
+
+      return result;
+    };
+
+    let result = await _getResult(cursor);
+
+    if (withCount) delete match._id;
+
+    const totalDoc = withCount
+      ? await model.countDocuments(match)
+      : result.length;
 
     cursor = null;
 
-    const matchedDocs = result.length;
+    result = result.slice(0, limit);
 
-    if (!cursor) result = result.slice(0, limit);
+    // model.modelName === "user" &&
+    //   console.log(totalDoc, result.length, withCount, match);
 
     if (result.length === limit) {
       cursor = result[limit - 1].id;
@@ -178,7 +203,7 @@ export const getAll = async ({
       ? {
           data: result,
           paging: {
-            matchedDocs,
+            matchedDocs: totalDoc,
             nextCursor: cursor ? encodeURIComponent(cursor) : null
           }
         }
@@ -187,7 +212,7 @@ export const getAll = async ({
             rs({
               data: result,
               paging: {
-                matchedDocs,
+                matchedDocs: totalDoc,
                 nextCursor: cursor ? encodeURIComponent(cursor) : null
               }
 

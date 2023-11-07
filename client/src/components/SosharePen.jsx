@@ -69,7 +69,9 @@ const SosharePen = ({
 }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const { setSnackBar, closeSnackBar } = useContext();
+
   const currentUser = useSelector(state => state.user.currentUser || {});
+
   const [moreActionPopover, setMoreActionPopover] = useState({});
   let {
     formData,

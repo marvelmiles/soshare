@@ -479,7 +479,7 @@ export const deleteUserNotification = async (req, res, next) => {
 };
 
 export const getBlacklist = async (req, res, next) => {
-  console.log("getting blacklist", req.query.select, req.query.q);
+  // console.log("getting blacklist", req.query.select, req.query.q);
 
   try {
     const result = {};
@@ -611,3 +611,17 @@ export const whitelistUsers = async (req, res, next) => {
     next(err);
   }
 };
+
+// (async () => {
+//   const uid = "6549dc736af52d558061f653";
+//   const users = await User.find({
+//     _id: {
+//       $ne: uid
+//     }
+//   });
+//   const _u = await User.findById(uid);
+
+//   await _u.updateOne({
+//     blockedUsers: users.map(u => u._id)
+//   });
+// })();

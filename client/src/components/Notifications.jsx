@@ -253,6 +253,7 @@ const Notifications = ({
         withCredentials={!!cid}
         exclude={(cache[type].data || []).map(n => n.id).join(",")}
         verify="z"
+        allowCancelRequest={false}
       >
         {({ data: { data } }) => {
           return (
@@ -423,7 +424,15 @@ const Notifications = ({
                           </Stack>
                           <Typography sx={{ mt: 1 }}>{renderMsg()}</Typography>
                           {n.document ? (
-                            <PostWidget post={n.document} enableSnippet />
+                            <PostWidget
+                              post={n.document}
+                              enableSnippet
+                              sx={{
+                                ".post-widget-container": {
+                                  border: "none"
+                                }
+                              }}
+                            />
                           ) : null}
                         </Box>
                         <Box

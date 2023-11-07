@@ -60,7 +60,9 @@ const InfiniteFetch = React.forwardRef(
       maxUserRetry = 10,
       verify,
       onBeforeFetch,
-      onResponse
+      onResponse,
+      withCount = true,
+      allowCancelRequest
     },
     ref
   ) => {
@@ -126,7 +128,7 @@ const InfiniteFetch = React.forwardRef(
 
     const isReady = readyState === "ready";
 
-    const nextCursor = data.paging?.nextCursor;
+    const nextCursor = data.paging?.nextCursor || "";
 
     let nullifyChildren =
       shallowLoading ||
@@ -184,9 +186,10 @@ const InfiniteFetch = React.forwardRef(
       }, resetDelay);
     }, []);
 
-    const isEnd = stateRef.current.infinitePaging.totalDoc
-      ? data.data.length >= stateRef.current.infinitePaging.totalDoc
-      : nextCursor === null;
+    const isEnd =
+      stateRef.current.infinitePaging.totalDoc > -1
+        ? data.data.length >= stateRef.current.infinitePaging.totalDoc
+        : nextCursor === null;
 
     const hasReachedMaxUserRetry =
       stateRef.current.userRetryCount >= stateRef.current.maxUserRetry;
@@ -210,17 +213,18 @@ const InfiniteFetch = React.forwardRef(
               //   : !isEnd && (isIntersecting || nullifyChildren)
               isIntersecting &&
               data.data.length < stateRef.current.infinitePaging.totalDoc
-          : nextCursor === undefined));
+          : data.paging?.nextCursor === undefined));
 
     useEffect(() => {
       const stateCtx = stateRef.current;
 
       return () => {
         stateCtx.cancelKey &&
+          allowCancelRequest &&
           stateCtx.cancelRequest &&
           handleCancelRequest(stateCtx.cancelKey);
       };
-    }, []);
+    }, [allowCancelRequest]);
 
     const propMemo = useMemo(() => {
       return {
@@ -492,7 +496,10 @@ const InfiniteFetch = React.forwardRef(
 
       let nextCursor = currentData.paging?.nextCursor || "";
 
-      let _randomize = randomize || infinitePaging.totalDoc === undefined;
+      let _randomize =
+        { after: true }[randomize] ||
+        randomize ||
+        infinitePaging.totalDoc === undefined;
 
       let _withMatchedDocs =
         withMatchedDocs || stateRef.current.withMatchedDocs;
@@ -501,39 +508,44 @@ const InfiniteFetch = React.forwardRef(
 
       if (shouldSearch) {
         stateRef.current.searchId = searchId;
+        nextCursor = searchId || "";
+        // stateRef.current.dataChanged = true;
 
-        stateRef.current.dataChanged = true;
+        _randomize = false;
+        withEq = true;
+        shouldFetch = true;
+        _withMatchedDocs = true;
 
-        const index = data.data.findIndex(
-          d => d.id === searchId || d === searchId
-        );
+        // const index = data.data.findIndex(
+        //   d => d.id === searchId || d === searchId
+        // );
 
-        if (index > -1) {
-          _randomize = false;
-          withEq = false;
+        // if (index > -1) {
+        //   _randomize = false;
+        //   withEq = true;
 
-          currentData.data = currentData.data
-            .slice(index)
-            .filter(
-              item =>
-                new Date(item.createdAt).getTime() <=
-                new Date(currentData.data[index].createdAt).getTime()
-            ); // based on sort order for now
+        //   // currentData.data = currentData.data
+        //   //   .slice(index)
+        //   //   .filter(
+        //   //     item =>
+        //   //       new Date(item.createdAt).getTime() <=
+        //   //       new Date(currentData.data[index].createdAt).getTime()
+        //   //   ); // based on sort order for now
 
-          currentData.paging.nextCursor =
-            currentData.data[currentData.data.length - 1].id;
+        //   // currentData.paging.nextCursor =
+        //   //   currentData.data[currentData.data.length - 1].id;
 
-          if (currentData.data.length === stateCtx.infinitePaging.totalDoc)
-            shouldFetch = false;
-          else nextCursor = currentData.data[currentData.data.length - 1]?.id;
-        } else {
-          _randomize = true;
-          withEq = true;
+        //   // if (currentData.data.length === stateCtx.infinitePaging.totalDoc)
+        //   //   shouldFetch = false;
+        //   // else nextCursor = currentData.data[currentData.data.length - 1]?.id;
+        // } else {
+        //   _randomize = true;
+        //   withEq = true;
 
-          nextCursor = searchId;
-          currentData = { data: [] };
-          stateCtx.infinitePaging = {};
-        }
+        //   nextCursor = searchId;
+        //   currentData = { data: [] };
+        //   stateCtx.infinitePaging = {};
+        // }
       }
 
       if (stateRef.current.dataChanged) setData(currentData);
@@ -541,7 +553,7 @@ const InfiniteFetch = React.forwardRef(
       if (shouldFetch) {
         stateCtx.isFetching = true;
 
-        const _url = `${url}?limit=${limit}&cursor=${nextCursor}&withEq=${withEq}&randomize=${_randomize}&withMatchedDocs=${_withMatchedDocs}&exclude=${_exclude}&${
+        const _url = `${url}?withCount=${withCount}&limit=${limit}&cursor=${nextCursor}&withEq=${withEq}&randomize=${_randomize}&withMatchedDocs=${_withMatchedDocs}&exclude=${_exclude}&${
           stateCtx.searchParams ? stateCtx.searchParams + "&" : ""
         }${searchParams ? searchParams + "&" : ""}${
           dataKey ? `select=${dataKey}&` : ""
@@ -591,7 +603,7 @@ const InfiniteFetch = React.forwardRef(
 
             if (_withMatchedDocs || _randomize) {
               if (newData.paging.matchedDocs > -1) {
-                if (infinitePaging.totalDoc === undefined || _withMatchedDocs) {
+                if (infinitePaging.totalDoc === undefined) {
                   stateRef.current.infinitePaging.totalDoc =
                     infinitePaging.totalDoc &&
                     infinitePaging.totalDoc > newData.paging.matchedDocs
@@ -676,7 +688,8 @@ const InfiniteFetch = React.forwardRef(
       withMatchedDocs,
       onBeforeFetch,
       onResponse,
-      searchId
+      searchId,
+      withCount
     ]);
 
     const handleRefetch = useCallback(e => {

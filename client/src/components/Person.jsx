@@ -43,7 +43,7 @@ const Person = React.forwardRef(
               width: "100%",
               maxWidth: {
                 sm: "45%",
-                s640: "200px"
+                s640: "180px"
               },
               ...sx
             }}

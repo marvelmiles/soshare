@@ -79,7 +79,7 @@ const Navbar = ({ routePage = "homePage" }) => {
     notifications: 0
   });
   const { userId } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [openUserSelect, setOpenUserSelect] = useState(false);
   const navigate = useNavigate();
 
@@ -180,14 +180,14 @@ const Navbar = ({ routePage = "homePage" }) => {
     }, 5000);
   };
 
-  const handleSearch = useCallback(
-    e => {
-      e.preventDefault();
-      e.stopPropagation();
-      navigate(`/search?q=${query}&tab=${searchParams.get("tab") || "posts"}`);
-    },
-    [searchParams, navigate, query]
-  );
+  const handleSearch = e => {
+    e.stopPropagation();
+
+    if (window.location.pathname.toLowerCase() === "/search") {
+      searchParams.set("q", query);
+      setSearchParams(searchParams, { replace: true });
+    } else navigate(`/search?tab=posts&q=${query}`);
+  };
 
   const markNotification = async (
     index,
@@ -457,7 +457,7 @@ const Navbar = ({ routePage = "homePage" }) => {
         }
       }}
       endAdornment={
-        <IconButton onClick={() => navigate(`/search?q=${query}&tab=posts`)}>
+        <IconButton onClick={handleSearch}>
           <SearchIcon />
         </IconButton>
       }

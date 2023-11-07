@@ -9,6 +9,7 @@ import Box from "@mui/material/Box";
 
 const Search = () => {
   const [searchParams] = useSearchParams();
+  const _tab = searchParams.get("tab") || "posts";
   const q = searchParams.get("q") || "";
 
   const tabsPane = [
@@ -26,7 +27,7 @@ const Search = () => {
         }
       }}
     >
-      <Tabs tabsPane={tabsPane} defaultTab="posts">
+      <Tabs tabsPane={tabsPane} defaultTab={_tab} key={`search-${_tab}-${q}`}>
         {({ tab }) => {
           const emptyLabel = (
             <div>
@@ -56,7 +57,7 @@ const Search = () => {
                 ...infiniteScrollProps,
                 readyState: tab === "posts" ? "ready" : "pending"
               }}
-              key={"serach-posts"}
+              key={`serach-posts-${q}`}
             />,
             <FollowMeView
               excludeCUser
@@ -67,7 +68,7 @@ const Search = () => {
                 readyState: tab === "users" ? "ready" : "pending",
                 verify: "t"
               }}
-              key={"serach-users"}
+              key={`serach-users-${q}`}
               widgetProps={widgetProps}
             />,
             <ShortsView
@@ -77,7 +78,7 @@ const Search = () => {
                 readyState: tab === "shorts" ? "ready" : "pending"
               }}
               componentProps={widgetProps}
-              key={"serach-shorts"}
+              key={`serach-shorts-${q}`}
             />
           ];
         }}

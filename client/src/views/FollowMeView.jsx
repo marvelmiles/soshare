@@ -24,7 +24,9 @@ const FollowMeView = ({
   widgetProps,
   emptyLabel,
   privateUid,
-  excludeCUser
+  excludeCUser,
+  gap = 2,
+  mx
 }) => {
   const [_searchParams] = useSearchParams();
 
@@ -32,11 +34,11 @@ const FollowMeView = ({
 
   let { userId } = useParams();
 
-  userId = vuid || userId;
-
   const { socket } = useContext();
 
   const { previewUser, currentUser } = useSelector(state => state.user);
+
+  userId = vuid || userId || currentUser.id;
 
   const [dataSize, setDataSize] = useState(-1);
 
@@ -215,6 +217,7 @@ const FollowMeView = ({
       <InfiniteScroll
         key={`follome-widget-${priority}-${privateUid}`}
         ref={infiniteScrollRef}
+        randomize
         sx={{
           px: 2
         }}
@@ -234,6 +237,7 @@ const FollowMeView = ({
         }
         scrollNodeRef={scrollNodeRef}
         handleAction={_handlerAction}
+        withCount={false}
       >
         {({ data: { data } }) => {
           const renderPersons = () => {
@@ -248,13 +252,20 @@ const FollowMeView = ({
                 <Person
                   variant={variant}
                   key={i + u.id + priority}
-                  sx={
-                    variant !== "block" || currentUser.following
-                      ? undefined
-                      : {
-                          minHeight: "100px"
-                        }
-                  }
+                  sx={{
+                    mx: {
+                      xs: "0",
+                      sm: "8px",
+                      md: "14px",
+                      s820: "4px",
+                      s992: "8px",
+                      lg: "auto"
+                    },
+                    minHeight:
+                      variant !== "block" || currentUser.following
+                        ? undefined
+                        : "100px"
+                  }}
                   user={u}
                   btnLabel={isFollowing ? "Unfollow" : "Follow"}
                   onBtnClick={() =>
@@ -272,7 +283,12 @@ const FollowMeView = ({
             <>
               {data.length ? (
                 variant === "block" ? (
-                  <Stack flexWrap="wrap" justifyContent="normal" gap={2} p={2}>
+                  <Stack
+                    flexWrap="wrap"
+                    justifyContent="normal"
+                    gap={gap}
+                    p={2}
+                  >
                     {renderPersons()}
                   </Stack>
                 ) : (

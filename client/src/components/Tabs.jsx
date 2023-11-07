@@ -21,7 +21,6 @@ const Tabs = ({
   deleteParams,
   searchParams: newParams = "",
   renderSectionEl,
-  cacheParam = "",
   onBeforeChange,
   onAfterChange
 }) => {
@@ -39,14 +38,12 @@ const Tabs = ({
     defaultTab,
     tab
   });
-  const cacheValue = searchParams.get(cacheParam) || "";
-
-  const navigate = useNavigate();
 
   useEffect(() => {
     const stateCtx = stateRef.current;
     if (carouselRef.current) {
       stateCtx.tab = tab;
+
       carouselRef.current.goToSlide(stateCtx.tabIndexMap[tab]);
     }
     return () => {
@@ -54,35 +51,30 @@ const Tabs = ({
     };
   }, [tab]);
 
-  const handleTabChange = (e, value) => {
+  const handleTabChange = (e, value = tab) => {
     e && e.stopPropagation();
-
-    locState[tab] = cacheValue;
 
     const search = new URLSearchParams(window.location.search);
 
-    if (value) {
-      for (const key of `tab ${deleteParams}`.split(" ")) {
-        search.delete(key);
-      }
-
-      setSearchParams(
-        new URLSearchParams(
-          `tab=${value}${newParams ? `&${newParams}` : ""}&${search.toString()}`
-        ),
-        {
-          replace: true,
-          state: locState
-        }
-      );
+    for (const key of `tab ${deleteParams}`.split(" ")) {
+      search.delete(key);
     }
+
+    setSearchParams(
+      new URLSearchParams(
+        `tab=${value}${newParams ? `&${newParams}` : ""}&${search.toString()}`
+      ),
+      {
+        replace: true,
+        state: locState
+      }
+    );
   };
 
   const props = {
     tab,
     tabChanged: tab !== stateRef.current.tab,
-    defaultValue: locState[tab] || "",
-    cacheValue
+    defaultValue: locState[tab] || ""
   };
 
   return (

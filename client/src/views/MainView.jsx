@@ -48,7 +48,15 @@ const MainView = ({
       >
         {
           {
-            shorts: <ShortsView key="mainview-shorts" miniShort />
+            shorts: (
+              <ShortsView
+                key="mainview-shorts"
+                miniShort
+                mx={{
+                  xs: "2px"
+                }}
+              />
+            )
           }[sideView]
         }
         {cid ? <UserWidget key="main-view-user-widget" /> : null}

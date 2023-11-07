@@ -26,6 +26,7 @@ const ShortsView = ({
   const currentUser = useSelector(state => state.user.currentUser || {});
   const {
     socket,
+    locState,
     context: { composeDoc }
   } = useContext();
 
@@ -126,6 +127,7 @@ const ShortsView = ({
             }
           : sx
       }
+      randomize={miniShort ? undefined : "after"}
       componentProps={componentProps}
       Component={miniShort ? WidgetContainer : undefined}
       notifierDelay={
@@ -145,9 +147,8 @@ const ShortsView = ({
       }
       searchId={
         composeDoc?.docType === "short"
-          ? (composeDoc.url && composeDoc.document?.id) ||
-            (composeDoc.reason === "search" && composeDoc.document.id)
-          : undefined
+          ? composeDoc.url && composeDoc.document?.id
+          : locState.shortId
       }
     >
       {({ data: { data } }) => {
@@ -168,7 +169,6 @@ const ShortsView = ({
 
             <Stack
               justifyContent={"normal"}
-              // alignItems="flex-start"
               sx={
                 miniShort
                   ? {
@@ -197,7 +197,17 @@ const ShortsView = ({
                     short={s}
                     handleAction={_handleAction}
                     miniShort={miniShort}
-                    mx={mx}
+                    mx={
+                      mx || {
+                        xs: "5px",
+                        sm: "12px",
+                        s600: "16px",
+                        s640: "23px",
+                        md: "14px",
+                        s900: "8px",
+                        lg: "2px"
+                      }
+                    }
                   />
                 );
               })}
