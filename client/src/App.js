@@ -301,16 +301,22 @@ const App = () => {
         <CssBaseline />
         <GlobalStyles
           styles={{
-            "html body *": {
+            "*": {
               fontFamily,
-              tapHighlightColor: "rgba(255, 255, 255, 0)"
+              // remove blue highlight on element click in touchscreens
+              tapHighlightColor: "rgba(255, 255, 255, 0) !important",
+              WebkitTapHighlightColor: "rgba(255,255,255,0) !important",
+              outline: "none !important",
+              touchCallout: "none !important",
+              WebkitTouchCallout: "none !important"
             },
             textarea: {
               resize: "none",
               background: "transparent"
             },
             a: {
-              textDecoration: "none"
+              textDecoration: "none",
+              outline: "none"
             },
             "html,body,#root": {
               minHeight: "100vh",
