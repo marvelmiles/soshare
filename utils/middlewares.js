@@ -84,7 +84,8 @@ export const validateCors = (origin = "", cb) => {
     cb(null, {
       origin: true,
       optionsSuccessStatus: 200,
-      credentials: true
+      credentials: true,
+      methods: ["POST", "PUT", "PATCH", "DELETE"]
     });
   else cb(createError(`Origin ${origin} blocked by cors`, 403));
 };
