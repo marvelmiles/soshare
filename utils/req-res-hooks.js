@@ -29,7 +29,7 @@ export const getFeedMedias = async ({
   ...rest
 }) => {
   try {
-    console.log(!!req.cookies.access_token, " with access_token..res-res-hook");
+    // console.log(!!req.cookies.access_token, " with access_token..res-res-hook");
 
     if (req.cookies.access_token) verifyToken(req);
 

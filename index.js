@@ -46,16 +46,7 @@ const csp = [
 
 // MIDDLEWARES
 
-app.use(
-  cors({
-    origin: [
-      "https://storage.googleapis.com/mern-demo-5cd45.appspot.com/medias%2F1699198641353-WhatsApp%20Image%202023-10-05%20at%203.27.22%20PM%20(1).jpeg",
-      CLIENT_ORIGIN
-    ],
-    optionsSuccessStatus: 200,
-    credentials: true
-  })
-);
+app.use(cors(validateCors));
 
 app.use(
   express.json({
@@ -64,21 +55,21 @@ app.use(
   })
 );
 app.use(express.urlencoded({ extended: true }));
-// app.use(
-//   helmet({
-//     contentSecurityPolicy: {
-//       directives: {
-//         "default-src": csp,
-//         "script-src": csp,
-//         "frame-src": csp,
-//         "connect-src": csp,
-//         "img-src": csp,
-//         "media-src": csp
-//       }
-//     },
-//     crossOriginResourcePolicy: { policy: "cross-origin" }
-//   })
-// );
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        "default-src": csp,
+        "script-src": csp,
+        "frame-src": csp,
+        "connect-src": csp,
+        "img-src": csp,
+        "media-src": csp
+      }
+    },
+    crossOriginResourcePolicy: { policy: "cross-origin" }
+  })
+);
 
 app.use(cookieParser());
 // app.use(timeout("60s"));

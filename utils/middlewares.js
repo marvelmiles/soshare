@@ -80,19 +80,9 @@ export const errHandler = (err, req, res, next) => {
 export const validateCors = (origin = "", cb) => {
   origin = origin.headers ? origin.headers.origin : origin;
 
-  console.log(origin, " orign...");
-
-  if (
-    true ||
-    !origin ||
-    origin === CLIENT_ORIGIN ||
-    origin.toLowerCase().indexOf("localhost") > -1
-  )
+  if (!origin || origin === CLIENT_ORIGIN)
     cb(null, {
-      origin: [
-        "https://storage.googleapis.com/mern-demo-5cd45.appspot.com/medias%2F1699198641353-WhatsApp%20Image%202023-10-05%20at%203.27.22%20PM%20(1).jpeg",
-        origin || CLIENT_ORIGIN
-      ],
+      origin: true,
       optionsSuccessStatus: 200,
       credentials: true
     });
