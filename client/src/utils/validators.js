@@ -46,6 +46,9 @@ export const isObject = obj =>
     : typeof obj === "object" && obj.length === undefined);
 
 export const hasAudio = (video, cb, withReset = true, delay = 100) => {
+  const muted = video.muted;
+  const volume = video.volume;
+
   const _hasAudio = () =>
     !!(
       video &&
@@ -54,8 +57,18 @@ export const hasAudio = (video, cb, withReset = true, delay = 100) => {
         (video.audioTracks && video.audioTracks.length))
     );
 
-  if (_hasAudio()) cb(true);
-  else {
+  video.muted = false;
+  video.volume = 1;
+
+  const reset = () => {
+    video.muted = muted;
+    video.volume = volume;
+  };
+
+  if (_hasAudio()) {
+    reset();
+    cb(true);
+  } else {
     const id = setTimeout(() => {
       video
         .play()
@@ -66,11 +79,16 @@ export const hasAudio = (video, cb, withReset = true, delay = 100) => {
             video.pause();
             video.currentTime = 0;
           }
-
+          reset();
           cb(bool);
         })
-        .catch(_ => cb(false))
-        .finally(() => clearTimeout(id));
+        .catch(_ => {
+          reset();
+          cb(false);
+        })
+        .finally(() => {
+          clearTimeout(id);
+        });
     }, delay);
   }
 };

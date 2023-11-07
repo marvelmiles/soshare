@@ -100,11 +100,14 @@ const VideoPlayer = React.forwardRef(
     useEffect(() => {
       let url;
 
+      // setVideoUrl(mp4);
+
       if (src) setVideoUrl(src);
       else if (nativeFile) {
         url = URL.createObjectURL(nativeFile);
         setVideoUrl(url);
       }
+
       return () => url && URL.revokeObjectURL(url);
     }, [nativeFile, src]);
 
@@ -687,6 +690,7 @@ const VideoPlayer = React.forwardRef(
         {loading || (hideTimeline && hideControls) ? null : (
           <VideoFooter
             loading={loading}
+            fullScreenMode={stateRef.current.withFullscreen}
             hideControls={hideControls}
             hideTimeline={hideTimeline}
             hideTimeBox={hideTimeBox}

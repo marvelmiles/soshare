@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import PropTypes from "prop-types";
-import { useTheme, Typography } from "@mui/material";
+import { useTheme, Typography, ClickAwayListener } from "@mui/material";
 import Slider from "@mui/material/Slider";
 import Box from "@mui/material/Box";
 import Stack from "@mui/material/Stack";
@@ -39,11 +39,14 @@ const VideoFooter = ({
   handleVolume,
   handlePlay,
   handlePause,
-  withOverlay
+  withOverlay,
+  fullScreenMode
 }) => {
   muted = !hasAudio || muted;
   const blend = useTheme().palette.common.blend;
   const [volume, setVolume] = useState(defaultVolume);
+  const [openVolume, setOpenVolume] = useState(false);
+  const volumeBtnRef = useRef();
 
   const toggleFullscreenMode = e => {
     e.stopPropagation();
@@ -51,6 +54,23 @@ const VideoFooter = ({
     else contRef.current.requestFullscreen();
   };
   const hideMainBox = hideTimeline && hideControls;
+
+  const handleVolumeClose = () => {
+    setOpenVolume(false);
+  };
+
+  const handleVolumeOpen = () => setOpenVolume(true);
+
+  const onVolumePopperAwayListener = e => {
+    const bool = volumeBtnRef.current.contains(e.target);
+
+    setOpenVolume(bool);
+  };
+
+  useEffect(() => {
+    fullScreenMode && setOpenVolume(false);
+  }, [fullScreenMode]);
+
   return (
     <Box
       className="video-player-footer"
@@ -147,9 +167,17 @@ const VideoFooter = ({
                   </Typography>
                   {hasAudio ? (
                     <Tooltip
+                      key={hasAudio}
+                      disableTouchListener
+                      disableFocusListener
+                      open={openVolume}
+                      onOpen={handleVolumeOpen}
+                      onClose={handleVolumeClose}
                       placement="top"
+                      id="voulme-popper-cont"
                       componentsProps={{
                         popper: {
+                          id: "volume-popper",
                           sx: {
                             display: withOverlay ? "none" : "block",
                             ".MuiTooltip-tooltip": {
@@ -162,31 +190,45 @@ const VideoFooter = ({
                       }}
                       arrow={false}
                       title={
-                        <Slider
-                          orientation="vertical"
-                          size="small"
-                          value={volume}
-                          aria-label="Small"
-                          valueLabelDisplay="auto"
-                          onChange={(e, v) => {
-                            e.stopPropagation();
-                            v = (v - 1) / 99;
-                            v = v >= 0 ? v : 0;
-                            setVolume(Math.round(v * 100));
-                            handleVolume(v.toFixed(1), e);
-                          }}
-                        />
+                        <div style={{ height: "100%" }}>
+                          <ClickAwayListener
+                            onClickAway={onVolumePopperAwayListener}
+                          >
+                            <Slider
+                              orientation="vertical"
+                              size="small"
+                              value={volume}
+                              aria-label="Small"
+                              valueLabelDisplay="auto"
+                              onChange={(e, v) => {
+                                e.stopPropagation();
+                                v = (v - 1) / 99;
+                                v = v >= 0 ? v : 0;
+                                setVolume(Math.round(v * 100));
+                                handleVolume(v.toFixed(1), e);
+                              }}
+                              id="volume-slider"
+                            />
+                          </ClickAwayListener>
+                        </div>
                       }
                     >
-                      <IconButton>
-                        {muted ? (
-                          <VolumeOffIcon />
-                        ) : volume ? (
-                          <VolumeUpIcon />
-                        ) : (
-                          <VolumeDownIcon />
-                        )}
-                      </IconButton>
+                      <span>
+                        <IconButton
+                          tabIndex={1}
+                          onClick={handleVolumeOpen}
+                          id="volume-button"
+                          ref={volumeBtnRef}
+                        >
+                          {muted ? (
+                            <VolumeOffIcon />
+                          ) : volume ? (
+                            <VolumeUpIcon />
+                          ) : (
+                            <VolumeDownIcon />
+                          )}
+                        </IconButton>
+                      </span>
                     </Tooltip>
                   ) : (
                     <Tooltip

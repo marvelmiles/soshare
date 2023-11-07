@@ -9,7 +9,7 @@ import ShortSidebar from "./ShortSidebar";
 import { useNavigate } from "react-router-dom";
 import Typography from "@mui/material/Typography";
 import { useContext } from "context/store";
-import mp4 from "components/video.mp4";
+import mp4 from "components/resized.mp4";
 import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
 import CameraAltIcon from "@mui/icons-material/CameraAlt";
 
