@@ -207,7 +207,9 @@ const PostWidget = React.forwardRef(
                 : e => {
                     e.preventDefault();
                     e.stopPropagation();
-                    navigate(`/${docType}s/${post.id}`);
+                    navigate(`/${docType}s/${post.id}`, {
+                      replace: true
+                    });
                   }
             }
           >

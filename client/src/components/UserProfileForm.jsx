@@ -82,25 +82,27 @@ const UserProfileForm = ({
     s280: "120px"
   };
 
-  const hasChanged = (() => {
-    let hasChanged = false;
-    for (const key in formData) {
-      switch (key) {
-        case "socials":
-          for (const key in formData.socials) {
-            hasChanged = placeholders.socials[key] !== formData.socials[key];
-          }
-          break;
-        default:
-          hasChanged = formData[key] !== placeholders?.[key];
-          break;
+  const hasChanged =
+    stateRef.current.typed &&
+    (() => {
+      let hasChanged = false;
+      for (const key in formData) {
+        switch (key) {
+          case "socials":
+            for (const key in formData.socials) {
+              hasChanged = placeholders.socials[key] !== formData.socials[key];
+            }
+            break;
+          default:
+            hasChanged = formData[key] !== placeholders?.[key];
+            break;
+        }
+        if (hasChanged) break;
       }
-      if (hasChanged) break;
-    }
-    return hasChanged;
-  })()
-    ? !isInValid
-    : false;
+      return hasChanged;
+    })()
+      ? !isInValid
+      : false;
 
   useEffect(() => {
     let photoUrl;
@@ -178,6 +180,8 @@ const UserProfileForm = ({
             ),
             severity: "success"
           });
+
+          stateRef.current.typed = false;
 
           reset(placeholders && res);
 
@@ -508,7 +512,10 @@ const UserProfileForm = ({
               required={required && (required === true || required[input.name])}
               value={value}
               data-changed={!!value}
-              onChange={handleChange}
+              onChange={e => {
+                stateRef.current.typed = true;
+                handleChange(e);
+              }}
             />
           );
         })}

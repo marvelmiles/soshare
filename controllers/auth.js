@@ -7,7 +7,7 @@ import {
   hashToken,
   deleteCookie
 } from "../utils/auth.js";
-import { isEmail, isObjectId } from "../utils/validators.js";
+import { isEmail, isObjectId, isObject } from "../utils/validators.js";
 import { sendMail } from "../utils/file-handlers.js";
 import { verifyToken } from "../utils/middlewares.js";
 import { TOKEN_EXPIRED_MSG, PWD_RESET_COOKIE_KEY } from "../config.js";
@@ -179,10 +179,12 @@ export const signout = async (req, res, next) => {
           _id: req.user.id
         },
         {
-          settings: {
-            ...user.settings,
-            ...req.body.settings
-          }
+          settings: isObject(req.body.settings)
+            ? {
+                ...user.settings,
+                ...req.body.settings
+              }
+            : user.settings
         }
       );
   } catch (err) {

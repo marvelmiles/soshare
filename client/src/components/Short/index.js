@@ -76,8 +76,10 @@ const Short = React.forwardRef(
     const onClick = useCallback(
       e => {
         e.stopPropagation();
-        window.location.pathname.toLowerCase() !== "/shorts" &&
+
+        miniShort &&
           navigate(`/shorts`, {
+            replace: true,
             state: { shortId: miniShort ? short.id : undefined }
           });
       },

@@ -13,11 +13,7 @@ import { useSelector } from "react-redux";
 import MailOutlineIcon from "@mui/icons-material/MailOutline";
 import { useContext } from "context/store";
 import { useDispatch } from "react-redux";
-import {
-  updateUser,
-  updatePreviewUser,
-  defaultUser
-} from "context/slices/userSlice";
+import { updateUser, updatePreviewUser } from "context/slices/userSlice";
 import UserTip from "tooltips/UserTip";
 import { anchorAttrs } from "context/constants";
 import Loading from "./Loading";
@@ -26,7 +22,7 @@ const UserWidget = ({ width, user }) => {
   const { socket } = useContext();
   const { previewUser, currentUser } = useSelector(state => state.user);
 
-  const [cUser, setCUser] = useState(defaultUser);
+  const [cUser, setCUser] = useState(user || currentUser);
 
   const dispatch = useDispatch();
   const stateRef = useRef({
@@ -40,19 +36,17 @@ const UserWidget = ({ width, user }) => {
     if (socket) {
       const ctx = stateRef.current;
       const handleUserUpdate = u => {
-        if (u.id === stateRef.current.cid) {
+        if (u.id === cUser.id) {
           dispatch(updateUser(u));
           dispatch(updatePreviewUser({ nullify: true }));
         }
       };
-      ctx.withSocket &&
-        ctx.isCurrentUser &&
-        socket.on("update-user", handleUserUpdate);
+      ctx.withSocket && socket.on("update-user", handleUserUpdate);
       return () => {
         socket.removeEventListener("update-user", handleUserUpdate);
       };
     }
-  }, [socket, dispatch]);
+  }, [socket, dispatch, cUser.id]);
 
   useEffect(() => {
     isCurrentUser &&

@@ -52,6 +52,7 @@ const userSlice = createSlice({
         ...defaultUser,
         settings
       };
+
       state.previewUser = {};
     },
     signInUser(state, { payload }) {
@@ -64,10 +65,10 @@ const userSlice = createSlice({
         },
         _disapprovedUsers: mapToObject(payload.recommendationBlacklist),
         _blockedUsers: mapToObject(payload.blockedUsers)
-      }
+      };
     },
     updatePreviewUser(state, { payload }) {
-      if (payload.nullify) return (state.previewUser = undefined);
+      if (payload.nullify) return (state.previewUser = {});
 
       delete payload.avatar;
 

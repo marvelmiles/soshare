@@ -13,6 +13,7 @@ const UserBlacklistView = ({
   searchInputPortalRef,
   handleAction,
   whitelistAll,
+  infiniteScrollProps,
   ...rest
 }) => {
   const infiniteScrollRef = useRef();
@@ -139,7 +140,7 @@ const UserBlacklistView = ({
       }}
     >
       {({ tab, tabChanged, defaultValue }) => {
-        const infiniteScrollProps = {
+        const _infiniteScrollProps = {
           withCount: false,
           scrollNodeRef,
           dataKey: tab,
@@ -147,7 +148,8 @@ const UserBlacklistView = ({
           verify: "h",
           withCredentials: true,
           handleAction,
-          searchParams: stateRef.current.typed ? "" : `q=${defaultValue}`
+          searchParams: stateRef.current.typed ? "" : `q=${defaultValue}`,
+          ...infiniteScrollProps
         };
 
         const emptyLabel = <div>Blacklist is empty</div>;
@@ -168,7 +170,7 @@ const UserBlacklistView = ({
             ref={isRec ? infiniteScrollRef : undefined}
             handleAction={handleAction}
             infiniteScrollProps={{
-              ...infiniteScrollProps,
+              ..._infiniteScrollProps,
               // verify: "y",
               readyState: tab === "recommendation" ? "ready" : "pending"
             }}
@@ -182,7 +184,7 @@ const UserBlacklistView = ({
             {...rest}
             ref={!isRec ? infiniteScrollRef : undefined}
             infiniteScrollProps={{
-              ...infiniteScrollProps,
+              ..._infiniteScrollProps,
               verify: "y",
               readyState: !isRec ? "ready" : "pending"
             }}

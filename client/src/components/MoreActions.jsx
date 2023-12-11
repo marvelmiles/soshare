@@ -92,17 +92,7 @@ const MoreActions = ({
 
   const _handleAction = useCallback(
     (reason, props) => {
-      const closeDialog = () => {
-        handleAction("update", {
-          document: {
-            id: document.id,
-            rootThread: document.rootThread,
-            pause: false
-          }
-        });
-        setOpenDeleteDialog(false);
-      };
-      if (false && reason !== "checked") closeDialog();
+      if (reason !== "checked") setOpenDeleteDialog(false);
 
       switch (reason) {
         case "delete":
@@ -127,7 +117,6 @@ const MoreActions = ({
     [
       document,
       docType,
-      handleAction,
       handleDelete,
       urls.delPath.idOnly,
       urls.idOnly,

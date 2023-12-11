@@ -205,6 +205,10 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close, keepTab }) => {
       }
     };
 
+    const viewProps = {
+      randomize: false
+    };
+
     switch (key) {
       case "create-post":
       case "create-short":
@@ -395,6 +399,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close, keepTab }) => {
                   "user-posts": (
                     <PostsView
                       key={uid}
+                      infiniteScrollProps={viewProps}
                       privateUid={uid}
                       plainWidget
                       url={`/users/${uid}/posts`}
@@ -407,6 +412,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close, keepTab }) => {
                   "user-shorts": (
                     <ShortsView
                       key={uid}
+                      infiniteScrollProps={viewProps}
                       privateUid={uid}
                       hideDataNotifier
                       componentProps={{ plainWidget: true }}
@@ -429,7 +435,8 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close, keepTab }) => {
                 infiniteScrollProps={{
                   scrollNodeRef,
                   verify: "t",
-                  key: view
+                  key: view,
+                  ...viewProps
                 }}
                 key={view}
                 url={
@@ -526,6 +533,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close, keepTab }) => {
                 scrollNodeRef={scrollNodeRef}
                 searchInputPortalRef={portalNodeRef}
                 handleAction={_handleAction}
+                infiniteScrollProps={viewProps}
               />
             </DialogContent>
             <Box

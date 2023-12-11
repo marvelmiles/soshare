@@ -40,6 +40,11 @@ const ShortsView = ({
     currentUser
   });
 
+  const shortId =
+    composeDoc?.docType === "short"
+      ? composeDoc.url && composeDoc.document?.id
+      : locState.shortId;
+
   useEffect(() => {
     if (socket) {
       const handleFilter = document => {
@@ -116,7 +121,7 @@ const ShortsView = ({
 
   return (
     <InfiniteScroll
-      key={`${miniShort}-${stateRef.current.url}`}
+      key={`${miniShort}-${stateRef.current.url}-${shortId}`}
       url={stateRef.current.url}
       verify="uv"
       sx={
@@ -145,11 +150,7 @@ const ShortsView = ({
           ? "pending"
           : infiniteScrollProps?.readyState
       }
-      searchId={
-        composeDoc?.docType === "short"
-          ? composeDoc.url && composeDoc.document?.id
-          : locState.shortId
-      }
+      searchId={shortId}
     >
       {({ data: { data } }) => {
         return data.length ? (

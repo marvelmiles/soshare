@@ -261,6 +261,7 @@ export const updateUser = async (req, res, next) => {
             400
           )
         );
+
       req.body.socials = {
         ...socials,
         ...req.body.socials
@@ -268,6 +269,8 @@ export const updateUser = async (req, res, next) => {
     }
 
     delete req.body.password;
+    delete req.body.following;
+    delete req.body.followers;
 
     const user = await User.findByIdAndUpdate(req.user.id, req.body, {
       new: true

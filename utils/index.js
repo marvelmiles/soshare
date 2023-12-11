@@ -10,6 +10,7 @@ import User from "../models/User.js";
 import { setPostText } from "./serializers.js";
 import { Types } from "mongoose";
 import Short from "../models/Short.js";
+import { deleteFile } from "./file-handlers.js";
 
 export const getAll = async ({
   query = {},
