@@ -10,6 +10,7 @@ import Button from "@mui/material/Button";
 import { useContext } from "context/store";
 import LockIcon from "@mui/icons-material/Lock";
 import CustomInput from "components/CustomInput";
+import Loading from "components/Loading";
 
 const ResetPwd = props => {
   const { token, userId } = useParams();
@@ -103,7 +104,7 @@ const ResetPwd = props => {
           variant="contained"
           sx={{ width: "100%", mt: 2, mb: 1, py: 1 }}
         >
-          Reset
+          {isSubmitting ? <Loading /> : "Reset"}
         </Button>
 
         <StyledLink

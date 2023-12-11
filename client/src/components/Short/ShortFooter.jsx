@@ -46,7 +46,7 @@ const ShortFooter = ({
     handleAction
   });
 
-  const isOwner = user.id === cid;
+  const isOwner = user?.id === cid;
 
   const _handleAction = useCallback(
     (reason, options) => {

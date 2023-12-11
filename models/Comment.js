@@ -78,7 +78,11 @@ const schema = new mongoose.Schema(
       ref: "user",
       default: []
     },
-    thread: Object
+    thread: Object,
+    isDemo: {
+      type: Boolean,
+      default: false
+    }
   },
   {
     collection: "comment",

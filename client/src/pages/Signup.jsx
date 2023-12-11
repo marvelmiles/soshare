@@ -2,14 +2,16 @@ import React, { useCallback } from "react";
 import UserProfileForm from "../components/UserProfileForm";
 import { Stack, Typography } from "@mui/material";
 import { StyledLink, authLayoutSx } from "components/styled";
-import { createRelativeURL } from "api/http";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useContext } from "context/store";
 
 const Signup = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const redirect = searchParams.get("redirect");
+  let redirect = searchParams.get("redirect");
+  redirect =
+    redirect && redirect.toLowerCase().indexOf("auth") === -1 ? redirect : "";
+
   const {
     context: { userPlaceholder, userPlaceholderMethod },
     setContext
@@ -52,13 +54,7 @@ const Signup = () => {
         <Typography textAlign="center" mt={1}>
           Already have an account?{" "}
           <StyledLink
-            to={`/auth/signin?${
-              redirect
-                ? `redirect=${encodeURIComponent(
-                    createRelativeURL("view redirect")
-                  )}`
-                : ""
-            }`}
+            to={`/auth/signin?${redirect ? `redirect=${redirect}` : ""}`}
           >
             Signin!
           </StyledLink>

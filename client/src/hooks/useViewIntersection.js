@@ -28,7 +28,7 @@ const useViewIntersection = (targetRef, options) => {
         root
       });
 
-      if (observer) observer.observe(currentTarget);
+      observer.observe(currentTarget);
     }
 
     return () => {

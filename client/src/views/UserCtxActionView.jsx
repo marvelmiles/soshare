@@ -7,7 +7,6 @@ import Person from "components/Person";
 import useContextDispatch from "hooks/useContextDispatch";
 import { useContext } from "context/store";
 import useCallbacks from "hooks/useCallbacks";
-import { v4 as uniq } from "uuid";
 
 const UserCtxActionView = React.forwardRef(
   (
@@ -66,6 +65,7 @@ const UserCtxActionView = React.forwardRef(
       <InfiniteScroll
         key={`${dataKey}-user-ctx-action-view`}
         {...infiniteScrollProps}
+        verify="xyy"
         ref={props => {
           infiniteScrollRef.current = props;
           ref && (ref.current = props);
@@ -84,7 +84,7 @@ const UserCtxActionView = React.forwardRef(
                   justifyContent="normal"
                   gap={5}
                 >
-                  {data.map((u, i) => (
+                  {data.map((u = {}, i) => (
                     <Person
                       key={i}
                       user={u}

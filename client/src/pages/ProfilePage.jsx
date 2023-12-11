@@ -13,6 +13,7 @@ import User404 from "./404/User404";
 import { useDispatch } from "react-redux";
 import Redirect from "components/Redirect";
 import EmptyData from "components/EmptyData";
+import { HTTP_CODE_USER_BLACKLISTED } from "context/constants";
 
 const ProfilePage = () => {
   let { userId } = useParams();
@@ -47,6 +48,8 @@ const ProfilePage = () => {
       if (err.isCancelled) return;
 
       if (err.status === 404) setUser({ id: "404" });
+      else if (err.code === HTTP_CODE_USER_BLACKLISTED)
+        setUser({ id: "blacklisted" });
       else setUser({ id: "error" });
     } finally {
       setLoading(false);
@@ -97,7 +100,20 @@ const ProfilePage = () => {
         ) : (
           {
             error: <EmptyData onClick={handleRefetch} />,
-            404: <User404 contentOnly />
+            404: <User404 contentOnly />,
+            blacklisted: (
+              <EmptyData
+                label={
+                  <span>
+                    We're sorry, you are not allowed to view this page. We
+                    strive to provide a safe and positive community experience
+                    for all our users, and as such, we do not permit access to
+                    content owned by blacklisted curators.
+                  </span>
+                }
+                maxWidth="500px"
+              />
+            )
           }[user.id] || (
             <Stack
               alignItems="flex-start"

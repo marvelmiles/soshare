@@ -22,10 +22,11 @@ const Tabs = ({
   searchParams: newParams = "",
   renderSectionEl,
   onBeforeChange,
-  onAfterChange
+  onAfterChange,
+  tabKey = "tab"
 }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = (searchParams.get("tab") || defaultTab).toLowerCase();
+  const tab = (searchParams.get(tabKey) || defaultTab || "").toLowerCase();
 
   const { locState } = useContext();
 
@@ -56,13 +57,17 @@ const Tabs = ({
 
     const search = new URLSearchParams(window.location.search);
 
-    for (const key of `tab ${deleteParams}`.split(" ")) {
+    for (const key of `${tabKey} ${deleteParams}`.split(" ")) {
       search.delete(key);
     }
 
+    stateRef.current.tab = value;
+
     setSearchParams(
       new URLSearchParams(
-        `tab=${value}${newParams ? `&${newParams}` : ""}&${search.toString()}`
+        `${tabKey}=${value}${
+          newParams ? `&${newParams}` : ""
+        }&${search.toString()}`
       ),
       {
         replace: true,

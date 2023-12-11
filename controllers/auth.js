@@ -111,7 +111,7 @@ export const signin = async (req, res, next) => {
       default:
         if (!user)
           throw createError(
-            "Account is not registered",
+            "Account is not registered with us!",
             400,
             HTTP_CODE_INVALID_USER_ACCOUNT
           );

@@ -80,7 +80,7 @@ const PostWidget = React.forwardRef(
     });
 
     const likeCount = Object.keys(post.likes || {}).length;
-    const isOwner = post.user.id === cid;
+    const isOwner = post.user?.id === cid;
 
     const formatedDate = (() => {
       let str = moment(post.createdAt).fromNow();
@@ -115,7 +115,7 @@ const PostWidget = React.forwardRef(
     const noNavigate = enableSnippet || disableNavigation;
 
     const userTip = (
-      <UserTip key={post.user.id} user={post.user} isOwner={isOwner} />
+      <UserTip key={post.user?.id} user={post.user || {}} isOwner={isOwner} />
     );
 
     return (
@@ -211,9 +211,9 @@ const PostWidget = React.forwardRef(
                   }
             }
           >
-            <Tooltip key={post.user.id} arrow={false} title={userTip}>
+            <Tooltip key={post.user?.id} arrow={false} title={userTip}>
               <Avatar
-                src={post.user.photoUrl}
+                src={post.user?.photoUrl}
                 variant="md"
                 sx={avatarProfileSx}
               />
@@ -248,14 +248,14 @@ const PostWidget = React.forwardRef(
                     fontWeight="500"
                     sx={{ color: "text.primary", fontWeight: "500" }}
                     onClick={e => e.stopPropagation()}
-                    to={`/u/${post.user.id}`}
+                    to={`/u/${post.user?.id}`}
                   >
-                    <Tooltip key={post.user.id} arrow={false} title={userTip}>
+                    <Tooltip key={post.user?.id} arrow={false} title={userTip}>
                       {isOwner ? (
                         <span>You</span>
                       ) : (
                         <span>
-                          {post.user.displayName || post.user.username}
+                          {post.user?.displayName || post.user?.username}
                         </span>
                       )}
                     </Tooltip>
@@ -271,7 +271,7 @@ const PostWidget = React.forwardRef(
                       }}
                       component="span"
                     >
-                      @{post.user.username}
+                      @{post.user?.username}
                     </StyledTypography>
                   )}
                 </div>

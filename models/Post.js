@@ -34,6 +34,10 @@ export const postSchema = mongoose.Schema(
         return v;
       },
       default: "everyone"
+    },
+    isDemo: {
+      type: Boolean,
+      default: false
     }
   },
   {

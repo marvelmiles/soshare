@@ -31,7 +31,7 @@ export const isDocVisibleToUser = (document, currentUser = {}) => {
     case "private":
       return cid === uid;
     case "followers only":
-      return following.includes(uid);
+      return cid === uid || following.includes(uid);
     default:
       return true;
   }

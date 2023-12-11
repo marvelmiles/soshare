@@ -7,6 +7,8 @@ export function shuffleArray(array, modify = true) {
     array[i] = array[j];
     array[j] = temp;
   }
+
+  return array;
 }
 
 export const removeFirstItemFromArray = (item, array = []) => {

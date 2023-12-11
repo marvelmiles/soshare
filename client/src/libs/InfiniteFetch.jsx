@@ -41,7 +41,7 @@ const InfiniteFetch = React.forwardRef(
       withCredentials,
       maxSize,
       maxSizeElement,
-      limit = isProdMode ? 30 : 4,
+      limit = isProdMode ? 10 : 1,
       scrollNodeRef, // Null or useRef
       searchId,
       randomize,
@@ -87,7 +87,7 @@ const InfiniteFetch = React.forwardRef(
 
     const isV = verify?.length >= 2 || true;
 
-    const isT = verify === "xx";
+    const isT = verify === "xyc";
 
     const stateRef = useRef({
       withScrollBottom: true,
@@ -198,6 +198,8 @@ const InfiniteFetch = React.forwardRef(
       !(showRetryMsg || hasReachedMaxUserRetry) &&
       (nullifyChildren ||
         (!stateRef.current.preventFetch && !isEnd && isIntersecting));
+
+    // console.log(nullifyChildren, isEnd, { ...stateRef.current.infinitePaging });
 
     nullifyChildren = (loading && !data.data.length) || nullifyChildren;
 
@@ -481,7 +483,11 @@ const InfiniteFetch = React.forwardRef(
           publicData.push(item);
         }
 
-        shouldFetch = publicData.length < infinitePaging.matchedDocs;
+        infinitePaging.totalDoc = publicData.length
+          ? infinitePaging.totalDoc - publicData.length
+          : 0;
+
+        shouldFetch = publicData.length < infinitePaging.totalDoc;
 
         stateCtx.exclude = e;
         _exclude = e;
@@ -498,11 +504,14 @@ const InfiniteFetch = React.forwardRef(
 
       let _randomize =
         { after: true }[randomize] ||
-        randomize ||
-        infinitePaging.totalDoc === undefined;
+        (randomize === undefined
+          ? infinitePaging.totalDoc === undefined
+          : randomize);
 
       let _withMatchedDocs =
-        withMatchedDocs || stateRef.current.withMatchedDocs;
+        withMatchedDocs ||
+        stateRef.current.withMatchedDocs ||
+        infinitePaging.totalDoc === undefined;
 
       let withEq = true;
 
@@ -734,13 +743,15 @@ const InfiniteFetch = React.forwardRef(
           overflow: "hidden",
           flex: 1,
           width: "100%",
+          maxHeight: "inherit",
           "&,.data-scrollable-content": {
             display: "flex",
             flexDirection: "column",
             justifyContent: fullHeight ? "center" : "normal",
             flexDirection: "column",
             height: "inherit",
-            minHeight: "inherit"
+            minHeight: "inherit",
+            maxHeight: "inherit"
           },
           ".data-scrollabe-main": {
             display: "flex",

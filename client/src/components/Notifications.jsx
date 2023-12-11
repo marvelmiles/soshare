@@ -35,6 +35,7 @@ import UserTip from "tooltips/UserTip";
 
 const Notifications = ({
   markNotification,
+  closePopover,
   defaultType = "unmarked",
   cache = {
     unmarked: {},
@@ -254,6 +255,7 @@ const Notifications = ({
         exclude={(cache[type].data || []).map(n => n.id).join(",")}
         verify="z"
         allowCancelRequest={false}
+        randomize={false}
       >
         {({ data: { data } }) => {
           return (
@@ -269,7 +271,18 @@ const Notifications = ({
                           {
                             {
                               like: " liked",
-                              comment: ` soshared a ${n.docType} on`
+                              comment: (
+                                <span>
+                                  {" "}
+                                  soshared a{" "}
+                                  <StyledLink
+                                    style={{ color: "inherit" }}
+                                    to={`/${n.docType}s/${n.document?.id}`}
+                                  >
+                                    {n.docType}
+                                  </StyledLink>
+                                </span>
+                              )
                             }[n.type]
                           }{" "}
                           {n.document?.user?.id === cid ||
@@ -373,14 +386,15 @@ const Notifications = ({
                             backgroundColor: "common.selectedHover"
                           }
                         }}
-                        onClick={markOne(
-                          i,
-                          n.document
-                            ? `/${n.docType}s/${n.document.id}`
-                            : n.users[0]
-                            ? `/u/${n.users[0].id}`
-                            : ""
-                        )}
+                        onClick={closePopover}
+                        // onClick={markOne(
+                        //   i,
+                        //   n.document
+                        //     ? `/${n.docType}s/${n.document.id}`
+                        //     : n.users[0]
+                        //     ? `/u/${n.users[0].id}`
+                        //     : ""
+                        // )}
                       >
                         <ListItemAvatar
                           sx={{

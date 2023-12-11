@@ -65,8 +65,10 @@ export const getShort = async (req, res, next) => {
 
 export const updateShort = async (req, res, next) => {
   try {
-    const fmrUrl = req.file ? (await Short.findById(req.params.id)).url : "";
-    if (req.file && fmrUrl) deleteFile(fmrUrl);
+    const { url, isDemo } = req.file ? await Short.findById(req.params.id) : "";
+
+    if (!isDemo && req.file && url) deleteFile(url);
+
     res.json(
       await Short.findByIdAndUpdate(
         req.params.id,

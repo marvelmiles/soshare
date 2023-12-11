@@ -4,15 +4,17 @@ import {
   getAll,
   sendAndUpdateNotification,
   handleMiscDelete,
-  getThreadsByRelevance
+  getThreadsByRelevance,
+  createDemoDocAndComment
 } from "./index.js";
-import { createError } from "./error.js";
+import { createError, console500MSG } from "./error.js";
 import User from "../models/User.js";
 import { deleteFile } from "./file-handlers.js";
 import { isObjectId } from "./validators.js";
 import {
   HTTP_CODE_USER_BLACKLISTED,
-  HTTP_CODE_DOCUMENT_NOT_FOUND
+  HTTP_CODE_DOCUMENT_NOT_FOUND,
+  INVALID_DEMO_DOC_CREATION
 } from "../constants.js";
 
 export const getFeedMedias = async ({
@@ -24,7 +26,6 @@ export const getFeedMedias = async ({
   dataKey,
   populate,
   refPath,
-  isVisiting,
   verify,
   ...rest
 }) => {
@@ -38,15 +39,20 @@ export const getFeedMedias = async ({
         document: req.params.documentId
       };
     }
+
     dataKey && refPath === undefined && (refPath = "_id");
 
-    match = await createVisibilityQuery({
-      refPath,
-      isVisiting,
-      query: match,
-      userId: req.params.userId,
-      searchUser: req.user ? req.user.id : undefined
-    });
+    if (
+      req.query.withVisibilityQuery
+        ? req.query.withVisibilityQuery === "true"
+        : true
+    )
+      match = await createVisibilityQuery({
+        refPath,
+        query: match,
+        searchUserId: req.params.userId,
+        userId: req.user?.id
+      });
 
     const result = await getAll({
       model,
@@ -64,7 +70,8 @@ export const getFeedMedias = async ({
           result.data[i].threads = await getThreadsByRelevance(
             result.data[i].id,
             req.query,
-            model
+            model,
+            match.$expr
           );
         }
       }
@@ -139,6 +146,10 @@ export const getDocument = async ({
   populate = [
     {
       path: "user"
+    },
+    {
+      path: "document",
+      populate: "user"
     }
   ]
 }) => {
@@ -152,26 +163,37 @@ export const getDocument = async ({
 
     if (req.cookies.access_token) verifyToken(req);
 
-    let list = [];
-    if (req.user)
-      list = (await User.findById(req.user.id))?.recommendationBlacklist || [];
+    let blacklist = [];
 
-    const query = await createVisibilityQuery({
-      userId: req.user?.id,
-      searchUser: req.params.userId,
-      query: {
-        _id
-      },
-      allowDefaultCase: true,
-      withBlacklist: false
-    });
+    if (req.user) {
+      const { blockedUsers = [] } = (await User.findById(req.user.id)) || {};
+      blacklist = blockedUsers;
+    }
+
+    let query = {
+      _id
+    };
+
+    if (
+      req.query.withVisibilityQuery
+        ? req.query.withVisibilityQuery === "true"
+        : true
+    )
+      query = await createVisibilityQuery({
+        userId: req.user?.id,
+        searchUserId: req.params.userId,
+        query,
+        allowDefaultCase: true,
+        withBlacklist: false
+      });
 
     let doc = await model.findOne(query);
 
     if (!doc) throw createError(msg404, 404, HTTP_CODE_DOCUMENT_NOT_FOUND);
 
-    if (list.includes(doc.user))
+    if (blacklist.includes(doc.user || doc.id))
       throw createError(`owner blacklisted`, 400, HTTP_CODE_USER_BLACKLISTED);
+
     doc = await doc.populate(populate);
 
     res.json(doc);
@@ -224,11 +246,19 @@ export const deleteDocument = async ({
       withComment: model.modelName !== "short"
     });
 
-    if (doc.medias) {
-      for (let { url } of doc.medias) {
-        deleteFile(url);
-      }
-    } else if (doc.url) deleteFile(doc.url);
+    if (!doc.isDemo)
+      if (doc.medias) {
+        for (let { url } of doc.medias) {
+          deleteFile(url);
+        }
+      } else if (doc.url) deleteFile(doc.url);
+
+    (model.modelName === "post" || model.modelName === "short") &&
+      createDemoDocAndComment(
+        req.user.id,
+        model.modelName === "short",
+        req.app
+      ).catch(err => console500MSG(err, INVALID_DEMO_DOC_CREATION));
   } catch (err) {
     next(err);
   }

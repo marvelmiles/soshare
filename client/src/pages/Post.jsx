@@ -16,11 +16,10 @@ import {
   HTTP_CODE_DOCUMENT_NOT_FOUND,
   HTTP_CODE_USER_BLACKLISTED
 } from "context/constants";
+import { isDocVisibleToUser } from "utils/validators";
 
 const Post = () => {
-  const { id: cid, _disapprovedUsers, _blockedUsers } = useSelector(
-    state => state.user.currentUser
-  );
+  const currentUser = useSelector(state => state.user.currentUser);
 
   const [post, setPost] = useState({
     user: {}
@@ -36,9 +35,11 @@ const Post = () => {
     setContext,
     setSnackBar
   } = useContext();
+
   const [searchParams] = useSearchParams();
 
   const isEditMode = (searchParams.get("edit") || "").toLowerCase() === "true";
+
   const docType = {
     posts: "post",
     comments: "comment"
@@ -47,9 +48,25 @@ const Post = () => {
   const fetchDocument = useCallback(async () => {
     try {
       setLoading(true);
-      const post = await http.get(`/${kind}/${id}`, {
-        withCredentials: !!cid
+
+      const post = await http.get(`/${kind}/${id}?withVisibilityQuery=false`, {
+        withCredentials: !!currentUser.id
       });
+
+      const isRO = currentUser.id
+        ? post.user?.id === currentUser.id ||
+          (post.rootThread
+            ? post.rootThread.user?.id === currentUser.id
+            : post.document?.user?.id === currentUser.id)
+        : undefined;
+
+      if (!(isRO || isDocVisibleToUser(post, currentUser)))
+        throw {
+          code: HTTP_CODE_DOCUMENT_NOT_FOUND
+        };
+
+      post._isRO = isRO;
+
       setPost(post);
     } catch ({ code, message, isCancelled }) {
       if (code === HTTP_CODE_USER_BLACKLISTED)
@@ -60,7 +77,8 @@ const Post = () => {
     } finally {
       setLoading(false);
     }
-  }, [cid, setSnackBar, kind, id]);
+  }, [currentUser, setSnackBar, kind, id]);
+
   const stateRef = useRef({});
 
   const _handleAction = useCallback(
@@ -101,7 +119,7 @@ const Post = () => {
 
   useEffect(() => {
     const handleFilter = document => {
-      if (post.id === document.id && document.user.id !== cid)
+      if (post.id === document.id && document.user.id !== currentUser.id)
         _handleAction("filter", { document });
     };
 
@@ -115,13 +133,14 @@ const Post = () => {
       socket.removeEventListener(`filter-${docType}`, handleFilter);
       socket.removeEventListener(`update-${docType}`, handleUpdate);
     };
-  }, [socket, docType, _handleAction, post.id, cid]);
+  }, [socket, docType, _handleAction, post.id, currentUser.id]);
 
   if (!docType) stateRef.current.info = "500";
 
   if (
     post.user &&
-    (_blockedUsers[post.user.id] || _disapprovedUsers[post.user.id])
+    (currentUser._blockedUsers[post.user.id] ||
+      currentUser._disapprovedUsers[post.user.id])
   )
     stateRef.current.info = "blacklisted";
 
@@ -150,10 +169,11 @@ const Post = () => {
                 <EmptyData
                   label={
                     <span>
-                      We're sorry, you are not allowed to view this {docType}.
-                      We strive to provide a safe and positive community
-                      experience for all our users, and as such, we do not
-                      permit access to content owned by blacklisted curators
+                      We're sorry, you are not allowed to view this{" "}
+                      {docType || "page"}. We strive to provide a safe and
+                      positive community experience for all our users, and as
+                      such, we do not permit access to content owned by
+                      blacklisted curators.
                     </span>
                   }
                   maxWidth="500px"
@@ -176,7 +196,7 @@ const Post = () => {
             }[statusText]
           ) : loading || !post.id ? (
             <Loading />
-          ) : isEditMode && post.user.id !== cid ? (
+          ) : isEditMode && post.user.id !== currentUser.id ? (
             <Redirect />
           ) : (
             <>
@@ -215,12 +235,8 @@ const Post = () => {
                 docType={docType}
                 user={post.user}
                 handleAction={_handleAction}
-                isRO={
-                  cid
-                    ? post.user.id === cid || post.rootThread?.user?.id === cid
-                    : undefined
-                }
-                rootUid={post.user.id}
+                isRO={post._isRO}
+                rootUid={post.user?.id}
                 key={post.id}
                 sx={{ minHeight: 0, height: "auto" }}
               />

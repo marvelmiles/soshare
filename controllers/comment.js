@@ -33,8 +33,10 @@ export const addComment = async (req, res, next) => {
         `Invalid docType: Expect post|comment of type string got type ${typeof req
           .params.docType}`
       );
+
     req.body.user = req.user.id;
     req.body.docType = req.params.docType;
+
     if (req.file) {
       req.body.media = {
         url: req.file.publicUrl,
@@ -53,12 +55,16 @@ export const addComment = async (req, res, next) => {
         },
         { new: true }
       )) || {};
+
     if (!likes) throw createError("Comment not found", 404);
+
     if (req.params.docType === "comment") {
       req.body.rootThread = rootThread || _id;
       req.body.rootType = rootType || model.modelName;
     }
+
     let comment = await new Comment(req.body).save();
+
     const docPopulate = [
       {
         path: "user"
@@ -76,13 +82,18 @@ export const addComment = async (req, res, next) => {
         ]
       }
     ];
+
     comment = await comment.populate(docPopulate);
+
     const io = req.app.get("socketIo");
+
     if (io) {
       io.emit("comment", comment);
       io.emit(`update-${comment.docType}`, comment.document);
     }
+
     res.json(comment);
+
     sendAndUpdateNotification({
       req,
       docPopulate,
@@ -118,6 +129,7 @@ export const getComments = async (req, res, next) => {
       ]
     }
   ];
+
   getFeedMedias({
     model: Comment,
     req,
@@ -189,6 +201,7 @@ export const deleteComment = async (req, res, next) => {
       );
     }
     const io = req.app.get("socketIo");
+
     if (io) {
       io.emit(`filter-comment`, comment);
       io.emit(`update-${model.modelName}`, comment.document);
@@ -238,7 +251,7 @@ export const deleteComment = async (req, res, next) => {
           });
       }
     });
-    if (comment.media) deleteFile(comment.media.url);
+    if (!comment.isDemo && comment.media) deleteFile(comment.media.url);
   } catch (err) {
     console.log(err.message, " err msg ");
     next(err);

@@ -2,7 +2,7 @@ import React, { useEffect, useCallback, useState, useRef } from "react";
 import PropTypes from "prop-types";
 import useForm from "hooks/useForm";
 import { WidgetContainer, StyledLink, StyledAvatar } from "components/styled";
-import { LoadingDot } from "components/Loading";
+import Loading from "components/Loading";
 import Box from "@mui/material/Box";
 import DragDropArea from "./DragDropArea";
 import Button from "@mui/material/Button";
@@ -53,6 +53,8 @@ const UserProfileForm = ({
 
   const [photoUrl, setPhotoUrl] = useState(placeholders?.photoUrl);
   placeholders = locState.user || placeholders;
+
+  const isDemo = placeholders.accountType === "demo";
 
   const {
     formData,
@@ -203,7 +205,13 @@ const UserProfileForm = ({
       dispatch
     ]
   );
+
   const handlePhotoTransfer = file => {
+    if (isDemo)
+      return setSnackBar(
+        "Sorry you can't update a demo account profile picture."
+      );
+
     reset({
       ...formData,
       avatar: file
@@ -392,12 +400,14 @@ const UserProfileForm = ({
           {
             name: "username",
             placeholder: "Username",
-            searchValue: "uname"
+            searchValue: "uname",
+            readOnly: isDemo
           },
           {
             name: "email",
             placeholder: "Email",
-            searchValue: "email"
+            searchValue: "email",
+            readOnly: isDemo
           },
           {
             name: "password",
@@ -476,7 +486,7 @@ const UserProfileForm = ({
               id={`user-${input.dataName || input.name}`}
               name={input.name}
               label={input.placeholder}
-              readOnly={readOnly || isSubmitting}
+              readOnly={readOnly || isSubmitting || input.readOnly}
               data-name={input.dataName}
               data-min={input.min}
               data-max={input.max}
@@ -512,7 +522,7 @@ const UserProfileForm = ({
           disabled={!hasChanged || isSubmitting}
         >
           {isSubmitting ? (
-            <LoadingDot sx={{ py: 1 }} />
+            <Loading />
           ) : (method === "post" ? (
               false
             ) : (

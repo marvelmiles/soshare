@@ -42,7 +42,7 @@ export const getFollowing = async (req, res, next) => {
     model: User,
     dataKey: "following",
     match: {
-      _id: req.params.userId
+      _id: req.params.userId || req.user.id
     },
     verify: true
   });
@@ -56,7 +56,7 @@ export const getFollowers = async (req, res, next) => {
     model: User,
     dataKey: "followers",
     match: {
-      _id: req.params.userId
+      _id: req.params.userId || req.user.id
     }
   });
 };
@@ -167,7 +167,9 @@ export const getUserPosts = async (req, res, next) => {
     res,
     next,
     model: Post,
-    isVisiting: true
+    match: {
+      user: req.params.userId || req.user.id
+    }
   });
 };
 
@@ -223,8 +225,12 @@ export const suggestFollowers = async (req, res, next) => {
 
 export const updateUser = async (req, res, next) => {
   try {
-    req.body.photoUrl = req.file?.publicUrl;
-    const { photoUrl, _id, socials } = (await User.findById(req.user.id)) || {};
+    const { photoUrl, _id, socials, accountType } =
+      (await User.findById(req.user.id)) || {};
+
+    const isDemo = accountType === "demo";
+
+    if (!isDemo) req.body.photoUrl = req.file?.publicUrl;
 
     if (
       !!(await User.findOne({
@@ -273,8 +279,8 @@ export const updateUser = async (req, res, next) => {
 
     res.json(user);
 
-    if (req.file && photoUrl) {
-      await deleteFile(photoUrl);
+    if (!isDemo && req.file && photoUrl) {
+      deleteFile(photoUrl).catch(err => {});
     }
   } catch (err) {
     next(err);
@@ -397,13 +403,14 @@ export const markNotifications = async (req, res, next) => {
 export const getUserShorts = async (req, res, next) => {
   const start = new Date();
   start.setDate(start.getDate() - (Number(req.query.date) || 1));
+
   getFeedMedias({
     req,
     res,
     next,
     model: Short,
-    isVisiting: true,
     match: {
+      user: req.params.userId || req.user.id,
       createdAt: {
         $gte: start
       }
@@ -498,7 +505,7 @@ export const getBlacklist = async (req, res, next) => {
         query: req.query,
         model: User,
         match: {
-          _id: req.user.id
+          _id: req.params.userId || req.user.id
         },
         populate: [
           {

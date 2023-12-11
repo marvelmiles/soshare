@@ -78,6 +78,11 @@ const schema = new mongoose.Schema(
     settings: {
       type: Object,
       default: {}
+    },
+    accountType: {
+      type: String,
+      enum: ["regular", "demo"],
+      default: "regular"
     }
   },
   {

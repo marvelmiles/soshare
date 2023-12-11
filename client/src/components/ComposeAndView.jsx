@@ -28,7 +28,7 @@ Dialog.defaultProps = {
   open: false
 };
 
-const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
+const ComposeAndView = ({ openFor, isCurrentUser, uid, close, keepTab }) => {
   isCurrentUser = isCurrentUser === undefined ? !!uid : isCurrentUser;
 
   openFor = {
@@ -109,7 +109,10 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
       dialogType = dataset.dialogType || dialogType;
 
       for (const key of (
-        dialogType + ` tab wc search ${dialogType === "view" ? "cid vuid" : ""}`
+        dialogType +
+        ` ${keepTab ? "" : "tab"} bTab wc search ${
+          dialogType === "view" ? "cid vuid" : ""
+        }`
       ).split(" ")) {
         searchParams.delete(key);
       }
@@ -121,7 +124,7 @@ const ComposeAndView = ({ openFor, isCurrentUser, uid, close }) => {
 
       stateCtx.taskId = setTimeout(resetState, 0);
     },
-    [searchParams, setSearchParams]
+    [searchParams, setSearchParams, keepTab]
   );
 
   const _handleAction = useCallback(

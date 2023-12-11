@@ -1,7 +1,7 @@
 import React from "react";
 import { WidgetContainer, StyledLink, Image } from "./styled";
 import { Stack, Typography } from "@mui/material";
-import img1 from "../imgs/advert.jpg";
+import advertImg from "assets/imgs/advert.jpg";
 
 const AdvertWidget = () => {
   return (
@@ -12,7 +12,7 @@ const AdvertWidget = () => {
         </Typography>
         <StyledLink>Learn more</StyledLink>
       </Stack>
-      <Image src={img1} />
+      <Image src={advertImg} />
       <Stack
         sx={{
           wordBreak: "break-word"

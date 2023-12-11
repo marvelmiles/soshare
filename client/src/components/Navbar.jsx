@@ -57,7 +57,7 @@ Popover.defaultProps = {
   anchorEl: null
 };
 
-const Navbar = ({ routePage = "homePage" }) => {
+const Navbar = ({ routePage = "homePage", bottom }) => {
   const {
     palette: { mode }
   } = useTheme();
@@ -472,6 +472,7 @@ const Navbar = ({ routePage = "homePage" }) => {
         return (
           <Notifications
             defaultType={type}
+            closePopover={closePopover}
             markNotification={markNotification}
             cache={stateRef.current.notifications}
             sx={{
@@ -516,7 +517,8 @@ const Navbar = ({ routePage = "homePage" }) => {
           px: 1,
           width: "100%",
           position: "fixed",
-          top: 0,
+          top: bottom ? undefined : 0,
+          bottom: bottom ? 0 : undefined,
           zIndex: "appBar",
           height: "64px",
           borderBottom: "1px solid #fff",

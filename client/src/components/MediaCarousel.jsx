@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import Carousel from "react-multi-carousel";
 import "react-multi-carousel/lib/styles.css";
 import { Box, Stack, IconButton } from "@mui/material";
-import useTouchDevice from "hooks/useTouchDevice";
+import useDevice from "hooks/useDevice";
 import Image from "components/Image";
 import VideoPlayer from "components/VideoPlayer";
 import KeyboardArrowRightIcon from "@mui/icons-material/KeyboardArrowRight";
@@ -75,7 +75,7 @@ const MediaCarousel = forwardRef(
 
     const [prevSlide, setPrevSlide] = useState(-1);
     const [inFullscreen, setInFullscreen] = useState(false);
-    const { isTouchDevice } = useTouchDevice();
+    const { isTouchDevice } = useDevice();
     const onAfterChange = useCallback(
       (prev, prop) => {
         setPrevSlide(prev);

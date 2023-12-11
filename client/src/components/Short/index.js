@@ -7,11 +7,6 @@ import http from "api/http";
 import ShortFooter from "./ShortFooter";
 import ShortSidebar from "./ShortSidebar";
 import { useNavigate } from "react-router-dom";
-import Typography from "@mui/material/Typography";
-import { useContext } from "context/store";
-import mp4 from "components/resized.mp4";
-import ArrowBackIosIcon from "@mui/icons-material/ArrowBackIos";
-import CameraAltIcon from "@mui/icons-material/CameraAlt";
 
 const Short = React.forwardRef(
   (
@@ -25,13 +20,19 @@ const Short = React.forwardRef(
       handleAction,
       loop,
       stateCtx,
-      mx
+      mx = {
+        xs: "auto",
+        s400: "8px",
+        s600: "12px",
+        s640: "12.5px"
+      }
     },
     ref
   ) => {
     const cid = useSelector(state => (state.user.currentUser || {}).id);
+
     const navigate = useNavigate();
-    const { setContext } = useContext();
+
     const stateRef = useRef({
       backdropText: "",
       backdrops: {
@@ -111,7 +112,7 @@ const Short = React.forwardRef(
       [handleAction]
     );
 
-    const maxHeight = "calc(100vh - 65px)";
+    const maxHeight = "calc(100vh -  68px)";
 
     return (
       <Box
@@ -124,7 +125,8 @@ const Short = React.forwardRef(
             ? {
                 width: {
                   xs: "100%",
-                  lg: "48%"
+                  lg: "47%",
+                  xl: "49%"
                 },
                 borderRadius: "8px",
                 height: "190px",
@@ -146,8 +148,7 @@ const Short = React.forwardRef(
                   md: "12px"
                 },
                 height: "100vh",
-                maxHeight,
-                minHeight: maxHeight
+                maxHeight
               })
         }}
         ref={node => {

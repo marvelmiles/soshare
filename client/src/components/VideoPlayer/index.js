@@ -14,7 +14,7 @@ import { setAspectRatio, getTimeMap } from "utils";
 import ReplayIcon from "@mui/icons-material/Replay";
 import Loading from "components/Loading";
 import VideoFooter from "./VideoFooter";
-import mp4 from "components/resized.mp4";
+import mp4 from "assets/videos/resized.mp4";
 import { hasAudio } from "utils/validators";
 
 const VideoPlayer = React.forwardRef(
@@ -100,13 +100,13 @@ const VideoPlayer = React.forwardRef(
     useEffect(() => {
       let url;
 
-      // setVideoUrl(mp4);
+      setVideoUrl(mp4);
 
-      if (src) setVideoUrl(src);
-      else if (nativeFile) {
-        url = URL.createObjectURL(nativeFile);
-        setVideoUrl(url);
-      }
+      // if (src) setVideoUrl(src);
+      // else if (nativeFile) {
+      //   url = URL.createObjectURL(nativeFile);
+      //   setVideoUrl(url);
+      // }
 
       return () => url && URL.revokeObjectURL(url);
     }, [nativeFile, src]);

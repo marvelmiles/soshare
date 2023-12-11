@@ -118,7 +118,7 @@ const ShortsView = ({
     <InfiniteScroll
       key={`${miniShort}-${stateRef.current.url}`}
       url={stateRef.current.url}
-      verify="u"
+      verify="uv"
       sx={
         miniShort
           ? {
@@ -127,7 +127,7 @@ const ShortsView = ({
             }
           : sx
       }
-      randomize={miniShort ? undefined : "after"}
+      randomize={miniShort ? true : "after"}
       componentProps={componentProps}
       Component={miniShort ? WidgetContainer : undefined}
       notifierDelay={
@@ -172,7 +172,9 @@ const ShortsView = ({
               sx={
                 miniShort
                   ? {
-                      flexWrap: "wrap"
+                      flexWrap: "wrap",
+                      gap: 0,
+                      rowGap: "8px !important"
                     }
                   : {
                       flexDirection: "column",
@@ -183,7 +185,8 @@ const ShortsView = ({
                       py: {
                         xs: 0,
                         md: 1
-                      }
+                      },
+                      maxHeight: "inherit"
                     }
               }
             >
@@ -197,17 +200,7 @@ const ShortsView = ({
                     short={s}
                     handleAction={_handleAction}
                     miniShort={miniShort}
-                    mx={
-                      mx || {
-                        xs: "5px",
-                        sm: "12px",
-                        s600: "16px",
-                        s640: "23px",
-                        md: "14px",
-                        s900: "8px",
-                        lg: "2px"
-                      }
-                    }
+                    mx={mx}
                   />
                 );
               })}

@@ -14,6 +14,8 @@ import { Link } from "react-router-dom";
 const Person = React.forwardRef(
   (
     {
+      mx,
+      fluid,
       user = {},
       variant = "block",
       mb = 2,
@@ -36,15 +38,31 @@ const Person = React.forwardRef(
               borderRadius: 3,
               py: 4,
               px: 1,
-              width: "30%",
               textAlign: "center",
               mb: 2,
-              minHeight: "220px",
-              width: "100%",
-              maxWidth: {
-                sm: "45%",
-                s640: "180px"
+              minHeight: "230px",
+              maxHeight: "230px",
+              width: {
+                xs: "100%",
+                s320: fluid ? "44%" : "100%",
+                sm: fluid ? "44%" : "44%",
+                s600: fluid ? "44%" : "28%",
+                md: "28%",
+                lg: fluid ? "44%" : "28%"
               },
+              mx: fluid
+                ? {
+                    xs: "0",
+                    s360: "9px",
+                    s400: "11px",
+                    sm: "16px",
+                    md: "19px",
+                    s820: "23px",
+                    lg: "12px"
+                  }
+                : {
+                    md: "3px"
+                  },
               ...sx
             }}
           >
@@ -93,6 +111,7 @@ const Person = React.forwardRef(
             sx={{
               mb,
               flexWrap: "wrap",
+              width: "100%",
               ...sx
             }}
           >

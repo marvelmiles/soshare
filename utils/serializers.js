@@ -3,9 +3,19 @@ import { createError } from "./error.js";
 import User from "../models/User.js";
 import { HTTP_CODE_DOCUMENT_NOT_FOUND } from "../constants.js";
 
+export const setPostText = post => {
+  if (post.text?.length > 390) {
+    post.moreText = post.text.slice(391, 700);
+    post.text = post.text.slice(0, 391);
+  }
+
+  return post;
+};
+
 export const serializePostBody = (req, withErr = true) => {
   if (withErr && !(req.files.length || req.body.text))
     throw createError("Invalid body expect a file list or text key value");
+
   if (req.files.length)
     req.body.medias = req.files.map(f => ({
       id: new Types.ObjectId().toString(),
@@ -13,70 +23,73 @@ export const serializePostBody = (req, withErr = true) => {
       mimetype: f.mimetype
     }));
   else req.body.medias = [];
-  if (req.body.text?.length > 390) {
-    req.body.moreText = req.body.text.slice(391, 700);
-    req.body.text = req.body.text.slice(0, 391);
-  }
+
+  setPostText(req.body);
 };
 
 export const createVisibilityQuery = async ({
   userId,
-  searchUser,
+  searchUserId = userId,
   query = {},
   allowDefaultCase = false,
   fallbackVisibility = "everyone",
-  isVisiting,
+  searchUser,
   refPath = "user",
-  withBlacklist = true
+  withBlacklist = true,
+  user: cUser,
+  blacklistType = "all"
 }) => {
-  if (!userId && searchUser) {
-    userId = searchUser;
-    searchUser = undefined;
-  }
-
   if (userId) {
-    const user = await User.findById(userId);
+    const user = searchUser || (await User.findById(searchUserId));
 
     if (!user)
       throw createError("User not found", 404, HTTP_CODE_DOCUMENT_NOT_FOUND);
 
-    const isUser = searchUser === userId;
+    const isUser = user.id === userId;
 
-    (isVisiting || isUser) && (query[refPath] = userId);
+    const _ref = `$${refPath}`;
 
-    if (!isUser) {
-      const _ref = `$${refPath}`;
+    const blacklistCond = {};
 
-      let blacklist = [];
+    const getCUser = async () => cUser || (await User.findById(userId)) || {};
 
-      if (withBlacklist) {
-        blacklist = user.recommendationBlacklist.concat(user.blockedUsers);
+    if (withBlacklist) {
+      cUser = await getCUser();
 
-        if (isVisiting && searchUser) {
-          const { recommendationBlacklist, blockedUsers } =
-            (await User.findById(searchUser)) || {};
+      const blackAll = blacklistType === "all";
 
-          blacklist = blacklist.concat(
-            recommendationBlacklist || [],
-            blockedUsers || []
-          );
+      blacklistCond.$or = [
+        {
+          $in: [_ref, cUser.blockedUsers]
+        },
+        {
+          $in: ["$_id", cUser.blockedUsers]
         }
-      }
-      query.$expr = {
-        $cond: {
-          if: {
-            $or: [
-              {
-                $in: [_ref, blacklist]
-              }
-            ]
+      ];
+
+      if (blackAll)
+        blacklistCond.$or.splice(
+          2,
+          0,
+          {
+            $in: [_ref, cUser.recommendationBlacklist]
           },
-          then: false,
-          else: {
-            $cond: {
-              if: { $eq: [{ $ifNull: ["$visibility", null] }, null] },
-              then: true,
-              else: {
+          {
+            $in: ["$_id", cUser.recommendationBlacklist]
+          }
+        );
+    } else blacklistCond.$eq = [true, false];
+
+    query.$expr = {
+      $cond: {
+        if: blacklistCond,
+        then: false,
+        else: {
+          $cond: {
+            if: { $eq: [{ $ifNull: ["$visibility", null] }, null] },
+            then: true,
+            else: {
+              $cond: {
                 if: { $eq: ["$visibility", "everyone"] },
                 then: true,
                 else: {
@@ -86,9 +99,36 @@ export const createVisibilityQuery = async ({
                     else: {
                       $cond: {
                         if: { $eq: ["$visibility", "followers only"] },
-                        then: searchUser
-                          ? user.followers.includes(searchUser)
-                          : { $in: [_ref, user.following] },
+                        then: {
+                          $cond: {
+                            if: {
+                              $eq: ["$user", user.id]
+                            },
+                            then: {
+                              $cond: {
+                                if: {
+                                  $eq: ["$user", userId]
+                                },
+                                then: true,
+                                else: user.followers.includes(userId)
+                              }
+                            },
+                            else: {
+                              $cond: {
+                                if: {
+                                  $in: [
+                                    _ref,
+                                    isUser
+                                      ? user.following
+                                      : (await getCUser()).following || []
+                                  ]
+                                },
+                                then: true,
+                                else: false
+                              }
+                            }
+                          }
+                        },
                         else: allowDefaultCase
                       }
                     }
@@ -98,8 +138,8 @@ export const createVisibilityQuery = async ({
             }
           }
         }
-      };
-    }
+      }
+    };
   } else {
     query.$expr = {
       $cond: {

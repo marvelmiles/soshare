@@ -24,7 +24,10 @@ import socket from "./socket.js";
 import { isProdMode, CLIENT_ORIGIN } from "./constants.js";
 import { errHandler, validateCors } from "./utils/middlewares.js";
 import timeout from "connect-timeout";
-import { console500MSG, createError } from "./utils/error.js";
+import { console500MSG } from "./utils/error.js";
+import { demoUsers } from "./data.js";
+import User from "./models/User.js";
+import { createDemoDocAndComment } from "./utils/index.js";
 
 // CONFIGURATIONS
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -107,10 +110,44 @@ mongoose
     useNewUrlParser: true,
     useUnifiedTopology: true
   })
-  .then(() => {
-    socket(app);
-    /* ADD DATA ONE TIME */
-    // User.insertMany(users);
-    // Post.insertMany(posts);
+  .then(async () => {
+    try {
+      const createUser = async i => {
+        const u = demoUsers[i];
+        if (!u) return;
+
+        if (
+          !(await User.findOne({
+            username: u.username
+          }))
+        ) {
+          const user = await new User(u).save();
+
+          const posts = [];
+
+          const shorts = [];
+
+          for (let i = 0; i < 6; i++) {
+            posts.push(createDemoDocAndComment(user));
+            shorts.push(createDemoDocAndComment(user, true));
+          }
+
+          await Promise.all(posts);
+          await Promise.all(shorts);
+        }
+      };
+
+      const promise = [];
+
+      for (let i = 0; i < 8; i++) {
+        promise.push(createUser(i));
+      }
+
+      await Promise.all(promise);
+    } catch (err) {
+      console.log(err.message);
+    } finally {
+      socket(app);
+    }
   })
   .catch(err => console500MSG(err, "DB_CONNECT_ERR"));

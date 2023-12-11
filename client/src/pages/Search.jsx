@@ -26,6 +26,9 @@ const Search = () => {
           minHeight: "calc(100vh - 120px)"
         }
       }}
+      layoutProps={{
+        composeAndViewProps: { keepTab: true }
+      }}
     >
       <Tabs tabsPane={tabsPane} defaultTab={_tab} key={`search-${_tab}-${q}`}>
         {({ tab }) => {
@@ -70,6 +73,7 @@ const Search = () => {
               }}
               key={`serach-users-${q}`}
               widgetProps={widgetProps}
+              responsivePerson
             />,
             <ShortsView
               emptyLabel={emptyLabel}

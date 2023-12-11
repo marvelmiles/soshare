@@ -78,6 +78,7 @@ export default (app, port = process.env.PORT || 8800) => {
       delete socket.handshake.userId;
     });
   });
+
   httpServer.listen(port, () => {
     console.log(`App listening on port ${port}`);
   });

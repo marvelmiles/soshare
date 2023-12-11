@@ -41,3 +41,24 @@ export const updateStatePath = (state, path, payload) => {
     };
   }
 };
+
+export const getMimetype = (s = "") => {
+  if (!s) return "";
+
+  return (
+    {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+      mp4: "video/mp4",
+      mp3: "video/mp3"
+    }[
+      s
+        .split("?")[0]
+        .split(".")
+        .pop()
+        .toLowerCase()
+    ] || "application/octet-stream"
+  );
+};

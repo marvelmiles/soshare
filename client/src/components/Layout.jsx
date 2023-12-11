@@ -20,7 +20,9 @@ const Layout = ({
   withGoUpIndicator = true,
   fabIcon,
   handleFabAction,
-  closeDialog
+  closeDialog,
+  bottom,
+  composeAndViewProps
 }) => {
   const [showBtn, setShowBtn] = useState(false);
 
@@ -53,6 +55,9 @@ const Layout = ({
     height: "30px",
     svg: { color: "common.white", fontSize: "2.5em" }
   };
+
+  const calcHeight = "calc(100vh - 68px)";
+
   return (
     <div
       style={{
@@ -63,7 +68,7 @@ const Layout = ({
       }}
     >
       <Box>
-        <Navbar routePage={routePage} />
+        <Navbar routePage={routePage} bottom={bottom} />
         <Box
           component="main"
           sx={{
@@ -71,9 +76,10 @@ const Layout = ({
             display: "block",
             width: "100%",
             position: "relative",
-            minHeight: "calc(100vh -  68px)",
+            minHeight: calcHeight,
+            mb: bottom ? "40px" : "",
+            mt: bottom ? "" : "64px",
             height: "auto",
-            top: "64px",
             mx: "auto",
             px: {
               xs: 0,
@@ -96,6 +102,7 @@ const Layout = ({
         isCurrentUser={isCurrentUser}
         close={closeDialog}
         currentViewId={commentIds[0]}
+        {...composeAndViewProps}
       />
       <Zoom
         in={showBtn}

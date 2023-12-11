@@ -13,7 +13,9 @@ import { serializePostBody } from "../utils/serializers.js";
 export const createPost = async (req, res, next) => {
   try {
     req.body.user = req.user.id;
+
     serializePostBody(req);
+
     let post = await new Post(req.body).save();
     const user = await User.findByIdAndUpdate(
       post.user,
@@ -89,12 +91,17 @@ export const updatePost = async (req, res, next) => {
       req.body,
       { new: true }
     ).populate("user");
+
     const io = req.app.get("socketIo");
+
     if (io) io.emit("update-post", post);
+
     res.json(post);
-    for (const url of filteredMedias) {
-      deleteFile(url);
-    }
+
+    if (!post.isDemo)
+      for (const url of filteredMedias) {
+        deleteFile(url);
+      }
   } catch (err) {
     next(err);
   }

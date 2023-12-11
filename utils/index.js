@@ -3,6 +3,13 @@ import { isObject } from "./validators.js";
 import Comment from "../models/Comment.js";
 import { console500MSG } from "./error.js";
 import { isProdMode } from "../constants.js";
+import Post from "../models/Post";
+import { shuffleArray } from "./normalizers.js";
+import { demoPost, demoUsers } from "../data.js";
+import User from "../models/User.js";
+import { setPostText } from "./serializers.js";
+import { Types } from "mongoose";
+import Short from "../models/Short.js";
 
 export const getAll = async ({
   query = {},
@@ -370,7 +377,7 @@ export const sendAndUpdateNotification = async ({
 
     if (notice) notice = await notice.populate(populate);
 
-    const io = req.app.get("socketIo");
+    const io = req.app?.get("socketIo");
 
     if (io && notice && report) {
       if (filterNotice) io.emit("filter-notifications", [notice.id]);
@@ -442,7 +449,12 @@ export const getRoomSockets = (io, roomId) => {
 export const getRoomSocketAtIndex = (io, roomId, index = 0) =>
   io.sockets.sockets.get(getRoomSockets(io, roomId)[index]);
 
-export const getThreadsByRelevance = async (docId, query = {}, model, v) => {
+export const getThreadsByRelevance = async (
+  docId,
+  query = {},
+  model,
+  $expr = {}
+) => {
   let { ro, threadPriorities = "ro,most comment", maxThread = "3" } = query;
 
   maxThread = Number(maxThread) || 3;
@@ -476,6 +488,7 @@ export const getThreadsByRelevance = async (docId, query = {}, model, v) => {
       case "ro":
         thread = await model
           .findOne({
+            $expr,
             document: docId,
             user: ro
           })
@@ -491,6 +504,7 @@ export const getThreadsByRelevance = async (docId, query = {}, model, v) => {
       case "most comment":
         thread = await model
           .findOne({
+            $expr,
             document: docId
           })
           .sort({
@@ -524,4 +538,210 @@ export const getType = obj => {
 
 export const setFutureDate = days => {
   return new Date(new Date().getTime() + days * 86400000);
+};
+
+export const getMimetype = (s = "") => {
+  if (!s) return "";
+
+  return (
+    {
+      jpg: "image/jpeg",
+      jpeg: "image/jpeg",
+      png: "image/png",
+      gif: "image/gif",
+      mp4: "video/mp4",
+      mp3: "video/mp3"
+    }[
+      s
+        .split("?")[0]
+        .split(".")
+        .pop()
+        .toLowerCase()
+    ] || "application/octet-stream"
+  );
+};
+
+export const createDemoDocAndComment = async (
+  userIdOrObj,
+  hasShort,
+  reqApp
+) => {
+  const postId = new Types.ObjectId();
+
+  const isStr = typeof userIdOrObj === "string";
+
+  const users = shuffleArray(
+    isStr ? demoUsers.filter(u => u.id !== userIdOrObj) : demoUsers
+  );
+
+  const postUser = isStr ? users[0] : userIdOrObj;
+
+  let posts = [],
+    post = {};
+
+  const model = hasShort ? Short : Post;
+
+  const getMedia = (obj, type = "image") => {
+    let media = obj.media;
+
+    if (!media && obj.medias) {
+      media = obj.medias.find(m => m.mimetype.indexOf(type) > -1);
+    }
+
+    return media || undefined;
+  };
+
+  let docMedia,
+    docIndex = 0;
+
+  posts = shuffleArray(demoPost);
+
+  do {
+    post = posts[docIndex];
+
+    setPostText(post);
+
+    docMedia = hasShort ? getMedia(post, "video") : {};
+    docIndex++;
+  } while (
+    !docMedia ||
+    !!(await model.findOne({
+      user: postUser.id,
+      text: post.text
+    }))
+  );
+
+  const newPost = await new model({
+    ...post,
+    ...docMedia,
+    isDemo: true,
+    _id: postId,
+    user: postUser.id
+  }).save();
+
+  await User.updateOne(
+    {
+      _id: postUser.id
+    },
+    {
+      $inc: {
+        [`${model.modelName}Count`]: 1
+      }
+    }
+  );
+
+  if (!hasShort) {
+    let size = 0,
+      commenterIndex = 1,
+      isRC = false;
+
+    while (size < 15) {
+      size++;
+
+      let _comment;
+
+      let commentObj = post._comments[isRC ? size : 0] || posts[size + 1];
+
+      if (commentObj.rc) isRC = true;
+      else isRC = false;
+
+      const getOtherUser = i => {
+        let user = users[i];
+
+        if (user.id === postUser.id) user = users[i + 1] || users[1];
+
+        return user;
+      };
+
+      const commenter = commentObj.user
+        ? postUser
+        : getOtherUser(commenterIndex);
+
+      commenterIndex = commenterIndex > 6 ? 0 : commenterIndex + 1;
+
+      const body = {
+        isDemo: true,
+        text: commentObj.text,
+        user: commenter.id,
+        document: newPost.id,
+        docType: "post",
+        media: getMedia(commentObj)
+      };
+
+      const pushComment = async user => {
+        const docPopulate = [
+          {
+            path: "user"
+          },
+          {
+            path: "document",
+            populate: [
+              {
+                path: "user"
+              },
+              {
+                path: "document",
+                populate: "user"
+              }
+            ]
+          }
+        ];
+
+        body.text =
+          body.text || `Nulla quis aliqua eu occaecat anim ea ea amet elit.`;
+
+        const comment = await (await new Comment(body).save()).populate(
+          docPopulate
+        );
+
+        await {
+          post: Post,
+          comment: Comment
+        }[body.docType].updateOne(
+          {
+            _id: body.document
+          },
+          {
+            $push: {
+              comments: body.user
+            }
+          }
+        );
+
+        _comment = comment;
+
+        user &&
+          sendAndUpdateNotification({
+            req: {
+              user,
+              query: {},
+              params: {},
+              app: reqApp
+            },
+            docPopulate,
+            type: "comment",
+            document: comment
+          });
+      };
+
+      await pushComment(commenter);
+
+      if (Math.floor(Math.random() * 15) % 2 === 0)
+        for (let i = 1; i < 6; i++) {
+          commentObj = post._comments[isRC ? -1 : i] || posts[i + 1];
+
+          const user = commentObj.user ? postUser : getOtherUser(i);
+
+          body.text = commentObj.text;
+          body.media = getMedia(commentObj);
+          body.user = user.id;
+          body.rootThread = _comment.rootThread;
+          body.rootType = _comment.rootType;
+          body.document = _comment.id;
+          body.docType = "comment";
+
+          await pushComment();
+        }
+    }
+  }
 };

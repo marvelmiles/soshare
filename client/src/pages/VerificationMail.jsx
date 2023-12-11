@@ -198,7 +198,7 @@ const VerificationMail = props => {
           }}
           type="submit"
         >
-          Send Mail
+          {isSubmitting ? <Loading /> : "Send Mail"}
         </Button>
         <StyledLink
           sx={{ textAlign: "center", width: "100%" }}

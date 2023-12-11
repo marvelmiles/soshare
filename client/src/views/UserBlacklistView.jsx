@@ -115,6 +115,7 @@ const UserBlacklistView = ({
 
   return (
     <Tabs
+      tabKey="bTab"
       tabsPane={tabsPane}
       cacheParam="search"
       defaultTab="recommendation"

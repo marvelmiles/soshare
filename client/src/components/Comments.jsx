@@ -50,7 +50,7 @@ const Comments = ({
     url: `/comments/feed/${documentId}`,
     pending: {},
     notiferDelay: -1,
-    searchParams,
+    searchParams: `withVisibilityQuery=${!isRO}&${searchParams}`,
     registeredIds: {},
     rootIds: {}
   });
@@ -81,7 +81,7 @@ const Comments = ({
       if (
         stateCtx.registeredIds[comment.id] >= -1 ||
         !(
-          isDocVisibleToUser(comment, currentUser) &&
+          (isDocVisibleToUser(comment, currentUser) || isRO) &&
           (isDocRoot || isRoot || doc)
         )
       )
@@ -90,7 +90,7 @@ const Comments = ({
       idsRecord[comment.id] = -1;
 
       stateRef.current.notifierDelay =
-        comment.user.id === currentUser.id ? -1 : undefined;
+        comment.user?.id === currentUser.id ? -1 : undefined;
 
       const shallowProp = shallowAppend
         ? {
@@ -150,7 +150,7 @@ const Comments = ({
         );
       }
     },
-    [currentUser, documentId, handleAction, maxThread]
+    [currentUser, documentId, handleAction, maxThread, isRO]
   );
 
   const removeComment = useCallback(
@@ -374,6 +374,7 @@ const Comments = ({
       ) : null}
 
       <InfiniteScroll
+        withCredentials
         key={documentId + "comments"}
         className="comments"
         ref={infiniteScrollRef}
@@ -388,8 +389,8 @@ const Comments = ({
         notifierProps={{
           position: "fixed"
         }}
-        withCredentials={isRO}
         verify="zx"
+        randomize={false}
       >
         {({ data: { data } }) => {
           const getThreadOwners = (comment, i) => {
@@ -451,8 +452,8 @@ const Comments = ({
                   if (!comment) return null;
 
                   if (
-                    currentUser._blockedUsers[comment.user.id] ||
-                    currentUser._disapprovedUsers[comment.user.id]
+                    currentUser._blockedUsers[(comment.user?.id)] ||
+                    currentUser._disapprovedUsers[(comment.user?.id)]
                   )
                     delete stateRef.current.rootIds[comment.id];
                   else stateRef.current.rootIds[comment.id] = i;
@@ -476,8 +477,8 @@ const Comments = ({
                       {comment.threads.length
                         ? comment.threads?.map((_c, _i) => {
                             if (
-                              currentUser._blockedUsers[comment.user.id] ||
-                              currentUser._disapprovedUsers[comment.user.id]
+                              currentUser._blockedUsers[(comment.user?.id)] ||
+                              currentUser._disapprovedUsers[(comment.user?.id)]
                             ) {
                               delete stateRef.current.registeredIds[_c.id];
                               delete stateRef.current.rootIds[_c.id];
@@ -520,7 +521,7 @@ const Comments = ({
                   sx={{
                     flex: 1
                   }}
-                  label="Looks like there are no comments yet. Be the first to soshare!"
+                  label="No comments or comments restricted. Be the first to soshare!"
                 />
               )}
             </>

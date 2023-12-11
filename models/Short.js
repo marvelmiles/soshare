@@ -33,6 +33,10 @@ const schema = new mongoose.Schema(
     isCustom: {
       type: Boolean,
       default: false
+    },
+    isDemo: {
+      type: Boolean,
+      default: false
     }
   },
   {

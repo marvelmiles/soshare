@@ -11,9 +11,15 @@ export const HTTP_MSG_INVALID_ACC_CRED = "Account credentials is invalid!";
 export const HTTP_MSG_USER_EXISTS =
   "A user with the specified username or email exists!";
 
+export const INVALID_DEMO_DOC_CREATION = "INVALID_DEMO_DOC_CREATION";
+
 export const CLIENT_ORIGIN = isProdMode
   ? "https://soshare.onrender.com"
   : "http://localhost:3000";
+
+export const SERVER_ORIGIN = isProdMode
+  ? "https://soshare.onrender.com"
+  : "http://localhost:8800";
 
 export const COOKIE_KEY_ACCESS_TOKEN = "access_token";
 

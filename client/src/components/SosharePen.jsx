@@ -32,8 +32,6 @@ import DeleteDialog from "components/DeleteDialog";
 import useDeleteDispatch from "hooks/useDeleteDispatch";
 import { isObject } from "utils/validators";
 import { avatarProfileSx } from "components/styled";
-import testVideo from "components/resized.mp4";
-import testImg from "components/img1.jpg";
 
 const SosharePen = ({
   sx,
@@ -284,6 +282,7 @@ const SosharePen = ({
           e.stopPropagation();
           e.preventDefault();
         }
+
         if (!currentUser.id) {
           const docId =
             placeholders && (placeholders.document.id || placeholders.document);
@@ -307,6 +306,7 @@ const SosharePen = ({
             `?filteredMedias=${
               multiple && placeholders ? stateCtx.filteredMedias : ""
             }`;
+
           handleAction && handleAction("temp-data", formData, _url);
           let res = await http[method ? method : placeholders ? "put" : "post"](
             _url,
@@ -323,6 +323,7 @@ const SosharePen = ({
                   : `Your ${docType || mediaRefName} has been soshared!`,
               severity: "success"
             });
+
           if (placeholders && !res[mediaRefName] && res.url) {
             res = {
               ...res,

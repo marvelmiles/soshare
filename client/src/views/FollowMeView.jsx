@@ -26,7 +26,7 @@ const FollowMeView = ({
   privateUid,
   excludeCUser,
   gap = 2,
-  mx
+  responsivePerson
 }) => {
   const [_searchParams] = useSearchParams();
 
@@ -218,9 +218,11 @@ const FollowMeView = ({
         key={`follome-widget-${priority}-${privateUid}`}
         ref={infiniteScrollRef}
         randomize
-        sx={{
-          px: 2
-        }}
+        sx={
+          {
+            // px: 2
+          }
+        }
         url={
           {
             suggest: `/users/${userId}/suggest-followers`,
@@ -252,20 +254,7 @@ const FollowMeView = ({
                 <Person
                   variant={variant}
                   key={i + u.id + priority}
-                  sx={{
-                    mx: {
-                      xs: "0",
-                      sm: "8px",
-                      md: "14px",
-                      s820: "4px",
-                      s992: "8px",
-                      lg: "auto"
-                    },
-                    minHeight:
-                      variant !== "block" || currentUser.following
-                        ? undefined
-                        : "100px"
-                  }}
+                  fluid={responsivePerson}
                   user={u}
                   btnLabel={isFollowing ? "Unfollow" : "Follow"}
                   onBtnClick={() =>
@@ -283,12 +272,7 @@ const FollowMeView = ({
             <>
               {data.length ? (
                 variant === "block" ? (
-                  <Stack
-                    flexWrap="wrap"
-                    justifyContent="normal"
-                    gap={gap}
-                    p={2}
-                  >
+                  <Stack flexWrap="wrap" justifyContent="normal" gap={0} p={2}>
                     {renderPersons()}
                   </Stack>
                 ) : (
