@@ -79,7 +79,7 @@ const Short = React.forwardRef(
 
         miniShort &&
           navigate(`/shorts`, {
-            replace: true,
+            // replace: true,
             state: { shortId: miniShort ? short.id : undefined }
           });
       },
