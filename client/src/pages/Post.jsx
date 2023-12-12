@@ -24,7 +24,7 @@ const Post = () => {
   const [post, setPost] = useState({
     user: {}
   });
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   let { kind = "", id = "" } = useParams();
   kind = kind.toLowerCase();
@@ -45,39 +45,49 @@ const Post = () => {
     comments: "comment"
   }[kind];
 
-  const fetchDocument = useCallback(async () => {
-    try {
-      setLoading(true);
+  const fetchDocument = useCallback(
+    async id => {
+      try {
+        stateRef.current.withStatus = false;
 
-      const post = await http.get(`/${kind}/${id}?withVisibilityQuery=false`, {
-        withCredentials: !!currentUser.id
-      });
+        setLoading(true);
 
-      const isRO = currentUser.id
-        ? post.user?.id === currentUser.id ||
-          (post.rootThread
-            ? post.rootThread.user?.id === currentUser.id
-            : post.document?.user?.id === currentUser.id)
-        : undefined;
+        const post = await http.get(
+          `/${kind}/${id}?withVisibilityQuery=false`,
+          {
+            withCredentials: !!currentUser.id
+          }
+        );
 
-      if (!(isRO || isDocVisibleToUser(post, currentUser)))
-        throw {
-          code: HTTP_CODE_DOCUMENT_NOT_FOUND
-        };
+        const isRO = currentUser.id
+          ? post.user?.id === currentUser.id ||
+            (post.rootThread
+              ? post.rootThread.user?.id === currentUser.id
+              : post.document?.user?.id === currentUser.id)
+          : undefined;
 
-      post._isRO = isRO;
+        if (!(isRO || isDocVisibleToUser(post, currentUser)))
+          throw {
+            code: HTTP_CODE_DOCUMENT_NOT_FOUND
+          };
 
-      setPost(post);
-    } catch ({ code, message, isCancelled }) {
-      if (code === HTTP_CODE_USER_BLACKLISTED)
-        stateRef.current.info = "blacklisted";
-      else if (code === HTTP_CODE_DOCUMENT_NOT_FOUND)
-        stateRef.current.info = "404";
-      else if (!isCancelled) setSnackBar(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [currentUser, setSnackBar, kind, id]);
+        post._isRO = isRO;
+
+        setPost(post);
+      } catch ({ code, message, isCancelled }) {
+        stateRef.current.withStatus = true;
+
+        if (code === HTTP_CODE_USER_BLACKLISTED)
+          stateRef.current.info = "blacklisted";
+        else if (code === HTTP_CODE_DOCUMENT_NOT_FOUND)
+          stateRef.current.info = "404";
+        else if (!isCancelled) setSnackBar(message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [currentUser, setSnackBar, kind]
+  );
 
   const stateRef = useRef({});
 
@@ -114,8 +124,8 @@ const Post = () => {
   );
 
   useEffect(() => {
-    fetchDocument();
-  }, [fetchDocument]);
+    fetchDocument(id);
+  }, [fetchDocument, id, isEditMode]);
 
   useEffect(() => {
     const handleFilter = document => {
@@ -144,7 +154,9 @@ const Post = () => {
   )
     stateRef.current.info = "blacklisted";
 
-  const statusText = stateRef.current.info || _blacklistedPosts[post.id];
+  const statusText =
+    stateRef.current.withStatus &&
+    (stateRef.current.info || _blacklistedPosts[post.id]);
 
   return (
     <MainView
@@ -161,89 +173,84 @@ const Post = () => {
       }}
       key={`post-main-view-${isEditMode}`}
     >
-      {
+      {loading ? (
+        <Loading />
+      ) : statusText ? (
+        {
+          blacklisted: (
+            <EmptyData
+              label={
+                <span>
+                  We're sorry, you are not allowed to view this{" "}
+                  {docType || "page"}. We strive to provide a safe and positive
+                  community experience for all our users, and as such, we do not
+                  permit access to content owned by blacklisted curators.
+                </span>
+              }
+              maxWidth="500px"
+            />
+          ),
+          "404": (
+            <EmptyData
+              label={
+                <>
+                  {{ post: "Post", comment: "Comment" }[docType]} not found or{" "}
+                  {docType} visibility has been restricted.{" "}
+                  <StyledLink to="/search?q=&tab=posts">
+                    Find a post here!
+                  </StyledLink>
+                </>
+              }
+            />
+          ),
+          500: <EmptyData label={<>Page not found</>} />
+        }[statusText]
+      ) : isEditMode && post.user.id !== currentUser.id ? (
+        <Redirect />
+      ) : (
         <>
-          {statusText ? (
-            {
-              blacklisted: (
-                <EmptyData
-                  label={
-                    <span>
-                      We're sorry, you are not allowed to view this{" "}
-                      {docType || "page"}. We strive to provide a safe and
-                      positive community experience for all our users, and as
-                      such, we do not permit access to content owned by
-                      blacklisted curators.
-                    </span>
-                  }
-                  maxWidth="500px"
-                />
-              ),
-              "404": (
-                <EmptyData
-                  label={
-                    <>
-                      {{ post: "Post", comment: "Comment" }[docType]} not found
-                      or {docType} visibility has been restricted.{" "}
-                      <StyledLink to="/search?q=&tab=posts">
-                        Find a post here!
-                      </StyledLink>
-                    </>
-                  }
-                />
-              ),
-              500: <EmptyData label={<>Page not found</>} />
-            }[statusText]
-          ) : loading || !post.id ? (
-            <Loading />
-          ) : isEditMode && post.user.id !== currentUser.id ? (
-            <Redirect />
+          {isEditMode ? (
+            <InputBox
+              resetData={false}
+              showDeleteBtn
+              handleAction={_handleAction}
+              placeholders={{
+                text: post.text,
+                visibility: post.visibility,
+                medias: post.medias,
+                id: post.id
+              }}
+              url={`/${kind}/${post.id}`}
+              dialogTitle={docType}
+              urls={{
+                delPath: `/${kind}`
+              }}
+            />
           ) : (
-            <>
-              {isEditMode ? (
-                <InputBox
-                  resetData={false}
-                  showDeleteBtn
-                  handleAction={_handleAction}
-                  placeholders={{
-                    text: post.text,
-                    visibility: post.visibility,
-                    medias: post.medias,
-                    id: post.id
-                  }}
-                  url={`/${kind}/${post.id}`}
-                  dialogTitle={docType}
-                  urls={{
-                    delPath: `/${kind}`
-                  }}
-                />
-              ) : (
-                <PostWidget
-                  plainWidget
-                  disableNavigation
-                  docType={docType}
-                  handleAction={_handleAction}
-                  post={post}
-                />
-              )}
-
-              <Comments
-                context={{
-                  commentSize: post.comments.length
-                }}
-                documentId={id}
-                docType={docType}
-                user={post.user}
-                handleAction={_handleAction}
-                isRO={post._isRO}
-                rootUid={post.user?.id}
-                key={post.id}
-                sx={{ minHeight: 0, height: "auto" }}
-              />
-            </>
+            <PostWidget
+              plainWidget
+              disableNavigation
+              docType={docType}
+              handleAction={_handleAction}
+              post={post}
+            />
           )}
+
+          <Comments
+            context={{
+              commentSize: post.comments.length
+            }}
+            documentId={id}
+            docType={docType}
+            user={post.user}
+            handleAction={_handleAction}
+            isRO={post._isRO}
+            rootUid={post.user?.id}
+            key={post.id}
+            sx={{ minHeight: 0, height: "auto" }}
+          />
         </>
-      }
+      )}
     </MainView>
   );
 };

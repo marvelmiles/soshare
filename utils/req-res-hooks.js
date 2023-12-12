@@ -257,7 +257,7 @@ export const deleteDocument = async ({
       createDemoDocAndComment(
         req.user.id,
         model.modelName === "short",
-        req.app
+        false
       ).catch(err => console500MSG(err, INVALID_DEMO_DOC_CREATION));
   } catch (err) {
     next(err);

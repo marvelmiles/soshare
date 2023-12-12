@@ -266,6 +266,7 @@ const Notifications = ({
                     const renderMsg = () => {
                       let withRo;
                       const formatedDate = moment(n.createdAt).fromNow();
+
                       const moreInfo = (
                         <span>
                           {
@@ -296,8 +297,6 @@ const Notifications = ({
                             >
                               {n.document.docType}
                             </StyledLink>
-                          ) : n.document ? (
-                            n.docType
                           ) : (
                             <StyledLink
                               style={{ color: "inherit" }}
@@ -315,7 +314,7 @@ const Notifications = ({
                           title={
                             <UserTip
                               user={n.users[0]}
-                              isOwner={cid === n.users[0].id}
+                              isOwner={cid === n.users[0]?.id}
                             />
                           }
                         >
@@ -329,13 +328,24 @@ const Notifications = ({
                           return (
                             <div>
                               @{username}
-                              {usersLen
-                                ? ` and ${
-                                    usersLen - 1
-                                      ? `${usersLen} others${moreInfo} `
-                                      : ` @${n.users[1].username}${moreInfo}`
-                                  }`
-                                : moreInfo}
+                              {usersLen ? (
+                                <span>
+                                  {" "}
+                                  and{" "}
+                                  {usersLen - 1 ? (
+                                    <span>
+                                      {usersLen} others{moreInfo}{" "}
+                                    </span>
+                                  ) : (
+                                    <span>
+                                      @{n.users[1].username}
+                                      {moreInfo}
+                                    </span>
+                                  )}
+                                </span>
+                              ) : (
+                                moreInfo
+                              )}
                             </div>
                           );
                         case "follow":

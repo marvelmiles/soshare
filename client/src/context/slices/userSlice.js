@@ -68,7 +68,11 @@ const userSlice = createSlice({
       };
     },
     updatePreviewUser(state, { payload }) {
-      if (payload.nullify) return (state.previewUser = {});
+      if (!payload || payload.nullify) {
+        state.previewUser = {};
+
+        return state;
+      }
 
       delete payload.avatar;
 

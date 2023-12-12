@@ -37,14 +37,23 @@ export const getMongooseErrMsg = err => {
   return msg || err.message;
 };
 
-export const console500MSG = (message, name = "LOG", extraMsg = "") =>
+export const console500MSG = (message, name = "LOG", extraMsg = "") => {
+  let details = "";
+
+  const match = message.stack ? message.stack.match(/at (.*):(\d+:\d+)/) : null;
+
+  if (match) details = `Error occurred ${match[0]}`;
+
   console.error(
     `[SERVER_ERROR ${message.name} ${name}]: [code:${message.code}]: [type:${
       message.type
     }] [errors:${JSON.stringify(message.errors)}] [details:${JSON.stringify(
       message.details
-    )}] ${message.message} ${extraMsg}. URL:${message.url} at ${new Date()}. `
+    )}] ${message.message} ${extraMsg}. URL:${
+      message.url
+    }. ${details} at ${new Date()}. `
   );
+};
 
 export const createError = (message, status, code) => {
   const err = new Error();

@@ -478,7 +478,7 @@ const App = () => {
                   />
                   <Route path="search" element={<Search />} />
                   <Route path="shorts" element={<ShortsPage />} />
-                  <Route path=":kind/:id" element={<Post key={kind + id} />} />
+                  <Route path=":kind/:id" element={<Post />} />
                   <Route path="*" element={<Page404 />} />
                 </Routes>
               )

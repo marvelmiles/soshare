@@ -112,15 +112,8 @@ mongoose
   })
   .then(async () => {
     try {
-      const createUser = async i => {
-        const u = demoUsers[i];
-        if (!u) return;
-
-        if (
-          !(await User.findOne({
-            username: u.username
-          }))
-        ) {
+      const createUser = async u => {
+        if (!(await User.findById(u._id))) {
           const user = await new User(u).save();
 
           const posts = [];
@@ -128,8 +121,14 @@ mongoose
           const shorts = [];
 
           for (let i = 0; i < 6; i++) {
-            posts.push(createDemoDocAndComment(user));
-            shorts.push(createDemoDocAndComment(user, true));
+            posts.push(
+              createDemoDocAndComment(
+                user,
+                false,
+                i === 0 ? true : "likes only"
+              )
+            );
+            shorts.push(createDemoDocAndComment(user, true, false));
           }
 
           await Promise.all(posts);
@@ -137,13 +136,13 @@ mongoose
         }
       };
 
-      const promise = [];
+      const promises = [];
 
-      for (let i = 0; i < 8; i++) {
-        promise.push(createUser(i));
+      for (const u of demoUsers) {
+        promises.push(createUser(u));
       }
 
-      await Promise.all(promise);
+      await Promise.all(promises);
     } catch (err) {
       console.log(err.message);
     } finally {

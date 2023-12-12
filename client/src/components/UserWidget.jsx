@@ -25,6 +25,7 @@ const UserWidget = ({ width, user }) => {
   const [cUser, setCUser] = useState(user || currentUser);
 
   const dispatch = useDispatch();
+
   const stateRef = useRef({
     withSocket: !user,
     cid: cUser.id
@@ -38,7 +39,7 @@ const UserWidget = ({ width, user }) => {
       const handleUserUpdate = u => {
         if (u.id === cUser.id) {
           dispatch(updateUser(u));
-          dispatch(updatePreviewUser({ nullify: true }));
+          dispatch(updatePreviewUser());
         }
       };
       ctx.withSocket && socket.on("update-user", handleUserUpdate);

@@ -47,7 +47,7 @@ const Person = React.forwardRef(
                 s320: fluid ? "44%" : "100%",
                 sm: fluid ? "44%" : "44%",
                 s600: fluid ? "44%" : "28%",
-                md: "28%",
+                md: "27%",
                 lg: fluid ? "44%" : "28%"
               },
               mx: fluid

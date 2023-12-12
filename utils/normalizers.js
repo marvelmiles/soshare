@@ -22,12 +22,14 @@ export const removeFirstItemFromArray = (item, array = []) => {
   return array;
 };
 
-export const mapToObject = (arr = [], has) => {
+export const mapToObject = (arr = [], has = "value") => {
   const map = {};
+
   for (let i = 0; i < arr.length; i++) {
     const key = arr[i].id || arr[i];
-    map[key] = { true: true, index: i }[has] || arr[i];
+    map[key] = { index: i, value: key }[has] || has;
   }
+
   return map;
 };
 

@@ -25,44 +25,49 @@ export const getMimetype = (s = "") => {
 
 export const demoUsers = [
   {
+    id: "6577d606d6f2f5764bd7973c",
     photoUrl: "man1.jpg",
     username: "Joe Bright"
   },
   {
+    id: "6577d606d6f2f5764bd7973d",
     photoUrl: "woman1.jpg",
     username: "Adebayo Opeyemi"
   },
   {
+    id: "6577d607d6f2f5764bd7973e",
     photoUrl: "man2.jpg",
     username: "Ayodeji Adepoju"
   },
   {
+    id: "6577d607d6f2f5764bd79740",
     photoUrl: "woman2.jpg",
     username: "Elizabeth Johnson"
   },
   {
+    id: "6577d607d6f2f5764bd79742",
     photoUrl: "man3.jpeg",
     username: "Michael Williams"
   },
   {
+    id: "6577d607d6f2f5764bd79744",
     photoUrl: "woman3.jpeg",
     username: "Olamide Akinloye"
   },
   {
+    id: "6577d607d6f2f5764bd79746",
     photoUrl: "man4.jpeg",
     username: "Temiloluwa Ogunsola"
   },
   {
+    id: "6577d607d6f2f5764bd79748",
     photoUrl: "woman4.jpg",
     username: "Mary Davis"
   }
 ].map(u => {
-  const _id = new Types.ObjectId();
-
   return {
     ...u,
-    _id,
-    id: _id.toString(),
+    _id: new Types.ObjectId(u.id),
     email: u.username.replace(/\s/, "").toLowerCase() + "@demo.com",
     photoUrl: `${SERVER_ORIGIN}/assets/images/${u.photoUrl}`,
     password: bcrypt.hashSync("@testUser1", bcrypt.genSaltSync()),

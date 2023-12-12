@@ -4,7 +4,7 @@ import Comment from "../models/Comment.js";
 import { console500MSG } from "./error.js";
 import { isProdMode } from "../constants.js";
 import Post from "../models/Post";
-import { shuffleArray } from "./normalizers.js";
+import { shuffleArray, mapToObject } from "./normalizers.js";
 import { demoPost, demoUsers } from "../data.js";
 import User from "../models/User.js";
 import { setPostText } from "./serializers.js";
@@ -369,6 +369,7 @@ export const sendAndUpdateNotification = async ({
 
         await notice.deleteOne();
       }
+
       isNew = true;
       match.users = [from];
       match.cacheDoc = cacheDoc;
@@ -414,7 +415,7 @@ export const handleMiscDelete = async (docId, io, options = {}) => {
 
       for (const c of comments) {
         await c.deleteOne();
-        if (c.media?.url) deleteFile(c.media.url);
+        if (!c.isDemo && c.media?.url) deleteFile(c.media.url);
       }
     }
 
@@ -565,6 +566,7 @@ export const getMimetype = (s = "") => {
 export const createDemoDocAndComment = async (
   userIdOrObj,
   hasShort,
+  withNotification = true,
   reqApp
 ) => {
   const postId = new Types.ObjectId();
@@ -575,12 +577,16 @@ export const createDemoDocAndComment = async (
     isStr ? demoUsers.filter(u => u.id !== userIdOrObj) : demoUsers
   );
 
+  const likes = mapToObject(demoUsers, true);
+
   const postUser = isStr ? users[0] : userIdOrObj;
 
   let posts = [],
     post = {};
 
   const model = hasShort ? Short : Post;
+
+  const modelName = model.modelName;
 
   const getMedia = (obj, type = "image") => {
     let media = obj.media;
@@ -615,6 +621,7 @@ export const createDemoDocAndComment = async (
   const newPost = await new model({
     ...post,
     ...docMedia,
+    likes,
     isDemo: true,
     _id: postId,
     user: postUser.id
@@ -626,10 +633,37 @@ export const createDemoDocAndComment = async (
     },
     {
       $inc: {
-        [`${model.modelName}Count`]: 1
+        [`${modelName}Count`]: 1
       }
     }
   );
+
+  const docPopulate = [
+    {
+      path: "user"
+    },
+    {
+      path: "document",
+      populate: [
+        {
+          path: "user"
+        },
+        {
+          path: "document",
+          populate: "user"
+        }
+      ]
+    }
+  ];
+
+  const req = {
+    user: {},
+    query: {},
+    params: {},
+    app: reqApp
+  };
+
+  const commenters = [];
 
   if (!hasShort) {
     let size = 0,
@@ -658,7 +692,7 @@ export const createDemoDocAndComment = async (
         ? postUser
         : getOtherUser(commenterIndex);
 
-      commenterIndex = commenterIndex > 6 ? 0 : commenterIndex + 1;
+      commenterIndex = commenterIndex < 6 ? commenterIndex + 1 : 0;
 
       const body = {
         isDemo: true,
@@ -669,27 +703,11 @@ export const createDemoDocAndComment = async (
         media: getMedia(commentObj)
       };
 
-      const pushComment = async user => {
-        const docPopulate = [
-          {
-            path: "user"
-          },
-          {
-            path: "document",
-            populate: [
-              {
-                path: "user"
-              },
-              {
-                path: "document",
-                populate: "user"
-              }
-            ]
-          }
-        ];
-
+      const pushComment = async () => {
         body.text =
           body.text || `Nulla quis aliqua eu occaecat anim ea ea amet elit.`;
+
+        body.likes = likes;
 
         const comment = await (await new Comment(body).save()).populate(
           docPopulate
@@ -710,22 +728,14 @@ export const createDemoDocAndComment = async (
         );
 
         _comment = comment;
-
-        user &&
-          sendAndUpdateNotification({
-            req: {
-              user,
-              query: {},
-              params: {},
-              app: reqApp
-            },
-            docPopulate,
-            type: "comment",
-            document: comment
-          });
       };
 
-      await pushComment(commenter);
+      await pushComment();
+
+      commenters.push({
+        comment: _comment,
+        u: commenter
+      });
 
       if (Math.floor(Math.random() * 15) % 2 === 0)
         for (let i = 1; i < 6; i++) {
@@ -743,6 +753,32 @@ export const createDemoDocAndComment = async (
 
           await pushComment();
         }
+    }
+  }
+
+  if (withNotification) {
+    const likesOnly = withNotification === "likes only";
+
+    if (likesOnly ? false : true) {
+      for (const { u, comment } of commenters) {
+        await sendAndUpdateNotification({
+          req: (req.user = u) && req,
+          docPopulate,
+          type: "comment",
+          document: comment
+        });
+      }
+    }
+
+    for (const u of demoUsers) {
+      req.user = u;
+
+      await sendAndUpdateNotification({
+        req,
+        type: "like",
+        docType: modelName,
+        document: newPost
+      });
     }
   }
 };
