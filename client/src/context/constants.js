@@ -22,6 +22,9 @@ export const HTTP_CODE_USER_BLACKLISTED = "USER_BLACKLISTED";
 
 export const HTTP_CODE_DOCUMENT_NOT_FOUND = "DOCUMENT_NOT_FOUND";
 
+export const HTTP_MSG_VERIFICATION_MAIL =
+  "Verification mail isn't registered to an account.";
+
 export const anchorAttrs = {
   target: "_blank",
   rel: "noopener noreferrer"

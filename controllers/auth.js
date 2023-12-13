@@ -19,7 +19,8 @@ import {
   COOKIE_KEY_ACCESS_TOKEN,
   COOKIE_KEY_REFRESH_TOKEN,
   HTTP_MSG_INVALID_ACC_CRED,
-  HTTP_MSG_USER_EXISTS
+  HTTP_MSG_USER_EXISTS,
+  HTTP_MSG_RESET_DEMO_ACC
 } from "../constants.js";
 import fs from "fs";
 import path from "path";
@@ -256,6 +257,8 @@ export const recoverPwd = async (req, res, next) => {
         HTTP_CODE_INVALID_USER_ACCOUNT
       );
 
+    if (user.isDemoAcc) throw HTTP_MSG_RESET_DEMO_ACC;
+
     const token = generateToken();
     user.resetToken = await hashToken(token);
 
@@ -353,6 +356,8 @@ export const resetPwd = async (req, res, next) => {
       throw createError(
         `Failed to reset password. ${HTTP_MSG_INVALID_ACC_CRED}`
       );
+
+    if (user.isDemoAcc) throw HTTP_MSG_RESET_DEMO_ACC;
 
     if (!(await bcrypt.compare(req.params.token, user.resetToken)))
       throw createError("Authorization credentials is invalid");

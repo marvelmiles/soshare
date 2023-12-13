@@ -76,7 +76,7 @@ const useForm = config => {
     stateCheck = true,
     withStrongPwdOnly
   } = config || {};
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(!!config.isSubmitting);
   const [formData, setFormData] = useState(placeholders || {});
   const [errors, setErrors] = useState({});
 
@@ -568,6 +568,7 @@ const useForm = config => {
       returnFilesArray
     ]
   );
+
   const reset = useCallback((formData, config = {}) => {
     setIsSubmitting(
       typeof config.isSubmitting === "boolean" ? config.isSubmitting : false
@@ -602,7 +603,8 @@ const useForm = config => {
     handleSubmit,
     reset,
     setErrors,
-    isInValid
+    isInValid,
+    setIsSubmitting
   };
 };
 

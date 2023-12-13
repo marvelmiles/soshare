@@ -119,3 +119,14 @@ export const withMapObj = (obj = {}, map = {}, bool) => {
   }
   return withMap;
 };
+
+export const isDemoAcc = (str, withErr = false) => {
+  if (str.toLowerCase().indexOf("@demo.com") > -1)
+    if (withErr)
+      throw {
+        message: "Sorry, you can't reset the password of a demo account."
+      };
+    else return false;
+
+  return true;
+};

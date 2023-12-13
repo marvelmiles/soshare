@@ -113,5 +113,11 @@ const schema = new mongoose.Schema(
 
 // index all string fieldss
 schema.index({ "$**": "text" });
+
+schema.virtual("isDemoAcc").get(function() {
+  return this.accountType === "demo";
+});
+
 const User = mongoose.model("user", schema);
+
 export default User;

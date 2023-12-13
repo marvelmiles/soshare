@@ -11,6 +11,9 @@ export const HTTP_MSG_INVALID_ACC_CRED = "Account credentials is invalid!";
 export const HTTP_MSG_USER_EXISTS =
   "A user with the specified username or email exists!";
 
+export const HTTP_MSG_RESET_DEMO_ACC =
+  "Sorry, you can't reset the password of a demo account.";
+
 export const INVALID_DEMO_DOC_CREATION = "INVALID_DEMO_DOC_CREATION";
 
 export const CLIENT_ORIGIN = isProdMode

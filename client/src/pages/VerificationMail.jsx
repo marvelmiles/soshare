@@ -13,25 +13,37 @@ import DoneIcon from "@mui/icons-material/Done";
 import { useLocation } from "react-router-dom";
 import EmailIcon from "@mui/icons-material/Email";
 import CustomInput from "components/CustomInput";
-import { HTTP_CODE_INVALID_USER_ACCOUNT } from "context/constants";
+import {
+  HTTP_CODE_INVALID_USER_ACCOUNT,
+  HTTP_MSG_VERIFICATION_MAIL
+} from "context/constants";
+import { isDemoAcc } from "utils/validators";
 
 const verifyUser = debounce(async (v, cb, relevance = "email") => {
   try {
+    if (!v) return;
+
+    isDemoAcc(v, true);
+
     if (v) {
-      cb(
-        undefined,
-        await http.post(
-          `/auth/user-exists?relevance=${relevance}`,
-          {
-            [relevance]: v
-          },
-          {
-            withCredentials: true
-          }
-        )
+      const bool = await http.post(
+        `/auth/user-exists?relevance=${relevance}`,
+        {
+          [relevance]: v
+        },
+        {
+          withCredentials: true
+        }
       );
+      if (!bool)
+        throw {
+          message: HTTP_MSG_VERIFICATION_MAIL
+        };
+
+      cb(undefined, true);
     }
   } catch (err) {
+    err.severity = "error";
     return cb(err);
   }
 }, 500);
@@ -46,66 +58,38 @@ const VerificationMail = props => {
     handleChange,
     reset
   } = useForm({
+    isSubmitting: true,
     required: true,
     placeholders: user
   });
   const { setSnackBar, closeSnackBar } = useContext();
   const [verifyState, setVerifyState] = useState("");
 
-  const stateRef = useRef({
-    typed: false,
-    email: formData.email,
-    verifyMsg: {
-      message: <span>Verification mail isn't registered to an account.</span>,
-      severity: "error",
-      onClose() {}
-    }
-  });
+  useEffect(() => {
+    reset(true, {
+      isSubmitting: true
+    });
 
-  if (!stateRef.current.typed) {
-    isInValid = false;
-    isSubmitting = true;
-  }
+    setVerifyState("pending");
 
-  const onVerifyUser = useCallback(
-    (err, bool) => {
+    verifyUser(formData.email, err => {
+      reset(true, {
+        errors: err ? { email: err.message } : {},
+        isSubmitting: false
+      });
+
       if (err) {
         setSnackBar(err);
-        setVerifyState("");
-      } else if (bool) {
-        stateRef.current.typed = true;
+        setVerifyState("invalid");
+      } else {
         setVerifyState("valid");
         closeSnackBar();
-        reset(true, { errors: {} });
-      } else {
-        setVerifyState("invalid");
-        setSnackBar(stateRef.current.verifyMsg);
-      }
-    },
-    [closeSnackBar, setSnackBar, reset]
-  );
-
-  useEffect(() => {
-    verifyUser(stateRef.current.email, onVerifyUser);
-  }, [onVerifyUser]);
-
-  const onChange = e => {
-    stateRef.current.typed = true;
-    handleChange(e, ({ error }) => {
-      if (error) {
-        setVerifyState("");
-        const id = setTimeout(() => {
-          setSnackBar(error);
-          clearTimeout(id);
-        }, 0);
-      } else {
-        setVerifyState("pending");
-
-        verifyUser(e.target.value, onVerifyUser);
-
-        return "Invalid verification mail";
       }
     });
+  }, [closeSnackBar, setSnackBar, reset, formData.email]);
+
+  const onChange = e => {
+    handleChange(e, () => HTTP_MSG_VERIFICATION_MAIL);
   };
   const onSubmit = async e => {
     const formData = handleSubmit(e);
@@ -123,10 +107,12 @@ const VerificationMail = props => {
       } catch (err) {
         reset(true);
 
-        if (err.code === HTTP_CODE_INVALID_USER_ACCOUNT)
-          err = stateRef.current.verifyMsg;
-
-        setSnackBar(err.message);
+        !err.isCancelled &&
+          setSnackBar(
+            err.code === HTTP_CODE_INVALID_USER_ACCOUNT
+              ? HTTP_MSG_VERIFICATION_MAIL
+              : err.message
+          );
       }
     }
   };
@@ -198,14 +184,11 @@ const VerificationMail = props => {
           }}
           type="submit"
         >
-          {isSubmitting ? <Loading /> : "Send Mail"}
+          Send Mail
         </Button>
-        <StyledLink
-          sx={{ textAlign: "center", width: "100%" }}
-          to={"/auth/signin"}
-        >
-          Continue to sign in
-        </StyledLink>
+        <div style={{ width: "100%", textAlign: "center" }}>
+          <StyledLink to={"/auth/signin"}>Continue to sign in</StyledLink>
+        </div>
       </WidgetContainer>
     </Stack>
   );
