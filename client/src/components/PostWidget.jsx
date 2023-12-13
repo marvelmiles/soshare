@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useSelector } from "react-redux";
 import PropTypes from "prop-types";
 import {
@@ -53,7 +53,7 @@ const PostWidget = React.forwardRef(
     const cid = useSelector(state => state.user.currentUser.id);
     const navigate = useNavigate();
     const locState = useLocation().state;
-    const [closePoppers, setClosePoppers] = useState(false);
+
     const stateRef = useRef({
       moreUrls: {
         delPath: {
@@ -62,16 +62,6 @@ const PostWidget = React.forwardRef(
         }
       }
     });
-    const inputTextRef = useRef();
-
-    useEffect(() => {
-      const textNode = inputTextRef.current;
-      if (textNode) {
-        textNode.style.height = "auto";
-        textNode.style.height = textNode.scrollHeight + "px";
-      }
-      return () => setClosePoppers(true);
-    }, [showAll]);
 
     const { handleLikeToggle } = useLikeDispatch({
       handleAction,
@@ -117,6 +107,8 @@ const PostWidget = React.forwardRef(
     const userTip = (
       <UserTip key={post.user?.id} user={post.user || {}} isOwner={isOwner} />
     );
+
+    const withMoreText = post.moreText && !enableSnippet;
 
     return (
       <Box
@@ -311,7 +303,6 @@ const PostWidget = React.forwardRef(
 
               {post.text ? (
                 <Typography
-                  ref={inputTextRef}
                   variant="h5"
                   component="div"
                   className="textarea-readOnly"
@@ -323,13 +314,23 @@ const PostWidget = React.forwardRef(
                     {enableSnippet
                       ? post.text.slice(0, 80) +
                         (post.text.length >= 80 ? "..." : "")
-                      : post.text}
+                      : post.text + (withMoreText && !showAll ? "..." : "")}
                   </span>
-                  <span>
-                    {post.moreText && showAll && !enableSnippet
-                      ? post.moreText
-                      : null}
-                  </span>
+                  {withMoreText ? (
+                    <>
+                      <span>{showAll ? post.moreText : null}</span>
+                      <Typography
+                        onClick={e => {
+                          e.stopPropagation();
+                          setShowAll(!showAll);
+                        }}
+                        sx={{ "&:hover": { textDecoration: "underline" } }}
+                        component="span"
+                      >
+                        {showAll ? " show less" : " show more"}
+                      </Typography>
+                    </>
+                  ) : null}
                 </Typography>
               ) : null}
 
@@ -380,7 +381,6 @@ const PostWidget = React.forwardRef(
                     </Stack>
                   </Stack>
                   <MoreActions
-                    close={closePoppers}
                     handleAction={handleAction}
                     document={post}
                     isOwner={isOwner}
