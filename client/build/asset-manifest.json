@@ -1,9 +1,16 @@
 {
   "files": {
     "main.css": "/static/css/main.75212269.css",
-    "main.js": "/static/js/main.c8da8413.js",
+    "main.js": "/static/js/main.559e70a1.js",
+    "static/media/woman1.jpg": "/static/media/woman1.6b11685e44f6d69ed527.jpg",
+    "static/media/woman4.jpg": "/static/media/woman4.8461e7eb24b12ab03a62.jpg",
+    "static/media/man2.jpg": "/static/media/man2.44ecfad2a6375fe64109.jpg",
+    "static/media/man1.jpg": "/static/media/man1.01418214281c985a42bb.jpg",
     "static/media/resized.mp4": "/static/media/resized.2de6f93a36150b15a286.mp4",
-    "static/media/img1.jpg": "/static/media/img1.7b3e18a50a915ec2b9f5.jpg",
+    "static/media/woman2.jpg": "/static/media/woman2.d9cac6e932651b517c0d.jpg",
+    "static/media/woman3.jpeg": "/static/media/woman3.f8cae05a33b78c506996.jpeg",
+    "static/media/man3.jpeg": "/static/media/man3.22e9daa7fef79c2de005.jpeg",
+    "static/media/man4.jpeg": "/static/media/man4.f6da544a4a296774802d.jpeg",
     "static/media/twitter.png": "/static/media/twitter.894988327f8d68209e91.png",
     "static/media/advert.jpg": "/static/media/advert.303285e13fa302f7d888.jpg",
     "static/media/revicons.eot": "/static/media/revicons.a77de540a38981833f9e.eot",
@@ -12,10 +19,10 @@
     "static/media/revicons.woff": "/static/media/revicons.e8746a624ed098489406.woff",
     "index.html": "/index.html",
     "main.75212269.css.map": "/static/css/main.75212269.css.map",
-    "main.c8da8413.js.map": "/static/js/main.c8da8413.js.map"
+    "main.559e70a1.js.map": "/static/js/main.559e70a1.js.map"
   },
   "entrypoints": [
     "static/css/main.75212269.css",
-    "static/js/main.c8da8413.js"
+    "static/js/main.559e70a1.js"
   ]
 }
