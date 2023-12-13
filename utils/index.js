@@ -207,29 +207,19 @@ export const getAll = async ({
       result.pop();
     }
 
-    return isProdMode
-      ? {
-          data: result,
-          paging: {
-            matchedDocs: totalDoc,
-            nextCursor: cursor ? encodeURIComponent(cursor) : null
-          }
-        }
-      : new Promise((rs, rj) => {
-          setTimeout(() => {
-            rs({
-              data: result,
-              paging: {
-                matchedDocs: totalDoc,
-                nextCursor: cursor ? encodeURIComponent(cursor) : null
-              }
+    const res = {
+      data: result,
+      paging: {
+        matchedDocs: totalDoc,
+        nextCursor: cursor ? encodeURIComponent(cursor) : null
+      }
+    };
 
-              // data: [],
-              // paging: {
-              //   matchedDocs: 0,
-              //   nextCursor: null
-              // }
-            });
+    return isProdMode
+      ? res
+      : new Promise(resolve => {
+          setTimeout(() => {
+            resolve(res);
           }, 2000);
         });
   } catch (err) {
