@@ -158,7 +158,7 @@ const Signin = () => {
     <>
       <Stack sx={{ minHeight: "100vh", width: "100%" }}>
         <Box sx={authLayoutSx}>
-          <WidgetContainer sx={{ mt: 2 }} component="form" onSubmit={onSubmit}>
+          {/* <WidgetContainer sx={{ mt: 2 }} component="form" onSubmit={onSubmit}>
             <BrandIcon staticFont />
             <CustomInput
               readOnly={isSubmitting}
@@ -271,7 +271,7 @@ const Signin = () => {
                 signup!
               </StyledLink>
             </Typography>
-          </WidgetContainer>
+          </WidgetContainer> */}
 
           <WidgetContainer sx={{ height: "auto", minHeight: "auto" }}>
             <Box
