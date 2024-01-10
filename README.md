@@ -9,6 +9,7 @@ Mini social platform for sharing videos and posts within a vibrant community. Th
 - [cookie-parser](https://www.npmjs.com/package/cookie-parser) handles cookie authentication and storage is controlled by the server.
 - [Socket.io](https://socket.io) handles real time communication.
 - Progressive streaming and storage is achieved through [firebase](https://firebase.google.com/).
+- Mailing and server templating is handled by [EJS](https://ejs.co).
 
 ### Features
 - Notification system
@@ -61,6 +62,7 @@ Mini social platform for sharing videos and posts within a vibrant community. Th
 - Node-cron
 - Socket.io
 - Cookie-parser
+- EJS
 
 ### Database and Hosting
 - MongoDB
