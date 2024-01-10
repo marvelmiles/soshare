@@ -65,9 +65,9 @@ Mini social platform for sharing videos and posts within a vibrant community. Th
 - EJS
 
 ### Database and Hosting
-- MongoDB
-- Mongoose
-- Render
+- [MongoDB](https://www.mongodb.com)
+- [Mongoose](https://www.npmjs.com/package/mongoose)
+- [Render](https://render.com/)
 
 
 ### Getting Started - Commands
