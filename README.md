@@ -43,7 +43,7 @@ This is a fullstack project built with [react](https://react.dev/). Soshare is a
 **Development**
 - cd client
 - npm install
-- npm run dev
+- npm start
 - Open browser at speciifed url. Most likely [http://localhost:3000](http://localhost:3000)
 
 **Production**
