@@ -2,14 +2,14 @@
 
 This is a fullstack project built with [react](https://react.dev/). Soshare is a mini social platform for sharing videos and posts within a vibrant community. The main aim of building the project is to understand how video rendering and twitter commenting works. Currently this project uses http progressive streaming and a chronological commenting.
 
-- Frontend state management is handled by [redux](https://redux.js.org/).
+- Frontend state management is handled with [redux](https://redux.js.org/).
 - [Material ui](https://mui.com) handles theming, user interface and responsiveness.
 - [Axios](https://www.npmjs.com/package/axios) handles data fetching.
 - Authentication is based on [JWT](https://jwt.io) and stored in cookies.
 - [cookie-parser](https://www.npmjs.com/package/cookie-parser) handles cookie authentication and storage is controlled by the server.
 - [Socket.io](https://socket.io) handles real time communication.
 - Progressive streaming and storage is achieved through [firebase](https://firebase.google.com/).
-- Mailing and server templating is handled by [EJS](https://ejs.co).
+- Mailing and server templating is handled with [EJS](https://ejs.co).
 
 ### Features
 - Notification system
