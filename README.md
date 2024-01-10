@@ -1,6 +1,6 @@
 ## [Soshare](https://soshare.onrender.com)
 
-Mini social platform for sharing videos and posts within a vibrant community. This application is built with [react](https://react.dev/). The main aim of building the project is to understand how video rendering and twitter commenting works. Currently this project uses http progressive streaming and a chronological commenting.
+This is a fullstack project built with [react](https://react.dev/). Soshare is a mini social platform for sharing videos and posts within a vibrant community. The main aim of building the project is to understand how video rendering and twitter commenting works. Currently this project uses http progressive streaming and a chronological commenting.
 
 - Frontend state management is handled by [redux](https://redux.js.org/).
 - [Material ui](https://mui.com) handles theming, user interface and responsiveness.
